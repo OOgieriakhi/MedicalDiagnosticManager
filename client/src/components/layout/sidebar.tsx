@@ -56,8 +56,8 @@ export default function Sidebar() {
             <Stethoscope className="text-white text-lg" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">MedDiag ERP</h2>
-            <p className="text-sm text-slate-gray">Central Branch</p>
+            <h2 className="text-xl font-bold text-gray-900">Orient Medical</h2>
+            <p className="text-sm text-slate-gray">Diagnostic Center</p>
           </div>
         </div>
         

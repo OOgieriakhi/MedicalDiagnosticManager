@@ -48,9 +48,9 @@ export default function AuthPage() {
               <div className="w-12 h-12 bg-medical-blue rounded-lg flex items-center justify-center">
                 <Stethoscope className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">MedDiag ERP</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Orient Medical</h1>
             </div>
-            <p className="text-slate-gray">Multi-Branch Medical Diagnostic Centers</p>
+            <p className="text-slate-gray">Orient Medical Diagnostic Center</p>
           </div>
 
           <Tabs defaultValue="login" className="space-y-4">
