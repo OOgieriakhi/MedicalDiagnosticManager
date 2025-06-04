@@ -531,6 +531,46 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get today's revenue for cashiers module
+  app.get("/api/revenue/today", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branchId = parseInt(req.query.branchId as string) || req.user.branchId;
+      if (!branchId) {
+        return res.status(400).json({ message: "Branch ID is required" });
+      }
+
+      const revenue = await storage.getTodayRevenue(branchId);
+      res.json({ revenue });
+    } catch (error) {
+      console.error("Error fetching today's revenue:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get payment methods breakdown for cashiers module
+  app.get("/api/payments/methods", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branchId = parseInt(req.query.branchId as string) || req.user.branchId;
+      if (!branchId) {
+        return res.status(400).json({ message: "Branch ID is required" });
+      }
+
+      const paymentMethods = await storage.getPaymentMethodsBreakdown(branchId);
+      res.json(paymentMethods);
+    } catch (error) {
+      console.error("Error fetching payment methods:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get test categories (with tenant ID from user session)
   app.get("/api/test-categories", async (req, res) => {
     try {

@@ -82,6 +82,7 @@ export interface IStorage {
   // Financial management
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   getTodayRevenue(branchId: number): Promise<number>;
+  getPaymentMethodsBreakdown(branchId: number): Promise<any[]>;
   
   // Dashboard metrics
   getDashboardMetrics(branchId: number): Promise<any>;
@@ -346,6 +347,35 @@ export class DatabaseStorage implements IStorage {
       );
 
     return result[0]?.total || 0;
+  }
+
+  async getPaymentMethodsBreakdown(branchId: number): Promise<any[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const result = await db
+      .select({
+        paymentMethod: invoices.paymentMethod,
+        count: sql<number>`COUNT(*)`,
+        totalAmount: sql<string>`COALESCE(SUM(CAST(${invoices.totalAmount} AS DECIMAL)), 0)`
+      })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.branchId, branchId),
+          eq(invoices.paymentStatus, 'paid'),
+          between(invoices.paidAt, today, tomorrow)
+        )
+      )
+      .groupBy(invoices.paymentMethod);
+
+    return result.map(row => ({
+      paymentMethod: row.paymentMethod,
+      count: row.count,
+      totalAmount: parseFloat(row.totalAmount || '0')
+    }));
   }
 
   async getDashboardMetrics(branchId: number): Promise<any> {
