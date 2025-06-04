@@ -1,230 +1,449 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Clock, User, FileText, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
-
-interface UltrasoundStudy {
-  id: string;
-  testId: number;
-  testName: string;
-  patientId: number;
-  patientName: string;
-  price: number;
-  status: string;
-  scheduledAt: string;
-  categoryName: string;
-  paymentMethod: string;
-}
-
-interface UltrasoundMetrics {
-  totalStudies: number;
-  completionRate: number;
-  avgProcessingTime: number;
-  pendingReports: number;
-}
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { 
+  Waves, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle, 
+  Heart,
+  Monitor,
+  Calendar,
+  Users,
+  Camera,
+  FileImage,
+  Activity,
+  Shield,
+  Eye,
+  Download,
+  RefreshCw,
+  BarChart3,
+  FileText,
+  Play,
+  Square
+} from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function UltrasoundDashboard() {
-  const [dateRange, setDateRange] = useState<Date | undefined>(new Date());
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dateRange, setDateRange] = useState("today");
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: ultrasoundStudies = [], isLoading: studiesLoading } = useQuery<UltrasoundStudy[]>({
-    queryKey: ["/api/ultrasound/studies"],
+  // Workflow state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentAction, setCurrentAction] = useState<string>('');
+  const [currentStudy, setCurrentStudy] = useState<any>(null);
+  const [findings, setFindings] = useState('');
+  const [interpretation, setInterpretation] = useState('');
+  const [recommendation, setRecommendation] = useState('');
+  const [expectedHours, setExpectedHours] = useState('2');
+
+  // Workflow mutations
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (studyId: string) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/verify-payment`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payment verified successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to verify payment", description: error.message, variant: "destructive" });
+    }
   });
 
-  const { data: metrics = { totalStudies: 0, completionRate: 0, avgProcessingTime: 0, pendingReports: 0 }, isLoading: metricsLoading } = useQuery<UltrasoundMetrics>({
-    queryKey: ["/api/ultrasound/metrics"],
+  const startImagingMutation = useMutation({
+    mutationFn: async ({ studyId, expectedHours }: { studyId: string; expectedHours: string }) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/start-imaging`, {
+        expectedHours: parseInt(expectedHours),
+        imagingType: 'Ultrasound'
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Ultrasound imaging started successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
+      setDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to start imaging", description: error.message, variant: "destructive" });
+    }
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'scheduled': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const completeImagingMutation = useMutation({
+    mutationFn: async ({ studyId, findings, interpretation, recommendation }: any) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/complete-imaging`, {
+        findings,
+        interpretation,
+        recommendation
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Ultrasound study completed successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
+      setDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to complete study", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const releaseReportMutation = useMutation({
+    mutationFn: async (studyId: string) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/release-report`, {
+        releaseTo: 'patient',
+        releaseMethod: 'digital'
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Report released successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to release report", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const resetForm = () => {
+    setFindings('');
+    setInterpretation('');
+    setRecommendation('');
+    setExpectedHours('2');
+    setCurrentStudy(null);
+    setCurrentAction('');
+  };
+
+  const handleAction = (action: string, study: any) => {
+    setCurrentAction(action);
+    setCurrentStudy(study);
+    if (action === 'verify-payment') {
+      verifyPaymentMutation.mutate(study.id);
+    } else if (action === 'release-report') {
+      releaseReportMutation.mutate(study.id);
+    } else {
+      setDialogOpen(true);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle2 className="h-4 w-4" />;
-      case 'in_progress': return <Clock className="h-4 w-4" />;
-      case 'scheduled': return <AlertCircle className="h-4 w-4" />;
-      default: return <XCircle className="h-4 w-4" />;
+  const handleDialogSubmit = () => {
+    if (currentAction === 'start-imaging') {
+      startImagingMutation.mutate({ studyId: currentStudy.id, expectedHours });
+    } else if (currentAction === 'complete-imaging') {
+      completeImagingMutation.mutate({ 
+        studyId: currentStudy.id, 
+        findings, 
+        interpretation, 
+        recommendation 
+      });
     }
   };
+
+  // Ultrasound metrics query
+  const { data: ultrasoundMetrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ["/api/ultrasound/metrics", user?.branchId, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await fetch(`/api/ultrasound/metrics?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch ultrasound metrics");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // Recent studies query
+  const { data: recentStudies, isLoading: studiesLoading } = useQuery({
+    queryKey: ["/api/ultrasound/studies", user?.branchId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      
+      const response = await fetch(`/api/ultrasound/studies?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch ultrasound studies");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  const getStatusBadge = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed': return "bg-green-100 text-green-800";
+      case 'in_progress': case 'in progress': return "bg-blue-100 text-blue-800";
+      case 'scheduled': return "bg-yellow-100 text-yellow-800";
+      case 'cancelled': return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <p className="text-gray-500">Please log in to access the ultrasound dashboard.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ultrasound Services</h1>
-          <p className="text-muted-foreground">
-            Comprehensive ultrasound workflow management
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Ultrasound Dashboard</h1>
+          <p className="text-gray-600">Manage ultrasound studies and workflow processes</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button className="bg-purple-600 hover:bg-purple-700">
+            <Waves className="w-4 h-4 mr-2" />
+            New Study
+          </Button>
         </div>
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Studies</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{metrics.totalStudies}</div>
-            <p className="text-xs text-muted-foreground">
-              {metrics.completionRate}% completion rate
-            </p>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Studies</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {ultrasoundMetrics?.totalStudies || 0}
+                </p>
+                <p className="text-xs text-purple-600">
+                  {ultrasoundMetrics?.todayStudies || 0} today
+                </p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Waves className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Studies</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{ultrasoundStudies.filter(s => s.status === 'scheduled').length}</div>
-            <p className="text-xs text-muted-foreground">
-              Avg wait: {metrics.avgProcessingTime} mins
-            </p>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {ultrasoundMetrics?.completionRate || 0}%
+                </p>
+                <p className="text-xs text-green-600">
+                  {ultrasoundMetrics?.avgTurnaroundTime || 0}h avg turnaround
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Equipment Active</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">3/3</div>
-            <p className="text-xs text-muted-foreground">
-              85% utilization
-            </p>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Equipment Active</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {ultrasoundMetrics?.activeEquipment || 0}/{ultrasoundMetrics?.totalEquipment || 0}
+                </p>
+                <p className="text-xs text-green-600">
+                  {ultrasoundMetrics?.equipmentUtilization || 0}% utilization
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <Monitor className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Quality Score</CardTitle>
-            <Badge className="bg-purple-100 text-purple-800">
-              98%
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">Excellent</div>
-            <p className="text-xs text-muted-foreground">
-              1% retake rate
-            </p>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Quality Score</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {ultrasoundMetrics?.qualityScore || 0}%
+                </p>
+                <p className="text-xs text-blue-600">
+                  {ultrasoundMetrics?.retakeRate || 0}% retake rate
+                </p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Shield className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content */}
-      <Tabs defaultValue="workflow" className="space-y-4">
-        <TabsList>
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="workflow" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="workflow">Ultrasound Workflow</TabsTrigger>
-          <TabsTrigger value="equipment">Equipment Status</TabsTrigger>
+          <TabsTrigger value="studies">Recent Studies</TabsTrigger>
           <TabsTrigger value="schedule">Study Schedule</TabsTrigger>
-          <TabsTrigger value="reports">Quality Reports</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="workflow" className="space-y-4">
+        <TabsContent value="workflow" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Ultrasound Studies Workflow
+                <Activity className="w-5 h-5" />
+                Ultrasound Workflow Management
               </CardTitle>
-              <CardDescription>
-                Manage paid ultrasound requests from scheduling to report delivery
-              </CardDescription>
+              <p className="text-sm text-gray-600">
+                Manage paid ultrasound requests through the workflow process
+              </p>
             </CardHeader>
             <CardContent>
-              {studiesLoading ? (
-                <div className="flex items-center justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : ultrasoundStudies.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No ultrasound studies</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Paid ultrasound requests will appear here for processing.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {ultrasoundStudies.map((study) => (
-                    <div key={study.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                              {getStatusIcon(study.status)}
-                            </div>
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">
-                              {study.testName}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              Patient: {study.patientName} • ₦{study.price.toLocaleString()}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              Scheduled: {format(new Date(study.scheduledAt), 'PPp')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge className={getStatusColor(study.status)}>
-                            {study.status.replace('_', ' ')}
-                          </Badge>
-                          <Button size="sm" variant="outline">
-                            {study.status === 'scheduled' ? 'Start Study' : 'View Details'}
-                          </Button>
-                        </div>
+              <div className="space-y-4">
+                {recentStudies?.map((study: any) => (
+                  <div key={study.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Waves className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{study.testName}</p>
+                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
+                        <p className="text-xs text-gray-500">
+                          Scheduled: {new Date(study.scheduledAt).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="flex items-center gap-2">
+                      <Badge variant={study.status === 'scheduled' ? 'secondary' : study.status === 'in_progress' ? 'default' : 'outline'}>
+                        {study.status?.replace('_', ' ').toUpperCase() || 'SCHEDULED'}
+                      </Badge>
+                      
+                      {study.status === 'scheduled' && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAction('verify-payment', study)}
+                            disabled={verifyPaymentMutation.isPending}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Verify Payment
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAction('start-imaging', study)}
+                            disabled={startImagingMutation.isPending}
+                          >
+                            <Play className="w-4 h-4 mr-1" />
+                            Start Ultrasound
+                          </Button>
+                        </>
+                      )}
+                      
+                      {study.status === 'in_progress' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('complete-imaging', study)}
+                          disabled={completeImagingMutation.isPending}
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          Complete Study
+                        </Button>
+                      )}
+                      
+                      {study.status === 'completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('release-report', study)}
+                          disabled={releaseReportMutation.isPending}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Release Report
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {(!recentStudies || recentStudies.length === 0) && (
+                  <div className="text-center py-8 text-gray-500">
+                    No ultrasound studies found for the selected period
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="equipment" className="space-y-4">
+        <TabsContent value="studies" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Ultrasound Equipment Status</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5" />
+                Recent Ultrasound Studies
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { id: 1, name: 'Ultrasound Unit 1', status: 'active', utilization: 85, location: 'Room A' },
-                  { id: 2, name: 'Ultrasound Unit 2', status: 'active', utilization: 72, location: 'Room B' },
-                  { id: 3, name: 'Doppler Ultrasound', status: 'active', utilization: 90, location: 'Room C' },
-                ].map((equipment) => (
-                  <div key={equipment.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between">
+                {recentStudies?.map((study: any) => (
+                  <div key={study.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        <Heart className="w-5 h-5 text-purple-600" />
+                      </div>
                       <div>
-                        <h3 className="font-medium">{equipment.name}</h3>
-                        <p className="text-sm text-gray-500">{equipment.location}</p>
+                        <p className="font-medium">{study.testName}</p>
+                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(study.scheduledAt).toLocaleDateString()} at{' '}
+                          {new Date(study.scheduledAt).toLocaleTimeString()}
+                        </p>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge className="bg-green-100 text-green-800">
-                          {equipment.status}
-                        </Badge>
-                        <span className="text-sm text-gray-500">
-                          {equipment.utilization}% utilization
-                        </span>
+                    </div>
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <p className="text-sm font-medium">{study.categoryName}</p>
+                        <p className="text-xs text-gray-500">₦{study.price?.toLocaleString()}</p>
                       </div>
+                      <Badge className={getStatusBadge(study.status)}>
+                        {study.status?.toUpperCase() || 'SCHEDULED'}
+                      </Badge>
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -233,92 +452,105 @@ export default function UltrasoundDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="schedule" className="space-y-4">
+        <TabsContent value="schedule" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Ultrasound Schedule</CardTitle>
-              <CardDescription>
-                View and manage ultrasound study appointments
-              </CardDescription>
+              <CardTitle>Study Schedule</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <Calendar
-                    mode="single"
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    className="rounded-md border"
-                  />
-                </div>
-                <div className="space-y-4">
-                  <h3 className="font-medium">Today's Schedule</h3>
-                  {ultrasoundStudies.filter(s => s.status === 'scheduled').map((study) => (
-                    <div key={study.id} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{study.testName}</p>
-                          <p className="text-xs text-gray-500">{study.patientName}</p>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          {format(new Date(study.scheduledAt), 'HH:mm')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quality Reports</CardTitle>
-              <CardDescription>
-                Ultrasound service quality metrics and reports
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Study Quality</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Excellent</span>
-                        <span>85%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Good</span>
-                        <span>13%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Retake Required</span>
-                        <span>2%</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Patient Satisfaction</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-green-600">4.8/5</div>
-                      <p className="text-sm text-gray-500">Average rating</p>
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="text-center py-8 text-gray-500">
+                Study scheduling functionality coming soon
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Workflow Action Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {currentAction === 'start-imaging' ? 'Start Ultrasound Study' : 'Complete Ultrasound Study'}
+            </DialogTitle>
+            <DialogDescription>
+              {currentAction === 'start-imaging' 
+                ? 'Set the expected completion time for this ultrasound study'
+                : 'Enter the ultrasound findings and interpretation'
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {currentAction === 'start-imaging' ? (
+              <div className="space-y-2">
+                <Label htmlFor="expectedHours">Expected Hours to Complete</Label>
+                <Select value={expectedHours} onValueChange={setExpectedHours}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select expected hours" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 hour</SelectItem>
+                    <SelectItem value="2">2 hours</SelectItem>
+                    <SelectItem value="4">4 hours</SelectItem>
+                    <SelectItem value="8">8 hours</SelectItem>
+                    <SelectItem value="24">24 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="findings">Ultrasound Findings *</Label>
+                  <Textarea
+                    id="findings"
+                    placeholder="Enter detailed ultrasound findings..."
+                    value={findings}
+                    onChange={(e) => setFindings(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="interpretation">Interpretation</Label>
+                  <Textarea
+                    id="interpretation"
+                    placeholder="Enter clinical interpretation..."
+                    value={interpretation}
+                    onChange={(e) => setInterpretation(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="recommendation">Recommendation</Label>
+                  <Textarea
+                    id="recommendation"
+                    placeholder="Enter clinical recommendations..."
+                    value={recommendation}
+                    onChange={(e) => setRecommendation(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleDialogSubmit}
+              disabled={
+                (currentAction === 'complete-imaging' && !findings.trim()) ||
+                startImagingMutation.isPending ||
+                completeImagingMutation.isPending
+              }
+            >
+              {currentAction === 'start-imaging' ? 'Start Ultrasound' : 'Complete Study'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

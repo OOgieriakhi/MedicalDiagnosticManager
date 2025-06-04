@@ -4,7 +4,7 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { notificationService, PDFService } from "./notifications";
 import { z } from "zod";
-import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema, invoices, patients, tests, testCategories } from "@shared/schema";
+import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema, invoices, patients, tests, testCategories, patientTests } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
 
