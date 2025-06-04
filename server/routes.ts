@@ -1164,7 +1164,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Laboratory workflow management endpoints
+  // Imaging workflow management endpoints (Radiology & Ultrasound)
   app.post("/api/patient-tests/:id/verify-payment", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
@@ -1176,6 +1176,76 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error verifying payment:", error);
       res.status(500).json({ message: "Error verifying payment" });
+    }
+  });
+
+  app.post("/api/patient-tests/:id/start-imaging", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    const { expectedHours, imagingType } = req.body;
+    
+    if (!expectedHours || !imagingType) {
+      return res.status(400).json({ message: "Expected hours and imaging type are required" });
+    }
+    
+    try {
+      await storage.startProcessing(parseInt(id), req.user.id, expectedHours);
+      res.json({ message: `${imagingType} imaging started successfully` });
+    } catch (error: any) {
+      console.error("Error starting imaging:", error);
+      res.status(500).json({ message: "Error starting imaging" });
+    }
+  });
+
+  app.post("/api/patient-tests/:id/complete-imaging", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    const { findings, interpretation, recommendation } = req.body;
+    
+    if (!findings) {
+      return res.status(400).json({ message: "Imaging findings are required" });
+    }
+    
+    try {
+      const reportData = {
+        findings,
+        interpretation: interpretation || '',
+        recommendation: recommendation || '',
+        completedBy: req.user.id,
+        completedAt: new Date()
+      };
+      
+      await storage.completeTest(parseInt(id), JSON.stringify(reportData));
+      res.json({ message: "Imaging study completed successfully" });
+    } catch (error: any) {
+      console.error("Error completing imaging:", error);
+      res.status(500).json({ message: "Error completing imaging" });
+    }
+  });
+
+  app.post("/api/patient-tests/:id/release-report", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    const { releaseTo, releaseMethod } = req.body;
+    
+    try {
+      // Update patient test with report release information
+      await db
+        .update(patientTests)
+        .set({
+          reportReleasedAt: new Date(),
+          reportReleasedBy: req.user.id,
+          status: 'completed'
+        })
+        .where(eq(patientTests.id, parseInt(id)));
+      
+      res.json({ message: "Report released successfully" });
+    } catch (error: any) {
+      console.error("Error releasing report:", error);
+      res.status(500).json({ message: "Error releasing report" });
     }
   });
 
