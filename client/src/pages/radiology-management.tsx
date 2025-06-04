@@ -24,9 +24,11 @@ import {
   Shield,
   Eye,
   Download,
-  RefreshCw
+  RefreshCw,
+  BarChart3
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
 
 export default function RadiologyManagement() {
   const { user } = useAuth();
@@ -151,9 +153,17 @@ export default function RadiologyManagement() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Radiology Management</h1>
-          <p className="text-gray-600">Medical imaging workflow and equipment management</p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Dashboard
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Radiology Management</h1>
+            <p className="text-gray-600">Medical imaging workflow and equipment management</p>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
           <Button variant="outline" className="flex items-center gap-2">

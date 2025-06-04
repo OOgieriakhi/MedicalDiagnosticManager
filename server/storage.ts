@@ -1021,7 +1021,7 @@ export class DatabaseStorage implements IStorage {
 
     // Get total revenue for the period
     const totalRevenue = await db
-      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .select({ total: sql<number>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)` })
       .from(transactions)
       .where(
         and(

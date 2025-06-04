@@ -174,12 +174,15 @@ export const transactions = pgTable("transactions", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("NGN"),
   description: text("description"),
+  paymentMethod: text("payment_method"), // cash, card, transfer, pos
+  invoiceId: integer("invoice_id").references(() => invoices.id),
   patientTestId: integer("patient_test_id"),
   referralProviderId: integer("referral_provider_id"),
   consultantId: integer("consultant_id"),
   branchId: integer("branch_id").notNull(),
   tenantId: integer("tenant_id").notNull(),
   createdBy: integer("created_by").notNull(),
+  paidBy: integer("paid_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
