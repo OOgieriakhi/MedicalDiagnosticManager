@@ -938,7 +938,11 @@ export function registerRoutes(app: Express): Server {
             status: test.status || 'scheduled',
             scheduledAt: test.scheduledAt,
             categoryName: 'Ultrasound Services',
-            paymentMethod: 'paid'
+            paymentMethod: 'paid',
+            paymentVerified: test.paymentVerified || false,
+            paymentVerifiedAt: test.paymentVerifiedAt,
+            specimenCollected: test.specimenCollected || false,
+            processingStarted: test.processingStarted || false
           }));
           
           return res.json(formattedResults);
@@ -1148,7 +1152,11 @@ export function registerRoutes(app: Express): Server {
             status: test.status || 'scheduled',
             scheduledAt: test.scheduledAt,
             categoryName: 'Imaging',
-            paymentMethod: 'paid'
+            paymentMethod: 'paid',
+            paymentVerified: test.paymentVerified || false,
+            paymentVerifiedAt: test.paymentVerifiedAt,
+            specimenCollected: test.specimenCollected || false,
+            processingStarted: test.processingStarted || false
           }));
           
           return res.json(formattedResults);

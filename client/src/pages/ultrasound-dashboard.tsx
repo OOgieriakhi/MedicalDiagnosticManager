@@ -348,27 +348,28 @@ export default function UltrasoundDashboard() {
                         {study.status?.replace('_', ' ').toUpperCase() || 'SCHEDULED'}
                       </Badge>
                       
-                      {study.status === 'scheduled' && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAction('verify-payment', study)}
-                            disabled={verifyPaymentMutation.isPending}
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Verify Payment
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAction('start-imaging', study)}
-                            disabled={startImagingMutation.isPending}
-                          >
-                            <Play className="w-4 h-4 mr-1" />
-                            Start Ultrasound
-                          </Button>
-                        </>
+                      {(study.status === 'scheduled' || !study.paymentVerified) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('verify-payment', study)}
+                          disabled={verifyPaymentMutation.isPending}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Verify Payment
+                        </Button>
+                      )}
+                      
+                      {(study.status === 'payment_verified' || (study.status === 'scheduled' && study.paymentVerified)) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('start-imaging', study)}
+                          disabled={startImagingMutation.isPending}
+                        >
+                          <Play className="w-4 h-4 mr-1" />
+                          Start Ultrasound
+                        </Button>
                       )}
                       
                       {study.status === 'in_progress' && (
