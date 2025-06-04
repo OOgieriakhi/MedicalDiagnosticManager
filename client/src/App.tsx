@@ -11,6 +11,7 @@ import Dashboard from "@/pages/dashboard";
 import PatientIntake from "@/pages/patient-intake";
 import PatientManagement from "@/pages/patient-management";
 import FinancialManagement from "@/pages/financial-management";
+import NotificationCenter from "@/pages/notification-center";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
       <ProtectedRoute path="/financial-management" component={FinancialManagement} />
+      <ProtectedRoute path="/notifications" component={NotificationCenter} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

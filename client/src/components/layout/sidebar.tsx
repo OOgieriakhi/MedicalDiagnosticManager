@@ -15,7 +15,8 @@ import {
   Database,
   LogOut,
   User,
-  ClipboardList
+  ClipboardList,
+  MessageCircle
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -31,6 +32,7 @@ export default function Sidebar() {
         { icon: UserPlus, label: "Patient Management", path: "/patient-management", active: location === "/patient-management" },
         { icon: FlaskRound, label: "Diagnostic Tests", path: "/diagnostic-tests", active: location === "/diagnostic-tests" },
         { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
+        { icon: MessageCircle, label: "Notifications", path: "/notifications", active: location === "/notifications" },
         { icon: Calculator, label: "Accounting", path: "/accounting", active: location === "/accounting" },
         { icon: Users, label: "Human Resources", path: "/hr", active: location === "/hr" },
       ]
