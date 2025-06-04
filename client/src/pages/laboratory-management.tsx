@@ -773,10 +773,18 @@ export default function LaboratoryManagement() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleUpdateResults}
-                  disabled={updateTestResultsMutation.isPending || !testResults.trim()}
+                  onClick={() => {
+                    if (selectedTest && testResults.trim()) {
+                      completeTestMutation.mutate({
+                        testId: selectedTest.id,
+                        results: testResults,
+                        notes: testNotes
+                      });
+                    }
+                  }}
+                  disabled={completeTestMutation.isPending || !testResults.trim()}
                 >
-                  {updateTestResultsMutation.isPending ? "Updating..." : "Update Results"}
+                  {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
                 </Button>
               </div>
             </div>
