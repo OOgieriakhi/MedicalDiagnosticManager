@@ -118,6 +118,8 @@ export default function RadiologyManagement() {
   };
 
   const getModalityIcon = (modality: string) => {
+    if (!modality) return <Camera className="w-4 h-4" />;
+    
     switch (modality.toLowerCase()) {
       case 'xray': return <Image className="w-4 h-4" />;
       case 'ct': return <Scan className="w-4 h-4" />;
