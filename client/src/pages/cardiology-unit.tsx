@@ -1,308 +1,474 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import { 
-  Heart,
-  Activity,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
+  Heart, 
+  Activity, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle, 
+  Monitor,
+  Zap,
   Users,
-  Calendar,
-  Search,
-  Filter,
-  RefreshCw,
-  Download,
   FileText,
   Eye,
-  BarChart3,
-  Zap,
-  Monitor
+  Download,
+  RefreshCw,
+  Play,
+  Square,
+  Home,
+  ArrowLeft
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 
 export default function CardiologyUnit() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState("today");
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProcedure, setSelectedProcedure] = useState("all");
+
+  // Workflow state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentAction, setCurrentAction] = useState<string>('');
+  const [currentStudy, setCurrentStudy] = useState<any>(null);
+  const [findings, setFindings] = useState('');
+  const [interpretation, setInterpretation] = useState('');
+  const [recommendation, setRecommendation] = useState('');
+  const [expectedHours, setExpectedHours] = useState('2');
+
+  // Workflow mutations
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (studyId: string) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/verify-payment`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payment verified successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/cardiology/studies"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to verify payment", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const startProcedureMutation = useMutation({
+    mutationFn: async ({ studyId, expectedHours }: { studyId: string; expectedHours: string }) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/start-imaging`, {
+        expectedHours: parseInt(expectedHours),
+        imagingType: 'Cardiology'
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Cardiology procedure started successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/cardiology/studies"] });
+      setDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to start procedure", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const completeProcedureMutation = useMutation({
+    mutationFn: async ({ studyId, findings, interpretation, recommendation }: any) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/complete-imaging`, {
+        findings,
+        interpretation,
+        recommendation
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Cardiology procedure completed successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/cardiology/studies"] });
+      setDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to complete procedure", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const releaseReportMutation = useMutation({
+    mutationFn: async (studyId: string) => {
+      const testId = studyId.replace('pt-', '');
+      const response = await apiRequest('POST', `/api/patient-tests/${testId}/release-report`, {
+        releaseTo: 'patient',
+        releaseMethod: 'digital'
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Report released successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/cardiology/studies"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to release report", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const resetForm = () => {
+    setFindings('');
+    setInterpretation('');
+    setRecommendation('');
+    setExpectedHours('2');
+    setCurrentStudy(null);
+    setCurrentAction('');
+  };
+
+  const handleAction = (action: string, study: any) => {
+    setCurrentAction(action);
+    setCurrentStudy(study);
+    if (action === 'verify-payment') {
+      verifyPaymentMutation.mutate(study.id);
+    } else if (action === 'release-report') {
+      releaseReportMutation.mutate(study.id);
+    } else {
+      setDialogOpen(true);
+    }
+  };
+
+  const handleDialogSubmit = () => {
+    if (currentAction === 'start-procedure') {
+      startProcedureMutation.mutate({ studyId: currentStudy.id, expectedHours });
+    } else if (currentAction === 'complete-procedure') {
+      completeProcedureMutation.mutate({ 
+        studyId: currentStudy.id, 
+        findings, 
+        interpretation, 
+        recommendation 
+      });
+    }
+  };
 
   // Cardiology metrics query
   const { data: cardiologyMetrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ['/api/cardiology/metrics', dateRange, startDate, endDate],
+    queryKey: ["/api/cardiology/metrics", user?.branchId, startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (dateRange !== 'custom') {
-        params.append('range', dateRange);
-      } else {
-        params.append('startDate', startDate);
-        params.append('endDate', endDate);
-      }
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
       
-      const response = await fetch(`/api/cardiology/metrics?${params}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (!response.ok) throw new Error('Failed to fetch cardiology metrics');
+      const response = await fetch(`/api/cardiology/metrics?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch cardiology metrics");
       return response.json();
-    }
+    },
+    enabled: !!user?.branchId
   });
 
-  // Cardiology procedures query
-  const { data: cardiologyProcedures, isLoading: proceduresLoading } = useQuery({
-    queryKey: ['/api/cardiology/procedures', selectedCategory, searchTerm],
+  // Recent studies query
+  const { data: recentStudies, isLoading: studiesLoading } = useQuery({
+    queryKey: ["/api/cardiology/studies", user?.branchId, selectedProcedure],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedCategory !== 'all') params.append('category', selectedCategory);
-      if (searchTerm) params.append('search', searchTerm);
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (selectedProcedure !== 'all') params.append('procedure', selectedProcedure);
       
-      const response = await fetch(`/api/cardiology/procedures?${params}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (!response.ok) throw new Error('Failed to fetch cardiology procedures');
+      const response = await fetch(`/api/cardiology/studies?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch cardiology studies");
       return response.json();
-    }
+    },
+    enabled: !!user?.branchId
   });
 
-  const handleDateRangeChange = (value: string) => {
-    setDateRange(value);
+  const getProcedureIcon = (procedureName: string) => {
+    if (procedureName?.toLowerCase().includes('echo') || procedureName?.toLowerCase().includes('echocardiogram')) {
+      return <Heart className="w-5 h-5 text-red-600" />;
+    } else if (procedureName?.toLowerCase().includes('ecg') || procedureName?.toLowerCase().includes('ekg')) {
+      return <Activity className="w-5 h-5 text-blue-600" />;
+    } else if (procedureName?.toLowerCase().includes('stress')) {
+      return <Zap className="w-5 h-5 text-orange-600" />;
+    }
+    return <Heart className="w-5 h-5 text-red-600" />;
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Search functionality will be triggered by the query dependency
+  const getStatusBadge = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed': return "bg-green-100 text-green-800";
+      case 'in_progress': case 'in progress': return "bg-blue-100 text-blue-800";
+      case 'scheduled': return "bg-yellow-100 text-yellow-800";
+      case 'payment_verified': return "bg-purple-100 text-purple-800";
+      case 'cancelled': return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
   };
+
+  if (!user) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <p className="text-gray-500">Please log in to access the cardiology unit.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* Header with Navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/">
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Dashboard
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Home
             </Button>
           </Link>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Cardiology Unit</h1>
-            <p className="text-gray-600">ECG, Echocardiography, and cardiac diagnostic services</p>
+            <p className="text-gray-600">Manage echocardiography, ECG, and cardiac procedures</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" className="flex items-center gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Sync Equipment
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
           </Button>
-          <Button className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Schedule Procedure
+          <Button className="bg-red-600 hover:bg-red-700">
+            <Heart className="w-4 h-4 mr-2" />
+            New Procedure
           </Button>
         </div>
       </div>
 
-      {/* Date Range Filter */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Label>Date Range:</Label>
-              <Select value={dateRange} onValueChange={handleDateRangeChange}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {dateRange === 'custom' && (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-40"
-                />
-                <span>to</span>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Metrics Cards */}
+      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Procedures</CardTitle>
-            <Heart className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {metricsLoading ? '...' : cardiologyMetrics?.totalProcedures || '0'}
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Procedures</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {cardiologyMetrics?.totalProcedures || 0}
+                </p>
+                <p className="text-xs text-red-600">
+                  {cardiologyMetrics?.todayProcedures || 0} today
+                </p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-lg">
+                <Heart className="w-6 h-6 text-red-600" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              +8% from last period
-            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ECG Studies</CardTitle>
-            <Zap className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {metricsLoading ? '...' : cardiologyMetrics?.ecgStudies || '0'}
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">ECG Studies</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {cardiologyMetrics?.ecgStudies || 0}
+                </p>
+                <p className="text-xs text-blue-600">
+                  {cardiologyMetrics?.ecgToday || 0} today
+                </p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Activity className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Normal: 85%
-            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Echocardiograms</CardTitle>
-            <Monitor className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {metricsLoading ? '...' : cardiologyMetrics?.echoStudies || '0'}
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Echo Studies</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {cardiologyMetrics?.echoStudies || 0}
+                </p>
+                <p className="text-xs text-purple-600">
+                  {cardiologyMetrics?.echoToday || 0} today
+                </p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Monitor className="w-6 h-6 text-purple-600" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Avg duration: 45 mins
-            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Reports</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {metricsLoading ? '...' : cardiologyMetrics?.pendingReports || '0'}
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {cardiologyMetrics?.completionRate || 0}%
+                </p>
+                <p className="text-xs text-green-600">
+                  {cardiologyMetrics?.avgTurnaroundTime || 0}h avg time
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Avg TAT: 2 hours
-            </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="procedures" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="procedures">Current Procedures</TabsTrigger>
-          <TabsTrigger value="ecg">ECG Center</TabsTrigger>
-          <TabsTrigger value="echo">Echo Lab</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+      <Tabs defaultValue="workflow" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="workflow">Cardiology Workflow</TabsTrigger>
+          <TabsTrigger value="procedures">Recent Procedures</TabsTrigger>
+          <TabsTrigger value="ecg">ECG Studies</TabsTrigger>
+          <TabsTrigger value="echo">Echo Studies</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="procedures" className="space-y-6">
-          {/* Search and Filter */}
-          <Card>
-            <CardContent className="p-4">
-              <form onSubmit={handleSearch} className="flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Search by patient name, procedure ID, or type..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Procedure Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Procedures</SelectItem>
-                    <SelectItem value="ecg">ECG</SelectItem>
-                    <SelectItem value="echo">Echocardiogram</SelectItem>
-                    <SelectItem value="stress-test">Stress Test</SelectItem>
-                    <SelectItem value="holter">Holter Monitor</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button type="submit" variant="outline" size="sm">
-                  <Filter className="w-4 h-4" />
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Procedures List */}
+        <TabsContent value="workflow" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Cardiology Procedures</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Cardiology Workflow Management
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Manage paid cardiology procedures through the workflow process
+              </p>
             </CardHeader>
             <CardContent>
-              {proceduresLoading ? (
-                <div className="text-center py-8">Loading procedures...</div>
-              ) : (
-                <div className="space-y-4">
-                  {cardiologyProcedures?.map((procedure: any) => (
-                    <div key={procedure.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                          <Heart className="w-4 h-4 text-red-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{procedure.patientName}</h3>
-                          <p className="text-sm text-gray-600">{procedure.procedureType} - {procedure.scheduledTime}</p>
-                          <p className="text-xs text-gray-500">ID: {procedure.procedureId}</p>
-                        </div>
+              <div className="space-y-4">
+                {recentStudies?.map((study: any) => (
+                  <div key={study.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-red-100 rounded-lg">
+                        {getProcedureIcon(study.testName)}
                       </div>
-                      <div className="flex items-center gap-4">
-                        <Badge variant={
-                          procedure.status === 'completed' ? 'default' :
-                          procedure.status === 'in-progress' ? 'secondary' :
-                          'outline'
-                        }>
-                          {procedure.status}
-                        </Badge>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </div>
+                      <div>
+                        <p className="font-medium">{study.testName}</p>
+                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
+                        <p className="text-xs text-gray-500">
+                          Scheduled: {new Date(study.scheduledAt).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
-                  )) || (
-                    <div className="text-center py-8 text-gray-500">
-                      No cardiology procedures found
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusBadge(study.status)}>
+                        {study.status?.replace('_', ' ').toUpperCase() || 'SCHEDULED'}
+                      </Badge>
+                      
+                      {(study.status === 'scheduled' || !study.paymentVerified) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('verify-payment', study)}
+                          disabled={verifyPaymentMutation.isPending}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Verify Payment
+                        </Button>
+                      )}
+                      
+                      {(study.status === 'payment_verified' || (study.status === 'scheduled' && study.paymentVerified)) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('start-procedure', study)}
+                          disabled={startProcedureMutation.isPending}
+                        >
+                          <Play className="w-4 h-4 mr-1" />
+                          Start Procedure
+                        </Button>
+                      )}
+                      
+                      {study.status === 'in_progress' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('complete-procedure', study)}
+                          disabled={completeProcedureMutation.isPending}
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          Complete Study
+                        </Button>
+                      )}
+                      
+                      {study.status === 'completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAction('release-report', study)}
+                          disabled={releaseReportMutation.isPending}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Release Report
+                        </Button>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                ))}
+                
+                {(!recentStudies || recentStudies.length === 0) && (
+                  <div className="text-center py-8 text-gray-500">
+                    No cardiology procedures found for the selected period
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="procedures" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5" />
+                Recent Cardiology Procedures
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentStudies?.map((study: any) => (
+                  <div key={study.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        {getProcedureIcon(study.testName)}
+                      </div>
+                      <div>
+                        <p className="font-medium">{study.testName}</p>
+                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(study.scheduledAt).toLocaleDateString()} at{' '}
+                          {new Date(study.scheduledAt).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <p className="text-sm font-medium">{study.categoryName}</p>
+                        <p className="text-xs text-gray-500">₦{study.price?.toLocaleString()}</p>
+                      </div>
+                      <Badge className={getStatusBadge(study.status)}>
+                        {study.status?.toUpperCase() || 'SCHEDULED'}
+                      </Badge>
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -310,62 +476,44 @@ export default function CardiologyUnit() {
         <TabsContent value="ecg" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>ECG Center</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                ECG Studies
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <p className="text-sm font-medium">ECGs Today</p>
-                        <p className="text-2xl font-bold">24</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="text-sm font-medium">Completed</p>
-                        <p className="text-2xl font-bold">20</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                      <div>
-                        <p className="text-sm font-medium">Abnormal</p>
-                        <p className="text-2xl font-bold">3</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
               <div className="space-y-4">
-                <h3 className="font-medium">Recent ECG Studies</h3>
-                {[
-                  { id: 'ECG-001', patient: 'John Doe', time: '10:30 AM', result: 'Normal' },
-                  { id: 'ECG-002', patient: 'Jane Smith', time: '11:15 AM', result: 'Abnormal' },
-                  { id: 'ECG-003', patient: 'Bob Johnson', time: '12:00 PM', result: 'Normal' }
-                ].map((ecg) => (
-                  <div key={ecg.id} className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">{ecg.patient}</p>
-                      <p className="text-sm text-gray-600">{ecg.time} - {ecg.id}</p>
+                {recentStudies?.filter(study => 
+                  study.testName?.toLowerCase().includes('ecg') || 
+                  study.testName?.toLowerCase().includes('ekg')
+                ).map((study: any) => (
+                  <div key={study.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Activity className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{study.testName}</p>
+                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(study.scheduledAt).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <Badge variant={ecg.result === 'Normal' ? 'default' : 'destructive'}>
-                      {ecg.result}
+                    <Badge className={getStatusBadge(study.status)}>
+                      {study.status?.toUpperCase() || 'SCHEDULED'}
                     </Badge>
                   </div>
                 ))}
+                
+                {(!recentStudies?.filter(study => 
+                  study.testName?.toLowerCase().includes('ecg') || 
+                  study.testName?.toLowerCase().includes('ekg')
+                ).length) && (
+                  <div className="text-center py-8 text-gray-500">
+                    No ECG studies found
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -374,78 +522,133 @@ export default function CardiologyUnit() {
         <TabsContent value="echo" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Echocardiography Lab</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Monitor className="w-5 h-5" />
+                Echocardiography Studies
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Monitor className="w-5 h-5 text-purple-600" />
-                      <div>
-                        <p className="text-sm font-medium">Echos Today</p>
-                        <p className="text-2xl font-bold">8</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="text-sm font-medium">Completed</p>
-                        <p className="text-2xl font-bold">6</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-yellow-600" />
-                      <div>
-                        <p className="text-sm font-medium">In Progress</p>
-                        <p className="text-2xl font-bold">2</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              
               <div className="space-y-4">
-                <h3 className="font-medium">Scheduled Echocardiograms</h3>
-                {[
-                  { id: 'ECHO-001', patient: 'Mary Wilson', time: '2:00 PM', type: '2D Echo' },
-                  { id: 'ECHO-002', patient: 'David Lee', time: '3:00 PM', type: 'Stress Echo' },
-                  { id: 'ECHO-003', patient: 'Sarah Brown', time: '4:00 PM', type: '2D Echo' }
-                ].map((echo) => (
-                  <div key={echo.id} className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">{echo.patient}</p>
-                      <p className="text-sm text-gray-600">{echo.time} - {echo.type}</p>
+                {recentStudies?.filter(study => 
+                  study.testName?.toLowerCase().includes('echo')
+                ).map((study: any) => (
+                  <div key={study.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Monitor className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{study.testName}</p>
+                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(study.scheduledAt).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <Badge variant="outline">{echo.id}</Badge>
+                    <Badge className={getStatusBadge(study.status)}>
+                      {study.status?.toUpperCase() || 'SCHEDULED'}
+                    </Badge>
                   </div>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cardiology Reports</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                Report management and interpretation coming soon
+                
+                {(!recentStudies?.filter(study => 
+                  study.testName?.toLowerCase().includes('echo')
+                ).length) && (
+                  <div className="text-center py-8 text-gray-500">
+                    No echocardiography studies found
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Workflow Action Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {currentAction === 'start-procedure' ? 'Start Cardiology Procedure' : 'Complete Cardiology Procedure'}
+            </DialogTitle>
+            <DialogDescription>
+              {currentAction === 'start-procedure' 
+                ? 'Set the expected completion time for this cardiology procedure'
+                : 'Enter the procedure findings and interpretation'
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {currentAction === 'start-procedure' ? (
+              <div className="space-y-2">
+                <Label htmlFor="expectedHours">Expected Hours to Complete</Label>
+                <Select value={expectedHours} onValueChange={setExpectedHours}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select expected hours" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 hour</SelectItem>
+                    <SelectItem value="2">2 hours</SelectItem>
+                    <SelectItem value="4">4 hours</SelectItem>
+                    <SelectItem value="8">8 hours</SelectItem>
+                    <SelectItem value="24">24 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="findings">Procedure Findings *</Label>
+                  <Textarea
+                    id="findings"
+                    placeholder="Enter detailed procedure findings..."
+                    value={findings}
+                    onChange={(e) => setFindings(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="interpretation">Interpretation</Label>
+                  <Textarea
+                    id="interpretation"
+                    placeholder="Enter clinical interpretation..."
+                    value={interpretation}
+                    onChange={(e) => setInterpretation(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="recommendation">Recommendation</Label>
+                  <Textarea
+                    id="recommendation"
+                    placeholder="Enter clinical recommendations..."
+                    value={recommendation}
+                    onChange={(e) => setRecommendation(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleDialogSubmit}
+              disabled={
+                (currentAction === 'complete-procedure' && !findings.trim()) ||
+                startProcedureMutation.isPending ||
+                completeProcedureMutation.isPending
+              }
+            >
+              {currentAction === 'start-procedure' ? 'Start Procedure' : 'Complete Procedure'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
