@@ -29,6 +29,7 @@ interface Patient {
 interface Test {
   id: number;
   name: string;
+  code: string;
   price: string;
   categoryId: number;
 }
@@ -73,6 +74,7 @@ export default function InvoiceManagement() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<any>({});
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
+  const [testSearchTerm, setTestSearchTerm] = useState("");
 
   // Query for patients
   const { data: patients } = useQuery({
@@ -182,24 +184,24 @@ export default function InvoiceManagement() {
   const calculateInvoiceAmounts = () => {
     const subtotal = selectedTests.reduce((sum, test) => sum + test.price, 0);
     const discountAmount = (subtotal * discountPercentage) / 100;
-    const discountedAmount = subtotal - discountAmount;
+    const totalAmount = subtotal - discountAmount;
     
+    // Commission is tracked but NOT deducted from patient bill
+    // It's paid separately by accounting at month-end
     let commissionAmount = 0;
     if (referralProviderId) {
       const provider = (referralProviders as any)?.find((p: ReferralProvider) => p.id === referralProviderId);
       if (provider) {
-        commissionAmount = (discountedAmount * parseFloat(provider.commissionRate)) / 100;
+        commissionAmount = (totalAmount * parseFloat(provider.commissionRate)) / 100;
       }
     }
-    
-    const netAmount = discountedAmount - commissionAmount;
     
     return {
       subtotal,
       discountAmount,
-      commissionAmount,
-      totalAmount: discountedAmount,
-      netAmount
+      commissionAmount, // For tracking only
+      totalAmount, // Patient pays this amount
+      netAmount: totalAmount // Patient pays the full amount after discount
     };
   };
 
@@ -256,6 +258,11 @@ export default function InvoiceManagement() {
 
   const filteredPatients = (patients as Patient[] || []).filter(patient =>
     `${patient.firstName} ${patient.lastName} ${patient.patientId}`.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredTests = (tests as Test[] || []).filter(test =>
+    test.name.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
+    test.code.toLowerCase().includes(testSearchTerm.toLowerCase())
   );
 
   const amounts = calculateInvoiceAmounts();
@@ -324,18 +331,36 @@ export default function InvoiceManagement() {
               {/* Test Selection */}
               <div>
                 <Label>Select Tests</Label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                  {(tests as Test[] || []).map((test) => (
-                    <Button
-                      key={test.id}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddTest(test)}
-                      disabled={selectedTests.some(t => t.testId === test.id)}
-                    >
-                      {test.name} - ₦{parseFloat(test.price).toLocaleString()}
-                    </Button>
-                  ))}
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Search tests..."
+                    value={testSearchTerm}
+                    onChange={(e) => setTestSearchTerm(e.target.value)}
+                  />
+                  <div className="max-h-60 overflow-y-auto border rounded-md">
+                    {filteredTests.map((test: Test) => (
+                      <div
+                        key={test.id}
+                        className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                          selectedTests.some(t => t.testId === test.id) ? 'bg-blue-50' : ''
+                        }`}
+                        onClick={() => handleAddTest(test)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-medium">{test.name}</div>
+                            <div className="text-sm text-gray-500">Code: {test.code}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">₦{parseFloat(test.price).toLocaleString()}</div>
+                            {selectedTests.some(t => t.testId === test.id) && (
+                              <Badge variant="default" className="text-xs">Added</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
