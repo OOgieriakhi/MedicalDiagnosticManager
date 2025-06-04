@@ -133,6 +133,7 @@ export default function PatientIntake() {
       return responses;
     },
     onSuccess: () => {
+      setCurrentWorkflowStep("payment");
       toast({
         title: "Tests Scheduled",
         description: "All selected tests have been scheduled successfully.",
@@ -157,6 +158,7 @@ export default function PatientIntake() {
   const handlePatientSelect = (patient: any) => {
     setSelectedPatient(patient);
     setIsNewPatient(false);
+    setCurrentWorkflowStep("pathway");
     setCurrentStep(2);
   };
 
@@ -166,11 +168,18 @@ export default function PatientIntake() {
   };
 
   const handleTestSelection = (testId: number) => {
-    setSelectedTests(prev => 
-      prev.includes(testId) 
+    setSelectedTests(prev => {
+      const newSelection = prev.includes(testId) 
         ? prev.filter(id => id !== testId)
-        : [...prev, testId]
-    );
+        : [...prev, testId];
+      
+      // Update workflow step when tests are selected
+      if (newSelection.length > 0 && currentWorkflowStep === "pathway") {
+        setCurrentWorkflowStep("tests");
+      }
+      
+      return newSelection;
+    });
   };
 
   const handleScheduleTests = () => {
@@ -183,6 +192,7 @@ export default function PatientIntake() {
       return;
     }
 
+    setCurrentWorkflowStep("scheduling");
     scheduleTestsMutation.mutate({
       patientId: selectedPatient?.id,
       status: "scheduled",
