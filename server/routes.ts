@@ -2120,13 +2120,13 @@ export function registerRoutes(app: Express): Server {
       const paidInvoices = await db
         .select({
           id: invoices.id,
-          testData: invoices.testData
+          tests: invoices.tests
         })
         .from(invoices)
         .where(
           and(
             eq(invoices.branchId, branchId),
-            eq(invoices.status, 'paid')
+            eq(invoices.paymentStatus, 'paid')
           )
         );
 
@@ -2145,14 +2145,14 @@ export function registerRoutes(app: Express): Server {
       for (const invoice of paidInvoices) {
         let tests: any[] = [];
         
-        if (typeof invoice.testData === 'string') {
+        if (typeof invoice.tests === 'string') {
           try {
-            tests = JSON.parse(invoice.testData);
+            tests = JSON.parse(invoice.tests);
           } catch (e) {
             continue;
           }
-        } else if (Array.isArray(invoice.testData)) {
-          tests = invoice.testData;
+        } else if (Array.isArray(invoice.tests)) {
+          tests = invoice.tests;
         }
 
         for (const test of tests) {
@@ -2203,25 +2203,22 @@ export function registerRoutes(app: Express): Server {
         .select({
           id: invoices.id,
           patientId: invoices.patientId,
-          testData: invoices.testData,
+          tests: invoices.tests,
           totalAmount: invoices.totalAmount,
           createdAt: invoices.createdAt,
-          patient: {
-            id: patients.id,
-            patientId: patients.patientId,
-            firstName: patients.firstName,
-            lastName: patients.lastName,
-            dateOfBirth: patients.dateOfBirth,
-            gender: patients.gender,
-            phone: patients.phone
-          }
+          patientFirstName: patients.firstName,
+          patientLastName: patients.lastName,
+          patientIdNumber: patients.patientId,
+          patientDateOfBirth: patients.dateOfBirth,
+          patientGender: patients.gender,
+          patientPhone: patients.phone
         })
         .from(invoices)
         .leftJoin(patients, eq(invoices.patientId, patients.id))
         .where(
           and(
             eq(invoices.branchId, branchId),
-            eq(invoices.status, 'paid')
+            eq(invoices.paymentStatus, 'paid')
           )
         )
         .orderBy(desc(invoices.createdAt))
@@ -2235,15 +2232,15 @@ export function registerRoutes(app: Express): Server {
       for (const invoice of paidInvoices) {
         let tests: any[] = [];
         
-        if (typeof invoice.testData === 'string') {
+        if (typeof invoice.tests === 'string') {
           try {
-            tests = JSON.parse(invoice.testData);
+            tests = JSON.parse(invoice.tests);
           } catch (e) {
             console.error('Error parsing test data:', e);
             continue;
           }
-        } else if (Array.isArray(invoice.testData)) {
-          tests = invoice.testData;
+        } else if (Array.isArray(invoice.tests)) {
+          tests = invoice.tests;
         }
 
         console.log(`Processing invoice: ${invoice.id} tests:`, tests);
@@ -2279,8 +2276,8 @@ export function registerRoutes(app: Express): Server {
           cardiologyStudies.push({
             id: `pt-${invoice.id}-${test.testId || Math.random()}`,
             testName,
-            patientName: `${invoice.patient?.firstName || ''} ${invoice.patient?.lastName || ''}`.trim(),
-            patientId: invoice.patient?.patientId || `P${invoice.patientId}`,
+            patientName: `${invoice.patientFirstName || ''} ${invoice.patientLastName || ''}`.trim(),
+            patientId: invoice.patientIdNumber || `P${invoice.patientId}`,
             scheduledAt: invoice.createdAt,
             status: 'scheduled',
             price: testPrice,
