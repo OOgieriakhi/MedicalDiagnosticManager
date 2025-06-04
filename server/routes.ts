@@ -1102,6 +1102,33 @@ export function registerRoutes(app: Express): Server {
       
       console.log('Final imaging tests count:', imagingTests.length);
       
+      // If no results from invoice parsing, try direct patient_tests query
+      if (imagingTests.length === 0) {
+        console.log('No results from invoice parsing, trying direct query...');
+        
+        try {
+          const directResults = await storage.getPatientTestsByCategory(userBranchId, 'Imaging', 50);
+          console.log('Direct query results:', directResults.length);
+          
+          const formattedResults = directResults.map(test => ({
+            id: `pt-${test.id}`,
+            testId: test.testId,
+            testName: test.testName,
+            patientId: test.patientId,
+            patientName: test.patientName,
+            price: test.price || 0,
+            status: test.status || 'scheduled',
+            scheduledAt: test.scheduledAt,
+            categoryName: 'Imaging',
+            paymentMethod: 'paid'
+          }));
+          
+          return res.json(formattedResults);
+        } catch (directError) {
+          console.log('Direct query also failed:', directError);
+        }
+      }
+      
       res.json(imagingTests);
     } catch (error: any) {
       console.error("Error fetching radiology studies:", error);
