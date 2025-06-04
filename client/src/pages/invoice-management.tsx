@@ -232,7 +232,11 @@ export default function InvoiceManagement() {
       });
       return;
     }
-    createReferralMutation.mutate(newReferralName.trim());
+    createReferralProviderMutation.mutate({
+      name: newReferralName.trim(),
+      tenantId: user?.tenantId!,
+      requiresCommissionSetup: true
+    });
   };
 
   const calculateInvoiceAmounts = () => {
@@ -705,10 +709,10 @@ export default function InvoiceManagement() {
               Cancel
             </Button>
             <Button 
-              onClick={handleCreateReferral}
-              disabled={createReferralMutation.isPending || !newReferralName.trim()}
+              onClick={handleCreateReferralProvider}
+              disabled={createReferralProviderMutation.isPending || !newReferralName.trim()}
             >
-              {createReferralMutation.isPending ? "Creating..." : "Create Provider"}
+              {createReferralProviderMutation.isPending ? "Creating..." : "Create Provider"}
             </Button>
           </div>
         </DialogContent>
