@@ -10,6 +10,10 @@ import {
   transactions,
   systemAlerts,
   invoices,
+  badgeDefinitions,
+  staffAchievements,
+  performanceMetrics,
+  recognitionEvents,
   type User, 
   type InsertUser,
   type Tenant,
@@ -23,10 +27,17 @@ import {
   type SystemAlert,
   type InsertSystemAlert,
   type ReferralProvider,
-  type TestCategory,
   type Test,
   type Invoice,
-  type InsertInvoice
+  type InsertInvoice,
+  type BadgeDefinition,
+  type InsertBadgeDefinition,
+  type StaffAchievement,
+  type InsertStaffAchievement,
+  type PerformanceMetric,
+  type InsertPerformanceMetric,
+  type RecognitionEvent,
+  type InsertRecognitionEvent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, between } from "drizzle-orm";
@@ -89,6 +100,20 @@ export interface IStorage {
   getInvoice(id: number): Promise<Invoice | undefined>;
   markInvoiceAsPaid(id: number, paymentData: { paymentMethod: string; paymentDetails: any; paidBy: number }): Promise<void>;
   generateInvoiceNumber(tenantId: number): Promise<string>;
+  
+  // Badge system methods
+  getBadgeDefinitions(tenantId: number): Promise<BadgeDefinition[]>;
+  createBadgeDefinition(badge: InsertBadgeDefinition): Promise<BadgeDefinition>;
+  getStaffAchievements(userId: number): Promise<StaffAchievement[]>;
+  createStaffAchievement(achievement: InsertStaffAchievement): Promise<StaffAchievement>;
+  updateStaffAchievement(id: number, progress: number, isCompleted?: boolean): Promise<void>;
+  recordPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric>;
+  getPerformanceMetrics(userId: number, metricType?: string, period?: string): Promise<PerformanceMetric[]>;
+  createRecognitionEvent(event: InsertRecognitionEvent): Promise<RecognitionEvent>;
+  getRecognitionEvents(branchId: number, recipientId?: number): Promise<RecognitionEvent[]>;
+  approveRecognitionEvent(id: number, approvedBy: number): Promise<void>;
+  getStaffBadgeSummary(userId: number): Promise<any>;
+  getLeaderboard(branchId: number, period?: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -450,6 +475,222 @@ export class DatabaseStorage implements IStorage {
     const sequence = String(count).padStart(4, '0');
     
     return `INV-${year}${month}-${sequence}`;
+  }
+
+  // Badge system implementation
+  async getBadgeDefinitions(tenantId: number): Promise<BadgeDefinition[]> {
+    return await db
+      .select()
+      .from(badgeDefinitions)
+      .where(eq(badgeDefinitions.tenantId, tenantId))
+      .orderBy(badgeDefinitions.name);
+  }
+
+  async createBadgeDefinition(insertBadge: InsertBadgeDefinition): Promise<BadgeDefinition> {
+    const [badge] = await db
+      .insert(badgeDefinitions)
+      .values(insertBadge)
+      .returning();
+    return badge;
+  }
+
+  async getStaffAchievements(userId: number): Promise<StaffAchievement[]> {
+    return await db
+      .select({
+        id: staffAchievements.id,
+        userId: staffAchievements.userId,
+        badgeId: staffAchievements.badgeId,
+        progress: staffAchievements.progress,
+        targetValue: staffAchievements.targetValue,
+        isCompleted: staffAchievements.isCompleted,
+        completedAt: staffAchievements.completedAt,
+        createdAt: staffAchievements.createdAt,
+        badgeName: badgeDefinitions.name,
+        badgeDescription: badgeDefinitions.description,
+        badgeIcon: badgeDefinitions.icon,
+        badgeColor: badgeDefinitions.color
+      })
+      .from(staffAchievements)
+      .leftJoin(badgeDefinitions, eq(staffAchievements.badgeId, badgeDefinitions.id))
+      .where(eq(staffAchievements.userId, userId))
+      .orderBy(desc(staffAchievements.createdAt));
+  }
+
+  async createStaffAchievement(insertAchievement: InsertStaffAchievement): Promise<StaffAchievement> {
+    const [achievement] = await db
+      .insert(staffAchievements)
+      .values(insertAchievement)
+      .returning();
+    return achievement;
+  }
+
+  async updateStaffAchievement(id: number, progress: number, isCompleted?: boolean): Promise<void> {
+    const updateData: any = { progress };
+    if (isCompleted !== undefined) {
+      updateData.isCompleted = isCompleted;
+      if (isCompleted) {
+        updateData.completedAt = new Date();
+      }
+    }
+
+    await db
+      .update(staffAchievements)
+      .set(updateData)
+      .where(eq(staffAchievements.id, id));
+  }
+
+  async recordPerformanceMetric(insertMetric: InsertPerformanceMetric): Promise<PerformanceMetric> {
+    const [metric] = await db
+      .insert(performanceMetrics)
+      .values(insertMetric)
+      .returning();
+    return metric;
+  }
+
+  async getPerformanceMetrics(userId: number, metricType?: string, period?: string): Promise<PerformanceMetric[]> {
+    let query = db
+      .select()
+      .from(performanceMetrics)
+      .where(eq(performanceMetrics.userId, userId));
+
+    if (metricType) {
+      query = query.where(eq(performanceMetrics.metricType, metricType));
+    }
+
+    if (period) {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (period) {
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'quarter':
+          const quarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), quarter * 3, 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), 0, 1); // Year
+      }
+
+      query = query.where(between(performanceMetrics.createdAt, startDate, now));
+    }
+
+    return await query.orderBy(desc(performanceMetrics.createdAt));
+  }
+
+  async createRecognitionEvent(insertEvent: InsertRecognitionEvent): Promise<RecognitionEvent> {
+    const [event] = await db
+      .insert(recognitionEvents)
+      .values(insertEvent)
+      .returning();
+    return event;
+  }
+
+  async getRecognitionEvents(branchId: number, recipientId?: number): Promise<RecognitionEvent[]> {
+    let query = db
+      .select({
+        id: recognitionEvents.id,
+        recipientId: recognitionEvents.recipientId,
+        nominatorId: recognitionEvents.nominatorId,
+        branchId: recognitionEvents.branchId,
+        eventType: recognitionEvents.eventType,
+        title: recognitionEvents.title,
+        description: recognitionEvents.description,
+        isApproved: recognitionEvents.isApproved,
+        approvedBy: recognitionEvents.approvedBy,
+        approvedAt: recognitionEvents.approvedAt,
+        createdAt: recognitionEvents.createdAt,
+        recipientName: sql`recipient.username`.as('recipientName'),
+        nominatorName: sql`nominator.username`.as('nominatorName'),
+        approverName: sql`approver.username`.as('approverName')
+      })
+      .from(recognitionEvents)
+      .leftJoin(users.as('recipient'), eq(recognitionEvents.recipientId, users.id))
+      .leftJoin(users.as('nominator'), eq(recognitionEvents.nominatorId, users.id))
+      .leftJoin(users.as('approver'), eq(recognitionEvents.approvedBy, users.id))
+      .where(eq(recognitionEvents.branchId, branchId));
+
+    if (recipientId) {
+      query = query.where(eq(recognitionEvents.recipientId, recipientId));
+    }
+
+    return await query.orderBy(desc(recognitionEvents.createdAt));
+  }
+
+  async approveRecognitionEvent(id: number, approvedBy: number): Promise<void> {
+    await db
+      .update(recognitionEvents)
+      .set({
+        isApproved: true,
+        approvedBy,
+        approvedAt: new Date()
+      })
+      .where(eq(recognitionEvents.id, id));
+  }
+
+  async getStaffBadgeSummary(userId: number): Promise<any> {
+    const achievements = await db
+      .select({
+        badgeId: staffAchievements.badgeId,
+        isCompleted: staffAchievements.isCompleted,
+        progress: staffAchievements.progress,
+        targetValue: staffAchievements.targetValue,
+        badgeName: badgeDefinitions.name,
+        badgeIcon: badgeDefinitions.icon,
+        badgeColor: badgeDefinitions.color
+      })
+      .from(staffAchievements)
+      .leftJoin(badgeDefinitions, eq(staffAchievements.badgeId, badgeDefinitions.id))
+      .where(eq(staffAchievements.userId, userId));
+
+    const completed = achievements.filter(a => a.isCompleted).length;
+    const inProgress = achievements.filter(a => !a.isCompleted).length;
+
+    return {
+      totalBadges: achievements.length,
+      completedBadges: completed,
+      inProgressBadges: inProgress,
+      achievements
+    };
+  }
+
+  async getLeaderboard(branchId: number, period?: string): Promise<any[]> {
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (period) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'quarter':
+        const quarter = Math.floor(now.getMonth() / 3);
+        startDate = new Date(now.getFullYear(), quarter * 3, 1);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), 0, 1); // Year
+    }
+
+    return await db
+      .select({
+        userId: users.id,
+        username: users.username,
+        branchId: users.branchId,
+        completedBadges: sql`COUNT(CASE WHEN ${staffAchievements.isCompleted} = true THEN 1 END)`.as('completedBadges'),
+        totalPoints: sql`SUM(CASE WHEN ${staffAchievements.isCompleted} = true THEN ${staffAchievements.targetValue} ELSE 0 END)`.as('totalPoints'),
+        recentAchievements: sql`COUNT(CASE WHEN ${staffAchievements.completedAt} >= ${startDate} AND ${staffAchievements.isCompleted} = true THEN 1 END)`.as('recentAchievements')
+      })
+      .from(users)
+      .leftJoin(staffAchievements, eq(users.id, staffAchievements.userId))
+      .where(eq(users.branchId, branchId))
+      .groupBy(users.id, users.username, users.branchId)
+      .orderBy(desc(sql`totalPoints`));
   }
 }
 

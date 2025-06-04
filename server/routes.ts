@@ -652,6 +652,190 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Badge system API routes
+  app.get("/api/badge-definitions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const user = req.user as any;
+      const badges = await storage.getBadgeDefinitions(user.tenantId);
+      res.json(badges);
+    } catch (error) {
+      console.error("Error fetching badge definitions:", error);
+      res.status(500).json({ error: "Failed to fetch badge definitions" });
+    }
+  });
+
+  app.post("/api/badge-definitions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const user = req.user as any;
+      const badgeData = {
+        ...req.body,
+        tenantId: user.tenantId,
+        createdBy: user.id
+      };
+      
+      const badge = await storage.createBadgeDefinition(badgeData);
+      res.status(201).json(badge);
+    } catch (error) {
+      console.error("Error creating badge definition:", error);
+      res.status(500).json({ error: "Failed to create badge definition" });
+    }
+  });
+
+  app.get("/api/staff-achievements/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const userId = parseInt(req.params.userId);
+      const achievements = await storage.getStaffAchievements(userId);
+      res.json(achievements);
+    } catch (error) {
+      console.error("Error fetching staff achievements:", error);
+      res.status(500).json({ error: "Failed to fetch staff achievements" });
+    }
+  });
+
+  app.post("/api/staff-achievements", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const achievement = await storage.createStaffAchievement(req.body);
+      res.status(201).json(achievement);
+    } catch (error) {
+      console.error("Error creating staff achievement:", error);
+      res.status(500).json({ error: "Failed to create staff achievement" });
+    }
+  });
+
+  app.patch("/api/staff-achievements/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const id = parseInt(req.params.id);
+      const { progress, isCompleted } = req.body;
+      
+      await storage.updateStaffAchievement(id, progress, isCompleted);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error updating staff achievement:", error);
+      res.status(500).json({ error: "Failed to update staff achievement" });
+    }
+  });
+
+  app.post("/api/performance-metrics", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const metric = await storage.recordPerformanceMetric(req.body);
+      res.status(201).json(metric);
+    } catch (error) {
+      console.error("Error recording performance metric:", error);
+      res.status(500).json({ error: "Failed to record performance metric" });
+    }
+  });
+
+  app.get("/api/performance-metrics/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const userId = parseInt(req.params.userId);
+      const { metricType, period } = req.query;
+      
+      const metrics = await storage.getPerformanceMetrics(
+        userId, 
+        metricType as string, 
+        period as string
+      );
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching performance metrics:", error);
+      res.status(500).json({ error: "Failed to fetch performance metrics" });
+    }
+  });
+
+  app.post("/api/recognition-events", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const user = req.user as any;
+      const eventData = {
+        ...req.body,
+        branchId: user.branchId,
+        nominatorId: user.id
+      };
+      
+      const event = await storage.createRecognitionEvent(eventData);
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Error creating recognition event:", error);
+      res.status(500).json({ error: "Failed to create recognition event" });
+    }
+  });
+
+  app.get("/api/recognition-events", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const user = req.user as any;
+      const { recipientId } = req.query;
+      
+      const events = await storage.getRecognitionEvents(
+        user.branchId, 
+        recipientId ? parseInt(recipientId as string) : undefined
+      );
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching recognition events:", error);
+      res.status(500).json({ error: "Failed to fetch recognition events" });
+    }
+  });
+
+  app.patch("/api/recognition-events/:id/approve", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const user = req.user as any;
+      const id = parseInt(req.params.id);
+      
+      await storage.approveRecognitionEvent(id, user.id);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Error approving recognition event:", error);
+      res.status(500).json({ error: "Failed to approve recognition event" });
+    }
+  });
+
+  app.get("/api/staff-badge-summary/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const userId = parseInt(req.params.userId);
+      const summary = await storage.getStaffBadgeSummary(userId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching staff badge summary:", error);
+      res.status(500).json({ error: "Failed to fetch staff badge summary" });
+    }
+  });
+
+  app.get("/api/leaderboard", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const user = req.user as any;
+      const { period } = req.query;
+      
+      const leaderboard = await storage.getLeaderboard(user.branchId, period as string);
+      res.json(leaderboard);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

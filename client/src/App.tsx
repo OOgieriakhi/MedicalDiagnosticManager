@@ -13,6 +13,7 @@ import PatientManagement from "@/pages/patient-management";
 import FinancialManagement from "@/pages/financial-management";
 import NotificationCenter from "@/pages/notification-center";
 import InvoiceManagement from "@/pages/invoice-management";
+import StaffRecognition from "@/pages/staff-recognition";
 
 function Router() {
   return (
