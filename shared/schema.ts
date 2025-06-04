@@ -119,7 +119,7 @@ export const patientTests = pgTable("patient_tests", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").notNull(),
   testId: integer("test_id").notNull(),
-  status: text("status").notNull().default("scheduled"), // scheduled, in_progress, completed, cancelled
+  status: text("status").notNull().default("scheduled"), // scheduled, payment_verified, specimen_collected, processing, completed, cancelled
   scheduledAt: timestamp("scheduled_at").notNull(),
   completedAt: timestamp("completed_at"),
   results: text("results"),
@@ -128,6 +128,28 @@ export const patientTests = pgTable("patient_tests", {
   consultantId: integer("consultant_id"),
   branchId: integer("branch_id").notNull(),
   tenantId: integer("tenant_id").notNull(),
+  
+  // Payment verification workflow
+  paymentVerified: boolean("payment_verified").default(false),
+  paymentVerifiedBy: integer("payment_verified_by"),
+  paymentVerifiedAt: timestamp("payment_verified_at"),
+  
+  // Specimen collection workflow
+  specimenCollected: boolean("specimen_collected").default(false),
+  specimenCollectedBy: integer("specimen_collected_by"),
+  specimenCollectedAt: timestamp("specimen_collected_at"),
+  specimenType: text("specimen_type"), // blood, urine, stool, etc.
+  
+  // Processing workflow
+  processingStarted: boolean("processing_started").default(false),
+  processingStartedBy: integer("processing_started_by"),
+  processingStartedAt: timestamp("processing_started_at"),
+  
+  // Turnaround time tracking
+  expectedTurnaroundHours: integer("expected_turnaround_hours"), // Expected completion time in hours
+  reportReadyAt: timestamp("report_ready_at"),
+  reportReleasedAt: timestamp("report_released_at"),
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

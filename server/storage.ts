@@ -79,6 +79,12 @@ export interface IStorage {
   updatePatientTestStatus(id: number, status: string): Promise<void>;
   updatePatientTestResults(id: number, results: string, notes?: string, updatedBy?: number): Promise<void>;
   
+  // Laboratory workflow management
+  verifyPayment(testId: number, verifiedBy: number): Promise<void>;
+  collectSpecimen(testId: number, collectedBy: number, specimenType: string): Promise<void>;
+  startProcessing(testId: number, startedBy: number, expectedHours: number): Promise<void>;
+  completeTest(testId: number, results: string, notes?: string): Promise<void>;
+  
   // Financial management
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   getTodayRevenue(branchId: number): Promise<number>;
@@ -791,6 +797,62 @@ export class DatabaseStorage implements IStorage {
         recentAchievements: 2
       }
     ];
+  }
+
+  // Laboratory workflow management methods
+  async verifyPayment(testId: number, verifiedBy: number): Promise<void> {
+    await db
+      .update(patientTests)
+      .set({
+        paymentVerified: true,
+        paymentVerifiedBy: verifiedBy,
+        paymentVerifiedAt: new Date(),
+        status: 'payment_verified',
+        updatedAt: new Date()
+      })
+      .where(eq(patientTests.id, testId));
+  }
+
+  async collectSpecimen(testId: number, collectedBy: number, specimenType: string): Promise<void> {
+    await db
+      .update(patientTests)
+      .set({
+        specimenCollected: true,
+        specimenCollectedBy: collectedBy,
+        specimenCollectedAt: new Date(),
+        specimenType: specimenType,
+        status: 'specimen_collected',
+        updatedAt: new Date()
+      })
+      .where(eq(patientTests.id, testId));
+  }
+
+  async startProcessing(testId: number, startedBy: number, expectedHours: number): Promise<void> {
+    await db
+      .update(patientTests)
+      .set({
+        processingStarted: true,
+        processingStartedBy: startedBy,
+        processingStartedAt: new Date(),
+        expectedTurnaroundHours: expectedHours,
+        status: 'processing',
+        updatedAt: new Date()
+      })
+      .where(eq(patientTests.id, testId));
+  }
+
+  async completeTest(testId: number, results: string, notes?: string): Promise<void> {
+    await db
+      .update(patientTests)
+      .set({
+        results: results,
+        notes: notes,
+        reportReadyAt: new Date(),
+        status: 'completed',
+        completedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(patientTests.id, testId));
   }
 }
 
