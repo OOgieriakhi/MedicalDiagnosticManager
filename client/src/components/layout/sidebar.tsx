@@ -7,7 +7,8 @@ import {
   UserPlus, 
   FlaskRound, 
   DollarSign, 
-  Calculator, 
+  Calculator,
+  Wallet,
   Users, 
   FileText, 
   Shield, 
@@ -17,7 +18,6 @@ import {
   User,
   ClipboardList,
   MessageCircle,
-  Receipt,
   Award,
   Activity,
   Eye,
@@ -56,6 +56,8 @@ export default function Sidebar() {
         { icon: Pill, label: "Pharmacy Management", path: "/pharmacy-management", active: location === "/pharmacy-management" },
         { icon: Building, label: "Administrative Management", path: "/administrative-management", active: location === "/administrative-management" },
         { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
+        { icon: FileText, label: "Purchase Orders", path: "/purchase-orders", active: location === "/purchase-orders" },
+        { icon: Wallet, label: "Petty Cash", path: "/petty-cash", active: location === "/petty-cash" },
       ]
     },
     {
