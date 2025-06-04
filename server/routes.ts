@@ -872,21 +872,19 @@ export function registerRoutes(app: Express): Server {
       const { startDate, endDate, branchId, modality, limit = 50 } = req.query;
       const userBranchId = branchId ? parseInt(branchId as string) : (req.user?.branchId || 1);
       
-      // Get imaging tests from paid invoices
-      const paidTests = await storage.getPatientTestsByCategory(userBranchId, 'Radiology & Imaging', parseInt(limit as string));
-      
       const start = startDate ? new Date(startDate as string) : undefined;
       const end = endDate ? new Date(endDate as string) : undefined;
       
-      const filteredTests = paidTests.filter(test => {
-        if (!start && !end) return true;
-        const testDate = new Date(test.scheduledAt);
-        if (start && testDate < start) return false;
-        if (end && testDate > end) return false;
-        return true;
+      // Get paid imaging tests only
+      const paidTests = await storage.getPatientTestsByBranch(userBranchId, parseInt(limit as string), true, start, end);
+      
+      // Filter for imaging/radiology tests only
+      const imagingTests = paidTests.filter(test => {
+        const categoryName = test.categoryName?.toLowerCase() || '';
+        return categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound');
       });
       
-      res.json(filteredTests);
+      res.json(imagingTests);
     } catch (error: any) {
       console.error("Error fetching radiology studies:", error);
       res.status(500).json({ message: "Error fetching radiology studies" });
