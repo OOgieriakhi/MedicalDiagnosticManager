@@ -144,6 +144,7 @@ export default function PurchaseOrders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders/pending-approvals"] });
       setShowNewPODialog(false);
       poForm.reset();
       setSelectedItems([{ itemName: "", description: "", category: "", quantity: 1, unitPrice: 0, totalPrice: 0 }]);
