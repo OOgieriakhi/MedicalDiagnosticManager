@@ -15,6 +15,9 @@ import NotificationCenter from "@/pages/notification-center";
 import InvoiceManagement from "@/pages/invoice-management";
 import StaffRecognition from "@/pages/staff-recognition";
 import LaboratoryManagement from "@/pages/laboratory-management";
+import RadiologyManagement from "@/pages/radiology-management";
+import PharmacyManagement from "@/pages/pharmacy-management";
+import AdministrativeManagement from "@/pages/administrative-management";
 import CashiersModule from "@/pages/cashiers-module";
 
 function Router() {
@@ -28,6 +31,9 @@ function Router() {
       <ProtectedRoute path="/notifications" component={NotificationCenter} />
       <ProtectedRoute path="/staff-recognition" component={StaffRecognition} />
       <ProtectedRoute path="/laboratory-management" component={LaboratoryManagement} />
+      <ProtectedRoute path="/radiology-management" component={RadiologyManagement} />
+      <ProtectedRoute path="/pharmacy-management" component={PharmacyManagement} />
+      <ProtectedRoute path="/administrative-management" component={AdministrativeManagement} />
       <ProtectedRoute path="/cashiers" component={CashiersModule} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
