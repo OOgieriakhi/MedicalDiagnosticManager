@@ -34,6 +34,8 @@ function Router() {
       <ProtectedRoute path="/staff-recognition" component={StaffRecognition} />
       <ProtectedRoute path="/laboratory-management" component={LaboratoryManagement} />
       <ProtectedRoute path="/radiology-management" component={RadiologyManagement} />
+      <ProtectedRoute path="/ultrasound-unit" component={UltrasoundUnit} />
+      <ProtectedRoute path="/cardiology-unit" component={CardiologyUnit} />
       <ProtectedRoute path="/pharmacy-management" component={PharmacyManagement} />
       <ProtectedRoute path="/administrative-management" component={AdministrativeManagement} />
       <ProtectedRoute path="/cashiers" component={CashiersModule} />

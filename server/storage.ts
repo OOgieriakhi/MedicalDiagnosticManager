@@ -623,15 +623,15 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(patients, eq(invoices.patientId, patients.id))
       .leftJoin(users, eq(invoices.createdBy, users.id));
 
-    if (status) {
-      return await baseQuery
-        .where(and(eq(invoices.branchId, branchId), eq(invoices.paymentStatus, status)))
-        .orderBy(desc(invoices.createdAt));
-    } else {
-      return await baseQuery
-        .where(eq(invoices.branchId, branchId))
-        .orderBy(desc(invoices.createdAt));
+    const conditions = [eq(invoices.branchId, branchId)];
+    
+    if (status && status !== 'all') {
+      conditions.push(eq(invoices.paymentStatus, status));
     }
+
+    return await baseQuery
+      .where(and(...conditions))
+      .orderBy(desc(invoices.createdAt));
   }
 
   async getInvoice(id: number): Promise<Invoice | undefined> {
