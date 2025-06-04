@@ -32,6 +32,7 @@ export default function InvoiceManagement() {
   const [discountPercentage, setDiscountPercentage] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [createdInvoice, setCreatedInvoice] = useState<any>(null);
 
   // Fetch patients
   const { data: patients = [] } = useQuery({
@@ -58,15 +59,12 @@ export default function InvoiceManagement() {
       return response.json();
     },
     onSuccess: (invoice) => {
+      setCreatedInvoice(invoice);
+      setShowInvoicePreview(true);
       toast({
         title: "Invoice Created",
         description: `Invoice #${invoice.invoiceNumber} has been generated successfully.`,
       });
-      // Reset form
-      setSelectedPatient("");
-      setSelectedTests([]);
-      setDiscountPercentage(0);
-      setShowInvoicePreview(false);
     },
     onError: () => {
       toast({

@@ -202,6 +202,66 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Create invoice
+  app.post("/api/invoices", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceData = req.body;
+      
+      // Generate invoice number
+      const year = new Date().getFullYear();
+      const random = Math.floor(Math.random() * 9000) + 1000;
+      const invoiceNumber = `${year}-${random.toString().padStart(4, '0')}`;
+
+      // Create transaction for the invoice
+      const transaction = await storage.createTransaction({
+        type: "payment",
+        amount: invoiceData.totalAmount.toString(),
+        description: `Invoice payment for ${invoiceData.tests.length} test(s)`,
+        branchId: invoiceData.branchId,
+        tenantId: invoiceData.tenantId,
+        createdBy: invoiceData.createdBy
+      });
+
+      // Create patient tests for each test in the invoice
+      for (const test of invoiceData.tests) {
+        await storage.createPatientTest({
+          patientId: invoiceData.patientId,
+          testId: test.testId,
+          status: "pending",
+          scheduledAt: new Date(),
+          tenantId: invoiceData.tenantId,
+          branchId: invoiceData.branchId,
+          technicianId: invoiceData.createdBy
+        });
+      }
+
+      const invoice = {
+        id: transaction.id,
+        invoiceNumber: invoiceNumber,
+        patientId: invoiceData.patientId,
+        tests: invoiceData.tests,
+        subtotal: invoiceData.subtotal,
+        discountPercentage: invoiceData.discountPercentage,
+        discountAmount: invoiceData.discountAmount,
+        commissionAmount: invoiceData.commissionAmount,
+        totalAmount: invoiceData.totalAmount,
+        netAmount: invoiceData.netAmount,
+        paymentMethod: invoiceData.paymentMethod,
+        status: "paid",
+        createdAt: new Date().toISOString()
+      };
+
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get referral providers (with tenant ID from user session)
   app.get("/api/referral-providers", async (req, res) => {
     try {
