@@ -45,7 +45,8 @@ export default function PatientIntake() {
     phone: "",
     dateOfBirth: "",
     gender: "male",
-    address: ""
+    address: "",
+    nin: ""
   });
   
   const [billingInfo, setBillingInfo] = useState({
@@ -166,7 +167,7 @@ export default function PatientIntake() {
     
     // Create patient test records for each selected test
     const testPromises = selectedTests.map(testId => {
-      return scheduleTestsMutation.mutateAsync({
+      return apiRequest("POST", "/api/patient-tests", {
         testId: testId,
         patientId: selectedPatient?.id,
         branchId: user?.branchId,
@@ -174,7 +175,7 @@ export default function PatientIntake() {
         status: "scheduled",
         scheduledAt: new Date(appointmentDetails.scheduledAt).toISOString(),
         notes: appointmentDetails.notes || ""
-      });
+      }).then(response => response.json());
     });
 
     Promise.all(testPromises)
@@ -355,6 +356,16 @@ export default function PatientIntake() {
                           <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="nin">NIN (National ID)</Label>
+                      <Input
+                        id="nin"
+                        value={newPatientData.nin}
+                        onChange={(e) => setNewPatientData({ ...newPatientData, nin: e.target.value })}
+                        placeholder="Enter 11-digit NIN (optional)"
+                        maxLength={11}
+                      />
                     </div>
                   </div>
                   
@@ -620,8 +631,9 @@ export default function PatientIntake() {
                         email: "",
                         phone: "",
                         dateOfBirth: "",
-                        gender: "",
-                        address: ""
+                        gender: "male",
+                        address: "",
+                        nin: ""
                       });
                       setSearchQuery("");
                       setTestSearchTerm("");

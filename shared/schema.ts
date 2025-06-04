@@ -62,6 +62,7 @@ export const patients = pgTable("patients", {
   dateOfBirth: timestamp("date_of_birth"),
   gender: text("gender"), // male, female, other
   address: text("address"),
+  nin: text("nin"), // National Identification Number (11 digits)
   pathway: text("pathway").notNull().default("self"), // self, referral
   referralProviderId: integer("referral_provider_id"),
   tenantId: integer("tenant_id").notNull(),
