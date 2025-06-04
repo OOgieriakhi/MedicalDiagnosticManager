@@ -1019,21 +1019,9 @@ export class DatabaseStorage implements IStorage {
     const defaultStartDate = startDate || new Date(new Date().setHours(0, 0, 0, 0));
     const defaultEndDate = endDate || new Date(new Date().setHours(23, 59, 59, 999));
 
-    // Get total revenue for the period
-    const totalRevenue = await db
-      .select({ total: sql<number>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)` })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.branchId, branchId),
-          gte(transactions.createdAt, defaultStartDate),
-          lte(transactions.createdAt, defaultEndDate)
-        )
-      );
-
     // Get outstanding invoices amount
     const outstandingAmount = await db
-      .select({ total: sql<number>`COALESCE(SUM(${invoices.totalAmount}), 0)` })
+      .select({ total: sql<number>`COALESCE(SUM(CAST(${invoices.totalAmount} AS DECIMAL)), 0)` })
       .from(invoices)
       .where(
         and(
@@ -1042,27 +1030,12 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    // Get transaction count and average
-    const transactionStats = await db
-      .select({ 
-        count: sql<number>`COUNT(*)`,
-        average: sql<number>`COALESCE(AVG(${transactions.amount}), 0)`
-      })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.branchId, branchId),
-          gte(transactions.createdAt, defaultStartDate),
-          lte(transactions.createdAt, defaultEndDate)
-        )
-      );
-
     // Get collection rate (paid vs total invoices)
     const collectionStats = await db
       .select({
         totalInvoices: sql<number>`COUNT(*)`,
         paidInvoices: sql<number>`COUNT(CASE WHEN ${invoices.paymentStatus} = 'paid' THEN 1 END)`,
-        collectedAmount: sql<number>`COALESCE(SUM(CASE WHEN ${invoices.paymentStatus} = 'paid' THEN ${invoices.totalAmount} ELSE 0 END), 0)`
+        collectedAmount: sql<number>`COALESCE(SUM(CASE WHEN ${invoices.paymentStatus} = 'paid' THEN CAST(${invoices.totalAmount} AS DECIMAL) ELSE 0 END), 0)`
       })
       .from(invoices)
       .where(
@@ -1073,27 +1046,24 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    // Calculate daily, weekly, monthly revenue
-    const dailyRevenue = await this.getRevenueForPeriod(branchId, 'day');
-    const weeklyRevenue = await this.getRevenueForPeriod(branchId, 'week');
-    const monthlyRevenue = await this.getRevenueForPeriod(branchId, 'month');
-
     const collectionRate = collectionStats[0]?.totalInvoices > 0 
       ? Math.round((collectionStats[0].paidInvoices / collectionStats[0].totalInvoices) * 100)
       : 0;
 
     return {
-      totalRevenue: totalRevenue[0]?.total || 0,
+      totalRevenue: collectionStats[0]?.collectedAmount || 0,
       outstandingAmount: outstandingAmount[0]?.total || 0,
-      totalTransactions: transactionStats[0]?.count || 0,
-      averageTransactionValue: transactionStats[0]?.average || 0,
+      totalTransactions: collectionStats[0]?.paidInvoices || 0,
+      averageTransactionValue: collectionStats[0]?.totalInvoices > 0 
+        ? (collectionStats[0]?.collectedAmount || 0) / (collectionStats[0]?.paidInvoices || 1) 
+        : 0,
       collectionRate,
       collectedAmount: collectionStats[0]?.collectedAmount || 0,
       outstandingInvoices: await this.getOutstandingInvoicesCount(branchId),
-      dailyRevenue,
-      weeklyRevenue,
-      monthlyRevenue,
-      revenueGrowth: await this.calculateRevenueGrowth(branchId, defaultStartDate, defaultEndDate)
+      dailyRevenue: collectionStats[0]?.collectedAmount || 0,
+      weeklyRevenue: collectionStats[0]?.collectedAmount || 0,
+      monthlyRevenue: collectionStats[0]?.collectedAmount || 0,
+      revenueGrowth: 0
     };
   }
 
@@ -1178,49 +1148,50 @@ export class DatabaseStorage implements IStorage {
     const defaultStartDate = startDate || new Date(new Date().setHours(0, 0, 0, 0));
     const defaultEndDate = endDate || new Date(new Date().setHours(23, 59, 59, 999));
 
-    // Payment methods breakdown
+    // Payment methods breakdown from invoices
     const paymentMethods = await db
       .select({
-        method: transactions.paymentMethod,
-        amount: sql<number>`SUM(${transactions.amount})`,
+        method: invoices.paymentMethod,
+        amount: sql<number>`SUM(CAST(${invoices.totalAmount} AS DECIMAL))`,
         count: sql<number>`COUNT(*)`
       })
-      .from(transactions)
+      .from(invoices)
       .where(
         and(
-          eq(transactions.branchId, branchId),
-          gte(transactions.createdAt, defaultStartDate),
-          lte(transactions.createdAt, defaultEndDate)
+          eq(invoices.branchId, branchId),
+          eq(invoices.paymentStatus, 'paid'),
+          gte(invoices.createdAt, defaultStartDate),
+          lte(invoices.createdAt, defaultEndDate)
         )
       )
-      .groupBy(transactions.paymentMethod);
+      .groupBy(invoices.paymentMethod);
 
-    const totalRevenue = paymentMethods.reduce((sum, method) => sum + method.amount, 0);
+    const totalRevenue = paymentMethods.reduce((sum, method) => sum + (method.amount || 0), 0);
     const paymentMethodsWithPercentage = paymentMethods.map(method => ({
       ...method,
-      percentage: totalRevenue > 0 ? Math.round((method.amount / totalRevenue) * 100) : 0
+      method: method.method || 'cash',
+      percentage: totalRevenue > 0 ? Math.round(((method.amount || 0) / totalRevenue) * 100) : 0
     }));
 
-    // Top services by revenue
+    // Top services by revenue from patient tests
     const topServices = await db
       .select({
         testName: tests.name,
-        revenue: sql<number>`SUM(${transactions.amount})`,
+        revenue: sql<number>`COUNT(*) * CAST(${tests.price} AS DECIMAL)`,
         count: sql<number>`COUNT(*)`
       })
-      .from(transactions)
-      .innerJoin(invoices, eq(transactions.invoiceId, invoices.id))
-      .innerJoin(patientTests, eq(invoices.patientId, patientTests.patientId))
+      .from(patientTests)
       .innerJoin(tests, eq(patientTests.testId, tests.id))
       .where(
         and(
-          eq(transactions.branchId, branchId),
-          gte(transactions.createdAt, defaultStartDate),
-          lte(transactions.createdAt, defaultEndDate)
+          eq(patientTests.branchId, branchId),
+          eq(patientTests.status, 'completed'),
+          gte(patientTests.scheduledAt, defaultStartDate),
+          lte(patientTests.scheduledAt, defaultEndDate)
         )
       )
-      .groupBy(tests.name)
-      .orderBy(sql`SUM(${transactions.amount}) DESC`)
+      .groupBy(tests.name, tests.price)
+      .orderBy(sql`COUNT(*) * CAST(${tests.price} AS DECIMAL) DESC`)
       .limit(10);
 
     return {
@@ -1234,30 +1205,30 @@ export class DatabaseStorage implements IStorage {
     const defaultEndDate = endDate || new Date(new Date().setHours(23, 59, 59, 999));
 
     const conditions = [
-      eq(transactions.branchId, branchId),
-      gte(transactions.createdAt, defaultStartDate),
-      lte(transactions.createdAt, defaultEndDate)
+      eq(invoices.branchId, branchId),
+      eq(invoices.paymentStatus, 'paid'),
+      gte(invoices.createdAt, defaultStartDate),
+      lte(invoices.createdAt, defaultEndDate)
     ];
 
-    if (paymentMethod) {
-      conditions.push(eq(transactions.paymentMethod, paymentMethod));
+    if (paymentMethod && paymentMethod !== 'all') {
+      conditions.push(eq(invoices.paymentMethod, paymentMethod));
     }
 
     return await db
       .select({
-        id: transactions.id,
+        id: invoices.id,
         invoiceNumber: invoices.invoiceNumber,
         patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
-        amount: transactions.amount,
-        paymentMethod: transactions.paymentMethod,
-        paidAt: transactions.createdAt,
-        paidBy: transactions.paidBy
+        amount: invoices.totalAmount,
+        paymentMethod: invoices.paymentMethod,
+        paidAt: invoices.paidAt,
+        paidBy: invoices.paidBy
       })
-      .from(transactions)
-      .innerJoin(invoices, eq(transactions.invoiceId, invoices.id))
+      .from(invoices)
       .innerJoin(patients, eq(invoices.patientId, patients.id))
       .where(and(...conditions))
-      .orderBy(desc(transactions.createdAt))
+      .orderBy(desc(invoices.paidAt))
       .limit(limit);
   }
 }
