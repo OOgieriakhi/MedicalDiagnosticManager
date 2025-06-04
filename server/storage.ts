@@ -293,15 +293,18 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (startDate) {
+      console.log('Adding start date filter:', startDate);
       conditions.push(gte(patientTests.scheduledAt, startDate));
     }
     
     if (endDate) {
       const endOfDay = new Date(endDate);
       endOfDay.setHours(23, 59, 59, 999);
+      console.log('Adding end date filter:', endOfDay);
       conditions.push(lte(patientTests.scheduledAt, endOfDay));
     }
 
+    console.log('Total conditions applied:', conditions.length);
     query.where(and(...conditions));
 
     return await query
