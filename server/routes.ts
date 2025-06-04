@@ -505,6 +505,32 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Update patient test results (for laboratory module)
+  app.patch("/api/patient-tests/:id/results", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const testId = parseInt(req.params.id);
+      const { results, notes, status, updatedBy } = req.body;
+
+      if (isNaN(testId)) {
+        return res.status(400).json({ message: "Invalid test ID" });
+      }
+
+      if (!results) {
+        return res.status(400).json({ message: "Test results are required" });
+      }
+
+      await storage.updatePatientTestResults(testId, results, notes, updatedBy);
+      res.json({ success: true, message: "Test results updated successfully" });
+    } catch (error) {
+      console.error("Error updating test results:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get test categories (with tenant ID from user session)
   app.get("/api/test-categories", async (req, res) => {
     try {

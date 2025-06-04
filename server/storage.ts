@@ -40,7 +40,7 @@ import {
   type InsertRecognitionEvent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, between } from "drizzle-orm";
+import { eq, and, or, desc, sql, between, ilike } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -73,9 +73,11 @@ export interface IStorage {
   
   // Patient tests management
   getPatientTestsByBranch(branchId: number, limit?: number): Promise<PatientTest[]>;
+  getPatientTestsByCategory(branchId: number, category: string, limit?: number): Promise<any[]>;
   getRecentPatientTests(branchId: number, limit?: number): Promise<any[]>;
   createPatientTest(patientTest: InsertPatientTest): Promise<PatientTest>;
   updatePatientTestStatus(id: number, status: string): Promise<void>;
+  updatePatientTestResults(id: number, results: string, notes?: string, updatedBy?: number): Promise<void>;
   
   // Financial management
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
@@ -237,6 +239,36 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
+  async getPatientTestsByCategory(branchId: number, category: string, limit = 50): Promise<any[]> {
+    return await db
+      .select({
+        id: patientTests.id,
+        testName: tests.name,
+        testCode: tests.code,
+        patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
+        status: patientTests.status,
+        scheduledAt: patientTests.scheduledAt,
+        createdAt: patientTests.createdAt,
+        description: tests.description,
+        duration: tests.duration,
+        requiresConsultant: tests.requiresConsultant,
+        results: patientTests.results,
+        notes: patientTests.notes
+      })
+      .from(patientTests)
+      .innerJoin(tests, eq(patientTests.testId, tests.id))
+      .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
+      .innerJoin(patients, eq(patientTests.patientId, patients.id))
+      .where(
+        and(
+          eq(patientTests.branchId, branchId),
+          ilike(testCategories.name, `%${category}%`)
+        )
+      )
+      .orderBy(desc(patientTests.scheduledAt))
+      .limit(limit);
+  }
+
   async getRecentPatientTests(branchId: number, limit = 10): Promise<any[]> {
     return await db
       .select({
@@ -270,6 +302,19 @@ export class DatabaseStorage implements IStorage {
       .set({ 
         status, 
         completedAt: status === 'completed' ? new Date() : null,
+        updatedAt: new Date()
+      })
+      .where(eq(patientTests.id, id));
+  }
+
+  async updatePatientTestResults(id: number, results: string, notes?: string, updatedBy?: number): Promise<void> {
+    await db
+      .update(patientTests)
+      .set({ 
+        results,
+        notes,
+        status: 'completed',
+        completedAt: new Date(),
         updatedAt: new Date()
       })
       .where(eq(patientTests.id, id));
