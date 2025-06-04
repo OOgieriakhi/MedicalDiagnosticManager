@@ -534,67 +534,90 @@ export default function PatientIntake() {
               <CardTitle>Select Diagnostic Tests</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mb-4 p-2 bg-yellow-50 text-xs">
+                  <p>Categories: {testCategories.length} | Tests: {tests.length}</p>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                  <Tabs defaultValue={testCategories[0]?.id?.toString() || "1"} className="space-y-4">
-                    <TabsList>
-                      {testCategories.map((category: any) => (
-                        <TabsTrigger key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
+                  {testCategories.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-slate-gray">Loading test categories...</p>
+                    </div>
+                  ) : tests.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-slate-gray">Loading diagnostic tests...</p>
+                    </div>
+                  ) : (
+                    <Tabs defaultValue={testCategories[0]?.id?.toString() || "1"} className="space-y-4">
+                      <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+                        {testCategories.slice(0, 4).map((category: any) => (
+                          <TabsTrigger key={category.id} value={category.id.toString()}>
+                            {category.name}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
 
-                    {testCategories.map((category: any) => (
-                      <TabsContent key={category.id} value={category.id.toString()}>
-                        <div className="space-y-3">
-                          {tests
-                            .filter((test: any) => test.categoryId === category.id)
-                            .map((test: any) => (
-                              <div 
-                                key={test.id} 
-                                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                                  selectedTests.includes(test.id) 
-                                    ? 'border-medical-blue bg-blue-50' 
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                                onClick={() => handleTestSelection(test.id)}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-3">
-                                    <Checkbox 
-                                      checked={selectedTests.includes(test.id)}
-                                      onCheckedChange={() => handleTestSelection(test.id)}
-                                    />
-                                    <div>
-                                      <h4 className="font-medium text-gray-900">{test.name}</h4>
-                                      <p className="text-sm text-slate-gray">Code: {test.code}</p>
-                                      <div className="flex items-center space-x-4 mt-1">
-                                        <span className="text-xs text-slate-gray">
-                                          <Clock className="inline w-3 h-3 mr-1" />
-                                          {test.duration} min
-                                        </span>
-                                        {test.requiresConsultant && (
-                                          <Badge variant="outline" className="text-xs">
-                                            Requires Specialist
-                                          </Badge>
-                                        )}
+                      {testCategories.map((category: any) => {
+                        const categoryTests = tests.filter((test: any) => test.categoryId === category.id);
+                        return (
+                          <TabsContent key={category.id} value={category.id.toString()}>
+                            <div className="space-y-3">
+                              {categoryTests.length === 0 ? (
+                                <div className="text-center py-8">
+                                  <p className="text-slate-gray">No tests available in this category</p>
+                                </div>
+                              ) : (
+                                categoryTests.map((test: any) => (
+                                  <div 
+                                    key={test.id} 
+                                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                                      selectedTests.includes(test.id) 
+                                        ? 'border-medical-blue bg-blue-50' 
+                                        : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                                    onClick={() => handleTestSelection(test.id)}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-3">
+                                        <Checkbox 
+                                          checked={selectedTests.includes(test.id)}
+                                          onCheckedChange={() => handleTestSelection(test.id)}
+                                        />
+                                        <div>
+                                          <h4 className="font-medium text-gray-900">{test.name}</h4>
+                                          <p className="text-sm text-slate-gray">Code: {test.code}</p>
+                                          <div className="flex items-center space-x-4 mt-1">
+                                            <span className="text-xs text-slate-gray">
+                                              <Clock className="inline w-3 h-3 mr-1" />
+                                              {test.duration} min
+                                            </span>
+                                            {test.requiresConsultant && (
+                                              <Badge variant="outline" className="text-xs">
+                                                Requires Specialist
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-lg font-bold text-gray-900">
+                                          ₦{test.price?.toLocaleString() || '0'}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="text-right">
-                                    <div className="text-lg font-bold text-gray-900">
-                                      ₦{test.price?.toLocaleString() || '0'}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          }
-                        </div>
-                      </TabsContent>
-                    ))}
-                  </Tabs>
+                                ))
+                              )}
+                            </div>
+                          </TabsContent>
+                        )
+                      })}
+                    </Tabs>
+                  )}
                 </div>
 
                 {/* Order Summary */}
