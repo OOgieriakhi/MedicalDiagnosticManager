@@ -14,6 +14,7 @@ import FinancialManagement from "@/pages/financial-management";
 import NotificationCenter from "@/pages/notification-center";
 import InvoiceManagement from "@/pages/invoice-management";
 import StaffRecognition from "@/pages/staff-recognition";
+import LaboratoryManagement from "@/pages/laboratory-management";
 
 function Router() {
   return (
@@ -25,6 +26,7 @@ function Router() {
       <ProtectedRoute path="/invoice-management" component={InvoiceManagement} />
       <ProtectedRoute path="/notifications" component={NotificationCenter} />
       <ProtectedRoute path="/staff-recognition" component={StaffRecognition} />
+      <ProtectedRoute path="/laboratory" component={LaboratoryManagement} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
