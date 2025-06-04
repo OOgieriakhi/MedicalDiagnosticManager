@@ -242,50 +242,25 @@ export function registerRoutes(app: Express): Server {
       }
 
       const invoiceData = req.body;
+      console.log("Invoice data received:", invoiceData);
       
       // Generate invoice number
-      const year = new Date().getFullYear();
-      const random = Math.floor(Math.random() * 9000) + 1000;
-      const invoiceNumber = `${year}-${random.toString().padStart(4, '0')}`;
+      const invoiceNumber = await storage.generateInvoiceNumber(invoiceData.tenantId);
 
-      // Create transaction for the invoice
-      const transaction = await storage.createTransaction({
-        type: "payment",
-        amount: invoiceData.totalAmount.toString(),
-        description: `Invoice payment for ${invoiceData.tests.length} test(s)`,
+      // Create the invoice using storage
+      const invoice = await storage.createInvoice({
+        invoiceNumber,
+        patientId: invoiceData.patientId,
         branchId: invoiceData.branchId,
         tenantId: invoiceData.tenantId,
+        items: invoiceData.items || [],
+        subtotal: invoiceData.subtotal || 0,
+        commission: invoiceData.commission || 0,
+        total: invoiceData.total || 0,
+        status: invoiceData.status || "pending",
+        paymentMethod: invoiceData.paymentMethod,
         createdBy: req.user?.id || 1
       });
-
-      // Create patient tests for each test in the invoice
-      for (const test of invoiceData.tests) {
-        await storage.createPatientTest({
-          patientId: invoiceData.patientId,
-          testId: test.testId,
-          status: "pending",
-          scheduledAt: new Date(),
-          tenantId: invoiceData.tenantId,
-          branchId: invoiceData.branchId,
-          technicianId: invoiceData.createdBy
-        });
-      }
-
-      const invoice = {
-        id: transaction.id,
-        invoiceNumber: invoiceNumber,
-        patientId: invoiceData.patientId,
-        tests: invoiceData.tests,
-        subtotal: invoiceData.subtotal,
-        discountPercentage: invoiceData.discountPercentage,
-        discountAmount: invoiceData.discountAmount,
-        commissionAmount: invoiceData.commissionAmount,
-        totalAmount: invoiceData.totalAmount,
-        netAmount: invoiceData.netAmount,
-        paymentMethod: invoiceData.paymentMethod,
-        status: "paid",
-        createdAt: new Date().toISOString()
-      };
 
       res.status(201).json(invoice);
     } catch (error) {
