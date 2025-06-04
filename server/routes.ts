@@ -308,6 +308,11 @@ export function registerRoutes(app: Express): Server {
 
   // Get patient tests with filtering
   app.get("/api/patient-tests", async (req, res) => {
+    // Disable caching to ensure date filtering works
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     try {
       if (!req.isAuthenticated()) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -760,6 +765,11 @@ export function registerRoutes(app: Express): Server {
 
   // Laboratory workflow metrics
   app.get("/api/laboratory/metrics", async (req, res) => {
+    // Disable caching to ensure date filtering works
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     if (!req.isAuthenticated()) {
       return res.sendStatus(401);
     }
