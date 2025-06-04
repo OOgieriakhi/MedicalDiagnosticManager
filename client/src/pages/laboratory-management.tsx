@@ -50,6 +50,8 @@ export default function LaboratoryManagement() {
   const [expectedHours, setExpectedHours] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [processingTests, setProcessingTests] = useState<Set<number>>(new Set());
+  const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
 
   // Query for laboratory workflow metrics
   const { data: labMetrics, isLoading: metricsLoading } = useQuery({
@@ -130,17 +132,39 @@ export default function LaboratoryManagement() {
   // Workflow management mutations
   const verifyPaymentMutation = useMutation({
     mutationFn: async (testId: number) => {
+      setProcessingTests(prev => new Set(prev).add(testId));
       const response = await apiRequest("POST", `/api/patient-tests/${testId}/verify-payment`);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, testId) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
+      setCompletedActions(prev => new Set(prev).add(`payment-${testId}`));
+      
+      setTimeout(() => {
+        setCompletedActions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(`payment-${testId}`);
+          return newSet;
+        });
+      }, 2000);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
       toast({
         title: "Payment Verified",
         description: "Payment has been verified successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: any, testId) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
       toast({
         title: "Error",
         description: error.message || "Failed to verify payment",
@@ -151,18 +175,40 @@ export default function LaboratoryManagement() {
 
   const collectSpecimenMutation = useMutation({
     mutationFn: async ({ testId, specimenType }: { testId: number; specimenType: string }) => {
+      setProcessingTests(prev => new Set(prev).add(testId));
       const response = await apiRequest("POST", `/api/patient-tests/${testId}/collect-specimen`, { specimenType });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, { testId }) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
+      setCompletedActions(prev => new Set(prev).add(`specimen-${testId}`));
+      
+      setTimeout(() => {
+        setCompletedActions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(`specimen-${testId}`);
+          return newSet;
+        });
+      }, 2000);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
       toast({
         title: "Specimen Collected",
         description: "Specimen has been collected successfully.",
       });
       setSpecimenType("");
     },
-    onError: (error: any) => {
+    onError: (error: any, { testId }) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
       toast({
         title: "Error",
         description: error.message || "Failed to collect specimen",
@@ -173,18 +219,40 @@ export default function LaboratoryManagement() {
 
   const startProcessingMutation = useMutation({
     mutationFn: async ({ testId, expectedHours }: { testId: number; expectedHours: number }) => {
+      setProcessingTests(prev => new Set(prev).add(testId));
       const response = await apiRequest("POST", `/api/patient-tests/${testId}/start-processing`, { expectedHours });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, { testId }) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
+      setCompletedActions(prev => new Set(prev).add(`processing-${testId}`));
+      
+      setTimeout(() => {
+        setCompletedActions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(`processing-${testId}`);
+          return newSet;
+        });
+      }, 2000);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
       toast({
         title: "Processing Started",
         description: "Test processing has been started successfully.",
       });
       setExpectedHours("");
     },
-    onError: (error: any) => {
+    onError: (error: any, { testId }) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
       toast({
         title: "Error",
         description: error.message || "Failed to start processing",
