@@ -263,11 +263,28 @@ export default function LaboratoryManagement() {
 
   const completeTestMutation = useMutation({
     mutationFn: async ({ testId, results, notes }: { testId: number; results: string; notes?: string }) => {
+      setProcessingTests(prev => new Set(prev).add(testId));
       const response = await apiRequest("POST", `/api/patient-tests/${testId}/complete`, { results, notes });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, { testId }) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
+      setCompletedActions(prev => new Set(prev).add(`completed-${testId}`));
+      
+      setTimeout(() => {
+        setCompletedActions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(`completed-${testId}`);
+          return newSet;
+        });
+      }, 2000);
+      
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
       toast({
         title: "Test Completed",
         description: "Test has been completed successfully.",
@@ -276,7 +293,12 @@ export default function LaboratoryManagement() {
       setTestResults("");
       setTestNotes("");
     },
-    onError: (error: any) => {
+    onError: (error: any, { testId }) => {
+      setProcessingTests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(testId);
+        return newSet;
+      });
       toast({
         title: "Error",
         description: error.message || "Failed to complete test",
@@ -627,7 +649,18 @@ export default function LaboratoryManagement() {
               </Card>
             ) : (
               filteredTests.map((test: any) => (
-                <Card key={test.id} className="hover:shadow-md transition-shadow">
+                <Card 
+                  key={test.id} 
+                  className={`hover:shadow-md transition-all duration-300 ${
+                    processingTests.has(test.id) ? 'ring-2 ring-blue-200 shadow-lg' : ''
+                  } ${
+                    completedActions.has(`payment-${test.id}`) || 
+                    completedActions.has(`specimen-${test.id}`) || 
+                    completedActions.has(`processing-${test.id}`) || 
+                    completedActions.has(`completed-${test.id}`) 
+                      ? 'ring-2 ring-green-300 shadow-lg bg-green-50' : ''
+                  }`}
+                >
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -672,12 +705,23 @@ export default function LaboratoryManagement() {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="border-blue-300 text-blue-600"
+                            className={`border-blue-300 text-blue-600 transition-all duration-200 ${
+                              processingTests.has(test.id) ? 'animate-pulse bg-blue-50' : ''
+                            } ${
+                              completedActions.has(`payment-${test.id}`) ? 'bg-green-100 border-green-400 text-green-700' : ''
+                            }`}
                             onClick={() => verifyPaymentMutation.mutate(test.id)}
-                            disabled={verifyPaymentMutation.isPending}
+                            disabled={processingTests.has(test.id)}
                           >
-                            <CreditCard className="w-4 h-4 mr-1" />
-                            {verifyPaymentMutation.isPending ? "Verifying..." : "Verify Payment"}
+                            {processingTests.has(test.id) ? (
+                              <div className="w-4 h-4 mr-1 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600"></div>
+                            ) : completedActions.has(`payment-${test.id}`) ? (
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                            ) : (
+                              <CreditCard className="w-4 h-4 mr-1" />
+                            )}
+                            {processingTests.has(test.id) ? "Verifying..." : 
+                             completedActions.has(`payment-${test.id}`) ? "Verified!" : "Verify Payment"}
                           </Button>
                         )}
                         
@@ -688,10 +732,15 @@ export default function LaboratoryManagement() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="border-green-300 text-green-600"
+                                className={`border-green-300 text-green-600 transition-all duration-200 ${
+                                  processingTests.has(test.id) ? 'animate-pulse bg-green-50' : ''
+                                } ${
+                                  completedActions.has(`specimen-${test.id}`) ? 'bg-green-100 border-green-400 text-green-700' : ''
+                                }`}
+                                disabled={processingTests.has(test.id)}
                               >
                                 <Syringe className="w-4 h-4 mr-1" />
-                                Collect Specimen
+                                {processingTests.has(test.id) ? 'Collecting...' : 'Collect Specimen'}
                               </Button>
                             </DialogTrigger>
                             <DialogContent>
@@ -738,10 +787,15 @@ export default function LaboratoryManagement() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="border-yellow-300 text-yellow-600"
+                                className={`border-yellow-300 text-yellow-600 transition-all duration-200 ${
+                                  processingTests.has(test.id) ? 'animate-pulse bg-yellow-50' : ''
+                                } ${
+                                  completedActions.has(`processing-${test.id}`) ? 'bg-yellow-100 border-yellow-400 text-yellow-700' : ''
+                                }`}
+                                disabled={processingTests.has(test.id)}
                               >
                                 <Play className="w-4 h-4 mr-1" />
-                                Start Processing
+                                {processingTests.has(test.id) ? 'Starting...' : 'Start Processing'}
                               </Button>
                             </DialogTrigger>
                             <DialogContent>
@@ -782,14 +836,19 @@ export default function LaboratoryManagement() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="border-green-300 text-green-600"
+                            className={`border-purple-300 text-purple-600 transition-all duration-200 ${
+                              processingTests.has(test.id) ? 'animate-pulse bg-purple-50' : ''
+                            } ${
+                              completedActions.has(`completed-${test.id}`) ? 'bg-purple-100 border-purple-400 text-purple-700' : ''
+                            }`}
                             onClick={() => {
                               setSelectedTest(test);
                               setShowResultDialog(true);
                             }}
+                            disabled={processingTests.has(test.id)}
                           >
                             <FileCheck className="w-4 h-4 mr-1" />
-                            Complete Test
+                            {processingTests.has(test.id) ? 'Completing...' : 'Complete Test'}
                           </Button>
                         )}
                         
