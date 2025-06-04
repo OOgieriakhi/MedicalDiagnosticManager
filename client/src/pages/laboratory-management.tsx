@@ -48,6 +48,22 @@ export default function LaboratoryManagement() {
   const [testNotes, setTestNotes] = useState("");
   const [specimenType, setSpecimenType] = useState("");
   const [expectedHours, setExpectedHours] = useState("");
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Query for laboratory workflow metrics
+  const { data: labMetrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ["/api/laboratory/metrics", user?.branchId, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const response = await fetch(`/api/laboratory/metrics?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch lab metrics");
+      return response.json();
+    },
+    enabled: !!user?.branchId,
+  });
 
   // Query for laboratory tests - only show paid requests
   const { data: labTests, isLoading: labTestsLoading } = useQuery({
@@ -285,6 +301,132 @@ export default function LaboratoryManagement() {
           </div>
         </div>
       </div>
+
+      {/* Laboratory Workflow Metrics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <CreditCard className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Awaiting Payment Verification</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {metricsLoading ? "..." : labMetrics?.awaitingPaymentVerification || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Syringe className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Awaiting Specimen Collection</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {metricsLoading ? "..." : labMetrics?.awaitingSpecimenCollection || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Beaker className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">In Processing</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {metricsLoading ? "..." : labMetrics?.inProcessing || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <FileCheck className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completed Today</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {metricsLoading ? "..." : labMetrics?.completedToday || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <TestTube className="w-5 h-5 text-gray-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Requests</p>
+                <p className="text-2xl font-bold text-gray-600">
+                  {metricsLoading ? "..." : labMetrics?.totalRequests || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Date Filter */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Date Range Filter
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="startDate">From:</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="endDate">To:</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <Button 
+              onClick={() => {
+                setStartDate(new Date().toISOString().split('T')[0]);
+                setEndDate(new Date().toISOString().split('T')[0]);
+              }}
+              variant="outline"
+            >
+              Today
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
