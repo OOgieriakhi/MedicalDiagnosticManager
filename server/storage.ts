@@ -72,7 +72,7 @@ export interface IStorage {
   searchPatients(branchId: number, query: string): Promise<Patient[]>;
   
   // Patient tests management
-  getPatientTestsByBranch(branchId: number, limit?: number, paidOnly?: boolean): Promise<PatientTest[]>;
+  getPatientTestsByBranch(branchId: number, limit?: number, paidOnly?: boolean, startDate?: Date, endDate?: Date): Promise<PatientTest[]>;
   getPatientTestsByCategory(branchId: number, category: string, limit?: number): Promise<any[]>;
   getRecentPatientTests(branchId: number, limit?: number): Promise<any[]>;
   createPatientTest(patientTest: InsertPatientTest): Promise<PatientTest>;
@@ -240,7 +240,7 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
-  async getPatientTestsByBranch(branchId: number, limit = 50, paidOnly = false): Promise<any[]> {
+  async getPatientTestsByBranch(branchId: number, limit = 50, paidOnly = false, startDate?: Date, endDate?: Date): Promise<any[]> {
     const query = db
       .select({
         id: patientTests.id,
@@ -285,14 +285,24 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(patients, eq(patientTests.patientId, patients.id))
       .leftJoin(invoices, eq(patientTests.patientId, invoices.patientId));
 
+    // Build where conditions
+    const conditions = [eq(patientTests.branchId, branchId)];
+    
     if (paidOnly) {
-      query.where(and(
-        eq(patientTests.branchId, branchId),
-        eq(invoices.paymentStatus, 'paid')
-      ));
-    } else {
-      query.where(eq(patientTests.branchId, branchId));
+      conditions.push(eq(invoices.paymentStatus, 'paid'));
     }
+    
+    if (startDate) {
+      conditions.push(gte(patientTests.scheduledAt, startDate));
+    }
+    
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(lte(patientTests.scheduledAt, endOfDay));
+    }
+
+    query.where(and(...conditions));
 
     return await query
       .orderBy(desc(patientTests.scheduledAt))

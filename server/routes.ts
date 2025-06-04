@@ -322,22 +322,10 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Branch ID is required" });
       }
 
-      let tests = await storage.getPatientTestsByBranch(userBranchId, testLimit, isPaidOnly);
-
-      // Apply date filtering if provided
-      if (startDate || endDate) {
-        const start = startDate ? new Date(startDate as string) : null;
-        const end = endDate ? new Date(endDate as string) : null;
-
-        tests = tests.filter((test: any) => {
-          const testDate = new Date(test.scheduledAt || test.createdAt);
-          
-          if (start && testDate < start) return false;
-          if (end && testDate > end) return false;
-          
-          return true;
-        });
-      }
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+      
+      let tests = await storage.getPatientTestsByBranch(userBranchId, testLimit, isPaidOnly, start, end);
 
       res.json(tests);
     } catch (error) {
