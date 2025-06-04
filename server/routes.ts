@@ -100,15 +100,27 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const validatedData = insertPatientSchema.parse(req.body);
+      // Generate patient ID first
+      const patientId = await storage.generatePatientId(req.body.tenantId);
       
-      // Generate patient ID
-      const patientId = await storage.generatePatientId(validatedData.tenantId);
-      
-      const patient = await storage.createPatient({
-        ...validatedData,
-        patientId
-      });
+      // Prepare patient data with proper formatting
+      const patientData = {
+        patientId,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        email: req.body.email || null,
+        phone: req.body.phone,
+        dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : null,
+        gender: req.body.gender || null,
+        address: req.body.address || null,
+        pathway: req.body.pathway || "self",
+        referralProviderId: req.body.referralProviderId || null,
+        tenantId: req.body.tenantId,
+        branchId: req.body.branchId
+      };
+
+      const validatedData = insertPatientSchema.parse(patientData);
+      const patient = await storage.createPatient(validatedData);
 
       res.status(201).json(patient);
     } catch (error) {
