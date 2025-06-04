@@ -11,8 +11,7 @@ interface RecentPatientsProps {
 
 export default function RecentPatients({ branchId }: RecentPatientsProps) {
   const { data: recentTests = [], isLoading } = useQuery({
-    queryKey: ["/api/patients/recent", branchId],
-    enabled: !!branchId,
+    queryKey: ["/api/patients/recent"],
   });
 
   const getStatusBadge = (status: string) => {

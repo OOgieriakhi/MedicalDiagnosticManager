@@ -63,6 +63,8 @@ export default function PatientManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
       setIsAddDialogOpen(false);
       setNewPatient({
         firstName: "",

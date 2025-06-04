@@ -310,7 +310,49 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get patients for a branch
+  // Get all patients (using user's branch from session)
+  app.get("/api/patients", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branchId = req.user.branchId;
+      if (!branchId) {
+        return res.status(400).json({ message: "Invalid branch ID" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const patients = await storage.getPatientsByBranch(branchId, limit);
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get recent patients for dashboard
+  app.get("/api/patients/recent", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branchId = req.user.branchId;
+      if (!branchId) {
+        return res.status(400).json({ message: "Invalid branch ID" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 5;
+      const patients = await storage.getPatientsByBranch(branchId, limit);
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching recent patients:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get patients for a specific branch
   app.get("/api/patients/:branchId", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
