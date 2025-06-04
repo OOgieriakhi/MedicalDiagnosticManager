@@ -1010,7 +1010,33 @@ export function registerRoutes(app: Express): Server {
             console.log('Parsed tests:', testsArray);
             
             for (const test of testsArray) {
+              let testId = null;
+              let testName = '';
+              let testPrice = 0;
+
+              // Handle both old format (description) and new format (testId)
               if (test.testId) {
+                testId = test.testId;
+                testName = test.name;
+                testPrice = test.price;
+              } else if (test.description) {
+                // For old format, try to find test by name
+                const foundTest = await db
+                  .select({ id: tests.id, name: tests.name, price: tests.price })
+                  .from(tests)
+                  .where(eq(tests.name, test.description))
+                  .limit(1);
+                
+                if (foundTest.length > 0) {
+                  testId = foundTest[0].id;
+                  testName = foundTest[0].name;
+                  testPrice = foundTest[0].price;
+                }
+              }
+
+              if (testId) {
+                console.log('Processing test:', testName, 'with ID:', testId);
+                
                 // Get test details to check category
                 const testDetails = await db
                   .select({
@@ -1021,7 +1047,7 @@ export function registerRoutes(app: Express): Server {
                   })
                   .from(tests)
                   .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
-                  .where(eq(tests.id, test.testId))
+                  .where(eq(tests.id, testId))
                   .limit(1);
 
                 if (testDetails.length > 0) {
@@ -1039,19 +1065,23 @@ export function registerRoutes(app: Express): Server {
                   if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound') || categoryName.includes('ct scan')) {
                     console.log('Adding imaging test:', testDetail.name);
                     imagingTests.push({
-                      id: `${invoice.invoiceId}-${test.testId}`,
-                      testId: test.testId,
-                      testName: test.name,
+                      id: `${invoice.invoiceId}-${testId}`,
+                      testId: testId,
+                      testName: testName,
                       patientId: invoice.patientId,
                       patientName: invoice.patientName,
-                      price: test.price,
+                      price: testPrice,
                       status: 'scheduled',
                       scheduledAt: invoice.paidAt,
                       categoryName: testDetail.categoryName,
                       paymentMethod: invoice.paymentMethod
                     });
                   }
+                } else {
+                  console.log('No test details found for testId:', testId);
                 }
+              } else {
+                console.log('Could not resolve test:', test);
               }
             }
           } catch (e) {
