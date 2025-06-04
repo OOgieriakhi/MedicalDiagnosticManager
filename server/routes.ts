@@ -929,7 +929,7 @@ export function registerRoutes(app: Express): Server {
                   console.log('Test category:', categoryName, 'for test:', testDetail.name);
                   
                   // Check if it's an imaging test
-                  if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound')) {
+                  if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound') || categoryName.includes('ct scan')) {
                     console.log('Adding imaging test:', testDetail.name);
                     imagingTests.push({
                       id: `${invoice.invoiceId}-${test.testId}`,
