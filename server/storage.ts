@@ -1269,6 +1269,321 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(invoices.paidAt))
       .limit(limit);
   }
+
+  // Purchase Orders Methods
+  async getPurchaseOrders(tenantId: number, branchId?: number): Promise<any[]> {
+    const query = db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.tenantId, tenantId));
+    
+    if (branchId) {
+      query.where(eq(purchaseOrders.branchId, branchId));
+    }
+    
+    return await query;
+  }
+
+  async createPurchaseOrder(data: any): Promise<any> {
+    const [po] = await db
+      .insert(purchaseOrders)
+      .values(data)
+      .returning();
+    
+    // Create PO items
+    if (data.items && data.items.length > 0) {
+      const items = data.items.map((item: any) => ({
+        ...item,
+        poId: po.id,
+      }));
+      await db.insert(purchaseOrderItems).values(items);
+    }
+    
+    return po;
+  }
+
+  async getPurchaseOrder(id: number): Promise<any> {
+    const [po] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, id));
+    return po;
+  }
+
+  async updatePurchaseOrderStatus(id: number, status: string, approvedBy: number, rejectionReason?: string): Promise<any> {
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    };
+
+    if (status === 'approved') {
+      updateData.approvedBy = approvedBy;
+      updateData.approvedAt = new Date();
+    } else if (status === 'rejected') {
+      updateData.rejectionReason = rejectionReason;
+      updateData.rejectedAt = new Date();
+    }
+
+    const [po] = await db
+      .update(purchaseOrders)
+      .set(updateData)
+      .where(eq(purchaseOrders.id, id))
+      .returning();
+    return po;
+  }
+
+  async getPendingPurchaseOrders(tenantId: number, branchId?: number): Promise<any[]> {
+    const query = db
+      .select()
+      .from(purchaseOrders)
+      .where(
+        and(
+          eq(purchaseOrders.tenantId, tenantId),
+          eq(purchaseOrders.status, "pending_approval")
+        )
+      );
+    
+    if (branchId) {
+      query.where(eq(purchaseOrders.branchId, branchId));
+    }
+    
+    return await query;
+  }
+
+  async getPurchaseOrderMetrics(tenantId: number, branchId?: number): Promise<any> {
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    
+    const metrics = {
+      totalPOs: 0,
+      pendingApproval: 0,
+      thisMonth: 0,
+      activeVendors: 0,
+      totalValueFormatted: "₦0.00",
+      monthlyValueFormatted: "₦0.00"
+    };
+
+    return metrics;
+  }
+
+  // Petty Cash Methods
+  async getPettyCashFunds(tenantId: number, branchId?: number): Promise<any[]> {
+    const query = db
+      .select()
+      .from(pettyCashFunds)
+      .where(eq(pettyCashFunds.tenantId, tenantId));
+    
+    if (branchId) {
+      query.where(eq(pettyCashFunds.branchId, branchId));
+    }
+    
+    return await query;
+  }
+
+  async createPettyCashFund(data: any): Promise<any> {
+    const [fund] = await db
+      .insert(pettyCashFunds)
+      .values(data)
+      .returning();
+    return fund;
+  }
+
+  async getPettyCashTransactions(tenantId: number, branchId?: number): Promise<any[]> {
+    const query = db
+      .select()
+      .from(pettyCashTransactions)
+      .where(eq(pettyCashTransactions.tenantId, tenantId));
+    
+    if (branchId) {
+      query.where(eq(pettyCashTransactions.branchId, branchId));
+    }
+    
+    return await query;
+  }
+
+  async createPettyCashTransaction(data: any): Promise<any> {
+    const [transaction] = await db
+      .insert(pettyCashTransactions)
+      .values(data)
+      .returning();
+    return transaction;
+  }
+
+  async updatePettyCashFundBalance(fundId: number, type: string, amount: number): Promise<void> {
+    const fund = await db
+      .select()
+      .from(pettyCashFunds)
+      .where(eq(pettyCashFunds.id, fundId));
+    
+    if (fund.length > 0) {
+      const currentBalance = parseFloat(fund[0].currentBalance);
+      let newBalance = currentBalance;
+      
+      if (type === 'expense') {
+        newBalance = currentBalance - amount;
+      } else if (type === 'replenishment') {
+        newBalance = currentBalance + amount;
+      }
+      
+      await db
+        .update(pettyCashFunds)
+        .set({
+          currentBalance: newBalance.toString(),
+          updatedAt: new Date()
+        })
+        .where(eq(pettyCashFunds.id, fundId));
+    }
+  }
+
+  async getPettyCashReconciliations(tenantId: number, branchId?: number): Promise<any[]> {
+    const query = db
+      .select()
+      .from(pettyCashReconciliations)
+      .where(eq(pettyCashReconciliations.tenantId, tenantId));
+    
+    if (branchId) {
+      query.where(eq(pettyCashReconciliations.branchId, branchId));
+    }
+    
+    return await query;
+  }
+
+  async createPettyCashReconciliation(data: any): Promise<any> {
+    const [reconciliation] = await db
+      .insert(pettyCashReconciliations)
+      .values(data)
+      .returning();
+    return reconciliation;
+  }
+
+  async updatePettyCashFundReconciliation(fundId: number, reconciledAt: Date): Promise<void> {
+    await db
+      .update(pettyCashFunds)
+      .set({
+        lastReconciledAt: reconciledAt,
+        updatedAt: new Date()
+      })
+      .where(eq(pettyCashFunds.id, fundId));
+  }
+
+  async getPettyCashMetrics(tenantId: number, branchId?: number): Promise<any> {
+    const metrics = {
+      totalFunds: 0,
+      totalBalance: 0,
+      monthlyExpenses: 0,
+      pendingTransactions: 0
+    };
+
+    return metrics;
+  }
+
+  // Vendors Methods
+  async getVendors(tenantId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(vendors)
+      .where(eq(vendors.tenantId, tenantId));
+  }
+
+  async createVendor(data: any): Promise<any> {
+    const [vendor] = await db
+      .insert(vendors)
+      .values(data)
+      .returning();
+    return vendor;
+  }
+
+  // Audit Trail Methods
+  async createAuditTrail(data: any): Promise<any> {
+    const [audit] = await db
+      .insert(auditTrail)
+      .values(data)
+      .returning();
+    return audit;
+  }
+
+  // Double Entry Accounting Methods
+  async getChartOfAccounts(tenantId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(chartOfAccounts)
+      .where(eq(chartOfAccounts.tenantId, tenantId))
+      .orderBy(chartOfAccounts.accountCode);
+  }
+
+  async createJournalEntry(data: any): Promise<any> {
+    const [entry] = await db
+      .insert(journalEntries)
+      .values(data)
+      .returning();
+    
+    // Create line items
+    if (data.lineItems && data.lineItems.length > 0) {
+      const lineItems = data.lineItems.map((item: any) => ({
+        ...item,
+        journalEntryId: entry.id,
+      }));
+      await db.insert(journalEntryLineItems).values(lineItems);
+    }
+    
+    return entry;
+  }
+
+  async getJournalEntries(tenantId: number, branchId?: number): Promise<any[]> {
+    const query = db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.tenantId, tenantId));
+    
+    if (branchId) {
+      query.where(eq(journalEntries.branchId, branchId));
+    }
+    
+    return await query;
+  }
+
+  async postJournalEntry(entryId: number, approvedBy: number): Promise<any> {
+    const [entry] = await db
+      .update(journalEntries)
+      .set({
+        status: 'posted',
+        approvedBy,
+        postedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(journalEntries.id, entryId))
+      .returning();
+    return entry;
+  }
+
+  async updateAccountBalances(journalEntryId: number): Promise<void> {
+    // This would implement the logic to update account balances
+    // based on the journal entry line items
+    // For now, we'll leave this as a placeholder
+  }
+
+  async getTrialBalance(tenantId: number, branchId: number, year: number, month: number): Promise<any[]> {
+    // Return trial balance data
+    return [];
+  }
+
+  async getBalanceSheet(tenantId: number, branchId: number, year: number, month: number): Promise<any> {
+    // Return balance sheet data
+    return {
+      assets: { current: [], fixed: [] },
+      liabilities: { current: [], longTerm: [] },
+      equity: []
+    };
+  }
+
+  async getIncomeStatement(tenantId: number, branchId: number, year: number, month: number): Promise<any> {
+    // Return income statement data
+    return {
+      revenue: [],
+      expenses: [],
+      netIncome: 0
+    };
+  }
 }
 
 export const storage = new DatabaseStorage();

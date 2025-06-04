@@ -24,6 +24,8 @@ import UltrasoundDashboard from "@/pages/ultrasound-dashboard";
 import ComprehensiveFinancial from "@/pages/comprehensive-financial";
 import PatientJourney from "@/pages/patient-journey";
 import CashiersModule from "@/pages/cashiers-module";
+import PurchaseOrders from "@/pages/purchase-orders";
+import PettyCash from "@/pages/petty-cash";
 
 function Router() {
   return (
@@ -45,6 +47,8 @@ function Router() {
       <ProtectedRoute path="/comprehensive-financial" component={ComprehensiveFinancial} />
       <ProtectedRoute path="/patient-journey" component={PatientJourney} />
       <ProtectedRoute path="/cashiers" component={CashiersModule} />
+      <ProtectedRoute path="/purchase-orders" component={PurchaseOrders} />
+      <ProtectedRoute path="/petty-cash" component={PettyCash} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

@@ -13,7 +13,7 @@ import {
   Tabs, 
   TabsContent, 
   TabsList, 
-  TabsTab 
+  TabsTrigger 
 } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -524,9 +524,9 @@ export default function PurchaseOrders() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTab value="overview">All Purchase Orders</TabsTab>
-          <TabsTab value="approvals">Pending Approvals</TabsTab>
-          <TabsTab value="vendors">Vendors</TabsTab>
+          <TabsTrigger value="overview">All Purchase Orders</TabsTrigger>
+          <TabsTrigger value="approvals">Pending Approvals</TabsTrigger>
+          <TabsTrigger value="vendors">Vendors</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
