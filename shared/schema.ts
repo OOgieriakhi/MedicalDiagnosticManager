@@ -893,6 +893,279 @@ export const purchaseOrderApprovals = pgTable("purchase_order_approvals", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Comprehensive Inventory Management System
+export const inventoryCategories = pgTable("inventory_categories", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  parentCategoryId: integer("parent_category_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  itemCode: text("item_code").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  categoryId: integer("category_id").notNull(),
+  unitOfMeasure: text("unit_of_measure").notNull(), // pcs, ml, g, kg, etc.
+  minimumStock: integer("minimum_stock").notNull().default(0),
+  maximumStock: integer("maximum_stock"),
+  reorderLevel: integer("reorder_level").notNull().default(0),
+  standardCost: decimal("standard_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  sellingPrice: decimal("selling_price", { precision: 10, scale: 2 }),
+  isConsumable: boolean("is_consumable").notNull().default(true),
+  requiresSerialNumber: boolean("requires_serial_number").notNull().default(false),
+  expiryTracking: boolean("expiry_tracking").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const inventoryStock = pgTable("inventory_stock", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  itemId: integer("item_id").notNull(),
+  availableQuantity: integer("available_quantity").notNull().default(0),
+  reservedQuantity: integer("reserved_quantity").notNull().default(0),
+  onOrderQuantity: integer("on_order_quantity").notNull().default(0),
+  lastStockCheck: timestamp("last_stock_check"),
+  averageCost: decimal("average_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  itemId: integer("item_id").notNull(),
+  transactionType: text("transaction_type").notNull(), // in, out, transfer, adjustment
+  referenceType: text("reference_type"), // purchase_order, sale, production, adjustment
+  referenceId: integer("reference_id"),
+  quantity: integer("quantity").notNull(),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
+  batchNumber: text("batch_number"),
+  expiryDate: timestamp("expiry_date"),
+  serialNumbers: jsonb("serial_numbers"),
+  notes: text("notes"),
+  performedBy: integer("performed_by").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Enhanced Double-Entry Accounting System
+export const enhancedChartOfAccounts = pgTable("enhanced_chart_of_accounts", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  accountCode: text("account_code").notNull().unique(),
+  accountName: text("account_name").notNull(),
+  accountType: text("account_type").notNull(), // asset, liability, equity, revenue, expense
+  accountSubType: text("account_sub_type"), // current_asset, fixed_asset, current_liability, etc.
+  parentAccountId: integer("parent_account_id"),
+  normalBalance: text("normal_balance").notNull(), // debit, credit
+  isActive: boolean("is_active").notNull().default(true),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const enhancedJournalEntries = pgTable("enhanced_journal_entries", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  entryNumber: text("entry_number").notNull().unique(),
+  entryDate: timestamp("entry_date").notNull(),
+  description: text("description").notNull(),
+  referenceType: text("reference_type"), // invoice, payment, adjustment, etc.
+  referenceId: integer("reference_id"),
+  totalDebit: decimal("total_debit", { precision: 15, scale: 2 }).notNull(),
+  totalCredit: decimal("total_credit", { precision: 15, scale: 2 }).notNull(),
+  status: text("status").notNull().default("draft"), // draft, posted, reversed
+  createdBy: integer("created_by").notNull(),
+  approvedBy: integer("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  reversalReason: text("reversal_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const enhancedJournalEntryLineItems = pgTable("enhanced_journal_entry_line_items", {
+  id: serial("id").primaryKey(),
+  journalEntryId: integer("journal_entry_id").notNull(),
+  accountId: integer("account_id").notNull(),
+  debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).notNull().default("0"),
+  creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).notNull().default("0"),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Human Resources Management
+export const employees = pgTable("employees", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  employeeId: text("employee_id").notNull().unique(),
+  userId: integer("user_id"), // Link to users table for login
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  middleName: text("middle_name"),
+  email: text("email").notNull().unique(),
+  phone: text("phone").notNull(),
+  alternatePhone: text("alternate_phone"),
+  dateOfBirth: timestamp("date_of_birth"),
+  gender: text("gender"), // male, female, other
+  maritalStatus: text("marital_status"), // single, married, divorced, widowed
+  address: text("address"),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  nationalId: text("national_id"),
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  taxId: text("tax_id"),
+  pensionId: text("pension_id"),
+  hireDate: timestamp("hire_date").notNull(),
+  terminationDate: timestamp("termination_date"),
+  employmentStatus: text("employment_status").notNull().default("active"), // active, terminated, suspended
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const departments = pgTable("departments", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  managerId: integer("manager_id"),
+  budgetAllocation: decimal("budget_allocation", { precision: 15, scale: 2 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const positions = pgTable("positions", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  departmentId: integer("department_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  minimumSalary: decimal("minimum_salary", { precision: 10, scale: 2 }),
+  maximumSalary: decimal("maximum_salary", { precision: 10, scale: 2 }),
+  requiredQualifications: text("required_qualifications"),
+  responsibilities: text("responsibilities"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const employeePositions = pgTable("employee_positions", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull(),
+  positionId: integer("position_id").notNull(),
+  departmentId: integer("department_id").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  baseSalary: decimal("base_salary", { precision: 10, scale: 2 }).notNull(),
+  allowances: jsonb("allowances"), // housing, transport, medical, etc.
+  isCurrent: boolean("is_current").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const payrollPeriods = pgTable("payroll_periods", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  periodName: text("period_name").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  payDate: timestamp("pay_date").notNull(),
+  status: text("status").notNull().default("draft"), // draft, processed, paid, closed
+  totalGrossPay: decimal("total_gross_pay", { precision: 15, scale: 2 }).notNull().default("0"),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).notNull().default("0"),
+  totalNetPay: decimal("total_net_pay", { precision: 15, scale: 2 }).notNull().default("0"),
+  processedBy: integer("processed_by"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const payrollEntries = pgTable("payroll_entries", {
+  id: serial("id").primaryKey(),
+  payrollPeriodId: integer("payroll_period_id").notNull(),
+  employeeId: integer("employee_id").notNull(),
+  baseSalary: decimal("base_salary", { precision: 10, scale: 2 }).notNull(),
+  allowances: jsonb("allowances"),
+  overtime: decimal("overtime", { precision: 10, scale: 2 }).notNull().default("0"),
+  bonuses: decimal("bonuses", { precision: 10, scale: 2 }).notNull().default("0"),
+  grossPay: decimal("gross_pay", { precision: 10, scale: 2 }).notNull(),
+  taxDeductions: decimal("tax_deductions", { precision: 10, scale: 2 }).notNull().default("0"),
+  pensionDeductions: decimal("pension_deductions", { precision: 10, scale: 2 }).notNull().default("0"),
+  otherDeductions: jsonb("other_deductions"),
+  totalDeductions: decimal("total_deductions", { precision: 10, scale: 2 }).notNull().default("0"),
+  netPay: decimal("net_pay", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// System Security and Audit
+export const userSessions = pgTable("user_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  sessionToken: text("session_token").notNull().unique(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  loginAt: timestamp("login_at").notNull().defaultNow(),
+  logoutAt: timestamp("logout_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  userId: integer("user_id").notNull(),
+  action: text("action").notNull(), // create, read, update, delete, login, logout
+  resourceType: text("resource_type").notNull(), // patient, test, invoice, etc.
+  resourceId: integer("resource_id"),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  details: text("details"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const systemPermissions = pgTable("system_permissions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  resource: text("resource").notNull(),
+  actions: jsonb("actions").notNull(), // [create, read, update, delete]
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const rolePermissions = pgTable("role_permissions", {
+  id: serial("id").primaryKey(),
+  roleId: integer("role_id").notNull(),
+  permissionId: integer("permission_id").notNull(),
+  granted: boolean("granted").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Petty Cash Reconciliation
 export const pettyCashReconciliations = pgTable("petty_cash_reconciliations", {
   id: serial("id").primaryKey(),
