@@ -1325,6 +1325,89 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Financial management routes
+  app.get("/api/financial/metrics", async (req, res) => {
+    // Disable caching to ensure date filtering works
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { startDate, endDate, branchId } = req.query;
+      const userBranchId = branchId ? parseInt(branchId as string) : (req.user?.branchId || 1);
+      
+      const startDateObj = startDate ? new Date(startDate as string) : undefined;
+      const endDateObj = endDate ? new Date(endDate as string) : undefined;
+      
+      const metrics = await storage.getFinancialMetrics(userBranchId, startDateObj, endDateObj);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching financial metrics:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/financial/revenue-breakdown", async (req, res) => {
+    // Disable caching to ensure date filtering works
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { startDate, endDate, branchId } = req.query;
+      const userBranchId = branchId ? parseInt(branchId as string) : (req.user?.branchId || 1);
+      
+      const startDateObj = startDate ? new Date(startDate as string) : undefined;
+      const endDateObj = endDate ? new Date(endDate as string) : undefined;
+      
+      const breakdown = await storage.getRevenueBreakdown(userBranchId, startDateObj, endDateObj);
+      res.json(breakdown);
+    } catch (error) {
+      console.error("Error fetching revenue breakdown:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/financial/transactions", async (req, res) => {
+    // Disable caching to ensure date filtering works
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { startDate, endDate, branchId, paymentMethod, limit } = req.query;
+      const userBranchId = branchId ? parseInt(branchId as string) : (req.user?.branchId || 1);
+      
+      const startDateObj = startDate ? new Date(startDate as string) : undefined;
+      const endDateObj = endDate ? new Date(endDate as string) : undefined;
+      const limitNum = limit ? parseInt(limit as string) : 50;
+      
+      const transactions = await storage.getTransactionHistory(
+        userBranchId, 
+        paymentMethod as string, 
+        startDateObj, 
+        endDateObj, 
+        limitNum
+      );
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching transaction history:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

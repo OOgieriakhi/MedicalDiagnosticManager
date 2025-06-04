@@ -127,6 +127,11 @@ export interface IStorage {
   approveRecognitionEvent(id: number, approvedBy: number): Promise<void>;
   getStaffBadgeSummary(userId: number): Promise<any>;
   getLeaderboard(branchId: number, period?: string): Promise<any[]>;
+  
+  // Financial management methods
+  getFinancialMetrics(branchId: number, startDate?: Date, endDate?: Date): Promise<any>;
+  getRevenueBreakdown(branchId: number, startDate?: Date, endDate?: Date): Promise<any>;
+  getTransactionHistory(branchId: number, paymentMethod?: string, startDate?: Date, endDate?: Date, limit?: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1007,6 +1012,253 @@ export class DatabaseStorage implements IStorage {
         endDate: defaultEndDate
       }
     };
+  }
+
+  // Financial management implementation
+  async getFinancialMetrics(branchId: number, startDate?: Date, endDate?: Date): Promise<any> {
+    const defaultStartDate = startDate || new Date(new Date().setHours(0, 0, 0, 0));
+    const defaultEndDate = endDate || new Date(new Date().setHours(23, 59, 59, 999));
+
+    // Get total revenue for the period
+    const totalRevenue = await db
+      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.branchId, branchId),
+          gte(transactions.createdAt, defaultStartDate),
+          lte(transactions.createdAt, defaultEndDate)
+        )
+      );
+
+    // Get outstanding invoices amount
+    const outstandingAmount = await db
+      .select({ total: sql<number>`COALESCE(SUM(${invoices.totalAmount}), 0)` })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.branchId, branchId),
+          eq(invoices.paymentStatus, 'unpaid')
+        )
+      );
+
+    // Get transaction count and average
+    const transactionStats = await db
+      .select({ 
+        count: sql<number>`COUNT(*)`,
+        average: sql<number>`COALESCE(AVG(${transactions.amount}), 0)`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.branchId, branchId),
+          gte(transactions.createdAt, defaultStartDate),
+          lte(transactions.createdAt, defaultEndDate)
+        )
+      );
+
+    // Get collection rate (paid vs total invoices)
+    const collectionStats = await db
+      .select({
+        totalInvoices: sql<number>`COUNT(*)`,
+        paidInvoices: sql<number>`COUNT(CASE WHEN ${invoices.paymentStatus} = 'paid' THEN 1 END)`,
+        collectedAmount: sql<number>`COALESCE(SUM(CASE WHEN ${invoices.paymentStatus} = 'paid' THEN ${invoices.totalAmount} ELSE 0 END), 0)`
+      })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.branchId, branchId),
+          gte(invoices.createdAt, defaultStartDate),
+          lte(invoices.createdAt, defaultEndDate)
+        )
+      );
+
+    // Calculate daily, weekly, monthly revenue
+    const dailyRevenue = await this.getRevenueForPeriod(branchId, 'day');
+    const weeklyRevenue = await this.getRevenueForPeriod(branchId, 'week');
+    const monthlyRevenue = await this.getRevenueForPeriod(branchId, 'month');
+
+    const collectionRate = collectionStats[0]?.totalInvoices > 0 
+      ? Math.round((collectionStats[0].paidInvoices / collectionStats[0].totalInvoices) * 100)
+      : 0;
+
+    return {
+      totalRevenue: totalRevenue[0]?.total || 0,
+      outstandingAmount: outstandingAmount[0]?.total || 0,
+      totalTransactions: transactionStats[0]?.count || 0,
+      averageTransactionValue: transactionStats[0]?.average || 0,
+      collectionRate,
+      collectedAmount: collectionStats[0]?.collectedAmount || 0,
+      outstandingInvoices: await this.getOutstandingInvoicesCount(branchId),
+      dailyRevenue,
+      weeklyRevenue,
+      monthlyRevenue,
+      revenueGrowth: await this.calculateRevenueGrowth(branchId, defaultStartDate, defaultEndDate)
+    };
+  }
+
+  private async getRevenueForPeriod(branchId: number, period: 'day' | 'week' | 'month'): Promise<number> {
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'day':
+        startDate = new Date(now.setHours(0, 0, 0, 0));
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+    }
+
+    const result = await db
+      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.branchId, branchId),
+          gte(transactions.createdAt, startDate)
+        )
+      );
+
+    return result[0]?.total || 0;
+  }
+
+  private async getOutstandingInvoicesCount(branchId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.branchId, branchId),
+          eq(invoices.paymentStatus, 'unpaid')
+        )
+      );
+
+    return result[0]?.count || 0;
+  }
+
+  private async calculateRevenueGrowth(branchId: number, currentStart: Date, currentEnd: Date): Promise<number> {
+    const periodDays = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24));
+    const previousStart = new Date(currentStart.getTime() - periodDays * 24 * 60 * 60 * 1000);
+    const previousEnd = new Date(currentStart.getTime() - 1);
+
+    const currentRevenue = await db
+      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.branchId, branchId),
+          gte(transactions.createdAt, currentStart),
+          lte(transactions.createdAt, currentEnd)
+        )
+      );
+
+    const previousRevenue = await db
+      .select({ total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)` })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.branchId, branchId),
+          gte(transactions.createdAt, previousStart),
+          lte(transactions.createdAt, previousEnd)
+        )
+      );
+
+    const current = currentRevenue[0]?.total || 0;
+    const previous = previousRevenue[0]?.total || 0;
+
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  }
+
+  async getRevenueBreakdown(branchId: number, startDate?: Date, endDate?: Date): Promise<any> {
+    const defaultStartDate = startDate || new Date(new Date().setHours(0, 0, 0, 0));
+    const defaultEndDate = endDate || new Date(new Date().setHours(23, 59, 59, 999));
+
+    // Payment methods breakdown
+    const paymentMethods = await db
+      .select({
+        method: transactions.paymentMethod,
+        amount: sql<number>`SUM(${transactions.amount})`,
+        count: sql<number>`COUNT(*)`
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.branchId, branchId),
+          gte(transactions.createdAt, defaultStartDate),
+          lte(transactions.createdAt, defaultEndDate)
+        )
+      )
+      .groupBy(transactions.paymentMethod);
+
+    const totalRevenue = paymentMethods.reduce((sum, method) => sum + method.amount, 0);
+    const paymentMethodsWithPercentage = paymentMethods.map(method => ({
+      ...method,
+      percentage: totalRevenue > 0 ? Math.round((method.amount / totalRevenue) * 100) : 0
+    }));
+
+    // Top services by revenue
+    const topServices = await db
+      .select({
+        testName: tests.name,
+        revenue: sql<number>`SUM(${transactions.amount})`,
+        count: sql<number>`COUNT(*)`
+      })
+      .from(transactions)
+      .innerJoin(invoices, eq(transactions.invoiceId, invoices.id))
+      .innerJoin(patientTests, eq(invoices.patientId, patientTests.patientId))
+      .innerJoin(tests, eq(patientTests.testId, tests.id))
+      .where(
+        and(
+          eq(transactions.branchId, branchId),
+          gte(transactions.createdAt, defaultStartDate),
+          lte(transactions.createdAt, defaultEndDate)
+        )
+      )
+      .groupBy(tests.name)
+      .orderBy(sql`SUM(${transactions.amount}) DESC`)
+      .limit(10);
+
+    return {
+      paymentMethods: paymentMethodsWithPercentage,
+      topServices
+    };
+  }
+
+  async getTransactionHistory(branchId: number, paymentMethod?: string, startDate?: Date, endDate?: Date, limit = 50): Promise<any[]> {
+    const defaultStartDate = startDate || new Date(new Date().setHours(0, 0, 0, 0));
+    const defaultEndDate = endDate || new Date(new Date().setHours(23, 59, 59, 999));
+
+    const conditions = [
+      eq(transactions.branchId, branchId),
+      gte(transactions.createdAt, defaultStartDate),
+      lte(transactions.createdAt, defaultEndDate)
+    ];
+
+    if (paymentMethod) {
+      conditions.push(eq(transactions.paymentMethod, paymentMethod));
+    }
+
+    return await db
+      .select({
+        id: transactions.id,
+        invoiceNumber: invoices.invoiceNumber,
+        patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
+        amount: transactions.amount,
+        paymentMethod: transactions.paymentMethod,
+        paidAt: transactions.createdAt,
+        paidBy: transactions.paidBy
+      })
+      .from(transactions)
+      .innerJoin(invoices, eq(transactions.invoiceId, invoices.id))
+      .innerJoin(patients, eq(invoices.patientId, patients.id))
+      .where(and(...conditions))
+      .orderBy(desc(transactions.createdAt))
+      .limit(limit);
   }
 }
 
