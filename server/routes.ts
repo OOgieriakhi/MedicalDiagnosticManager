@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { financialStorage } from "./financial-storage";
+import { inventoryStorage } from "./inventory-storage";
 import { db } from "./db";
 import { 
   patients, 
@@ -3018,5 +3019,231 @@ export function registerRoutes(app: Express): Server {
   });
 
   const httpServer = createServer(app);
+  // Inventory Management Routes
+  app.get("/api/inventory/categories", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const categories = await inventoryStorage.getInventoryCategories(tenantId);
+      res.json(categories);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/inventory/categories", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const data = { ...req.body, tenantId: req.user.tenantId };
+      const category = await inventoryStorage.createInventoryCategory(data);
+      res.status(201).json(category);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory/items", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+      const items = await inventoryStorage.getInventoryItems(tenantId, categoryId);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/inventory/items", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const data = { ...req.body, tenantId: req.user.tenantId };
+      const item = await inventoryStorage.createInventoryItem(data);
+      res.status(201).json(item);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory/stock", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const branchId = req.user.branchId;
+      const itemId = req.query.itemId ? parseInt(req.query.itemId as string) : undefined;
+      const stock = await inventoryStorage.getInventoryStock(tenantId, branchId, itemId);
+      res.json(stock);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/inventory/transactions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const data = { 
+        ...req.body, 
+        tenantId: req.user.tenantId,
+        branchId: req.user.branchId,
+        performedBy: req.user.id
+      };
+      const transaction = await inventoryStorage.createInventoryTransaction(data);
+      res.status(201).json(transaction);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory/transactions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
+      const itemId = req.query.itemId ? parseInt(req.query.itemId as string) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const transactions = await inventoryStorage.getInventoryTransactions(tenantId, branchId, itemId, limit);
+      res.json(transactions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory/low-stock", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
+      const items = await inventoryStorage.getLowStockItems(tenantId, branchId);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory/expiring", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
+      const daysAhead = req.query.daysAhead ? parseInt(req.query.daysAhead as string) : 30;
+      const items = await inventoryStorage.getExpiringItems(tenantId, branchId, daysAhead);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/inventory/valuation", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
+      const valuation = await inventoryStorage.getInventoryValuation(tenantId, branchId);
+      res.json(valuation);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Human Resources Routes
+  app.get("/api/hr/employees", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const employees = await storage.getEmployees(tenantId);
+      res.json(employees);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/hr/employees", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const data = { ...req.body, tenantId: req.user.tenantId };
+      const employee = await storage.createEmployee(data);
+      res.status(201).json(employee);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/hr/departments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const departments = await storage.getDepartments(tenantId);
+      res.json(departments);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/hr/departments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const data = { ...req.body, tenantId: req.user.tenantId };
+      const department = await storage.createDepartment(data);
+      res.status(201).json(department);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/hr/positions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const positions = await storage.getPositions(tenantId);
+      res.json(positions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/hr/positions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const data = { ...req.body, tenantId: req.user.tenantId };
+      const position = await storage.createPosition(data);
+      res.status(201).json(position);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/hr/payroll-periods", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const periods = await storage.getPayrollPeriods(tenantId);
+      res.json(periods);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/hr/payroll-periods", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const data = { ...req.body, tenantId: req.user.tenantId };
+      const period = await storage.createPayrollPeriod(data);
+      res.status(201).json(period);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/hr/metrics", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const tenantId = req.user.tenantId;
+      const metrics = await storage.getHRMetrics(tenantId);
+      res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

@@ -26,7 +26,9 @@ import {
   Monitor,
   Waves,
   Heart,
-  Receipt
+  Receipt,
+  Package,
+  Briefcase
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -59,13 +61,14 @@ export default function Sidebar() {
         { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
         { icon: FileText, label: "Purchase Orders", path: "/purchase-orders", active: location === "/purchase-orders" },
         { icon: Wallet, label: "Petty Cash", path: "/petty-cash", active: location === "/petty-cash" },
+        { icon: Package, label: "Inventory Management", path: "/inventory-management", active: location === "/inventory-management" },
       ]
     },
     {
       section: "Administration",
       items: [
         { icon: Calculator, label: "Accounting", path: "/accounting", active: location === "/accounting" },
-        { icon: Users, label: "Human Resources", path: "/hr", active: location === "/hr" },
+        { icon: Briefcase, label: "Human Resources", path: "/human-resources", active: location === "/human-resources" },
       ]
     },
     {
