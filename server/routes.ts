@@ -896,44 +896,54 @@ export function registerRoutes(app: Express): Server {
           )
         );
 
+      console.log('Found paid invoices:', paidInvoices.length);
+
       // Extract imaging tests from paid invoices
       const imagingTests = [];
       for (const invoice of paidInvoices) {
+        console.log('Processing invoice:', invoice.invoiceId, 'tests:', invoice.tests);
+        
         if (invoice.tests && typeof invoice.tests === 'string') {
           try {
             const testsArray = JSON.parse(invoice.tests);
+            console.log('Parsed tests:', testsArray);
+            
             for (const test of testsArray) {
-              // Get test details to check category
-              const testDetails = await db
-                .select({
-                  id: tests.id,
-                  name: tests.name,
-                  categoryName: testCategories.name,
-                  price: tests.price
-                })
-                .from(tests)
-                .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
-                .where(eq(tests.id, test.testId))
-                .limit(1);
+              if (test.testId) {
+                // Get test details to check category
+                const testDetails = await db
+                  .select({
+                    id: tests.id,
+                    name: tests.name,
+                    categoryName: testCategories.name,
+                    price: tests.price
+                  })
+                  .from(tests)
+                  .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
+                  .where(eq(tests.id, test.testId))
+                  .limit(1);
 
-              if (testDetails.length > 0) {
-                const testDetail = testDetails[0];
-                const categoryName = testDetail.categoryName.toLowerCase();
-                
-                // Check if it's an imaging test
-                if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound')) {
-                  imagingTests.push({
-                    id: `${invoice.invoiceId}-${test.testId}`,
-                    testId: test.testId,
-                    testName: test.name,
-                    patientId: invoice.patientId,
-                    patientName: invoice.patientName,
-                    price: test.price,
-                    status: 'scheduled',
-                    scheduledAt: invoice.paidAt,
-                    categoryName: testDetail.categoryName,
-                    paymentMethod: invoice.paymentMethod
-                  });
+                if (testDetails.length > 0) {
+                  const testDetail = testDetails[0];
+                  const categoryName = testDetail.categoryName.toLowerCase();
+                  console.log('Test category:', categoryName, 'for test:', testDetail.name);
+                  
+                  // Check if it's an imaging test
+                  if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound')) {
+                    console.log('Adding imaging test:', testDetail.name);
+                    imagingTests.push({
+                      id: `${invoice.invoiceId}-${test.testId}`,
+                      testId: test.testId,
+                      testName: test.name,
+                      patientId: invoice.patientId,
+                      patientName: invoice.patientName,
+                      price: test.price,
+                      status: 'scheduled',
+                      scheduledAt: invoice.paidAt,
+                      categoryName: testDetail.categoryName,
+                      paymentMethod: invoice.paymentMethod
+                    });
+                  }
                 }
               }
             }
@@ -942,6 +952,8 @@ export function registerRoutes(app: Express): Server {
           }
         }
       }
+      
+      console.log('Final imaging tests count:', imagingTests.length);
       
       res.json(imagingTests);
     } catch (error: any) {
