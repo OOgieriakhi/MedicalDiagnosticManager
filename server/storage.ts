@@ -231,10 +231,37 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
-  async getPatientTestsByBranch(branchId: number, limit = 50): Promise<PatientTest[]> {
+  async getPatientTestsByBranch(branchId: number, limit = 50): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        id: patientTests.id,
+        testId: patientTests.testId,
+        patientId: patientTests.patientId,
+        branchId: patientTests.branchId,
+        testName: tests.name,
+        testCode: tests.code,
+        category: testCategories.name,
+        patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
+        patientIdCode: patients.patientId,
+        status: patientTests.status,
+        scheduledAt: patientTests.scheduledAt,
+        createdAt: patientTests.createdAt,
+        completedAt: patientTests.completedAt,
+        results: patientTests.results,
+        notes: patientTests.notes,
+        technicianId: patientTests.technicianId,
+        consultantId: patientTests.consultantId,
+        description: tests.description,
+        duration: tests.duration,
+        price: tests.price,
+        requiresConsultant: tests.requiresConsultant,
+        paymentStatus: invoices.status
+      })
       .from(patientTests)
+      .innerJoin(tests, eq(patientTests.testId, tests.id))
+      .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
+      .innerJoin(patients, eq(patientTests.patientId, patients.id))
+      .leftJoin(invoices, eq(patientTests.invoiceId, invoices.id))
       .where(eq(patientTests.branchId, branchId))
       .orderBy(desc(patientTests.scheduledAt))
       .limit(limit);

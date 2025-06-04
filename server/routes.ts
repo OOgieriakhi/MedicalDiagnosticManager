@@ -252,6 +252,28 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get patient tests
+  app.get("/api/patient-tests", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : (req.user!.branchId || 1);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+
+      if (isNaN(branchId) || branchId <= 0) {
+        return res.status(400).json({ message: "Invalid branch ID" });
+      }
+
+      const patientTests = await storage.getPatientTestsByBranch(branchId, limit);
+      res.json(patientTests);
+    } catch (error) {
+      console.error("Error fetching patient tests:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Schedule patient test
   app.post("/api/patient-tests", async (req, res) => {
     try {
