@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { 
   DollarSign,
   TrendingUp,
@@ -30,6 +34,22 @@ import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// Form validation schemas
+const expenseSchema = z.object({
+  category: z.string().min(1, "Category is required"),
+  amount: z.number().min(0.01, "Amount must be greater than 0"),
+  description: z.string().min(1, "Description is required"),
+  notes: z.string().optional()
+});
+
+const paymentSchema = z.object({
+  type: z.string().min(1, "Payment type is required"),
+  amount: z.number().min(0.01, "Amount must be greater than 0"),
+  method: z.string().min(1, "Payment method is required"),
+  reference: z.string().min(1, "Reference is required"),
+  notes: z.string().optional()
+});
+
 export default function ComprehensiveFinancial() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -40,6 +60,28 @@ export default function ComprehensiveFinancial() {
   const [activeTab, setActiveTab] = useState("overview");
   const [showNewExpenseDialog, setShowNewExpenseDialog] = useState(false);
   const [showNewPaymentDialog, setShowNewPaymentDialog] = useState(false);
+
+  // Form instances
+  const expenseForm = useForm<z.infer<typeof expenseSchema>>({
+    resolver: zodResolver(expenseSchema),
+    defaultValues: {
+      category: "",
+      amount: 0,
+      description: "",
+      notes: ""
+    }
+  });
+
+  const paymentForm = useForm<z.infer<typeof paymentSchema>>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: {
+      type: "",
+      amount: 0,
+      method: "",
+      reference: "",
+      notes: ""
+    }
+  });
 
   // Financial overview data
   const { data: financialMetrics, isLoading: metricsLoading } = useQuery({
@@ -79,14 +121,19 @@ export default function ComprehensiveFinancial() {
 
   // New expense mutation
   const newExpenseMutation = useMutation({
-    mutationFn: async (expenseData: any) => {
-      const response = await apiRequest('POST', '/api/financial/expenses', expenseData);
+    mutationFn: async (expenseData: z.infer<typeof expenseSchema>) => {
+      const response = await apiRequest('POST', '/api/financial/expenses', {
+        ...expenseData,
+        branchId: user?.branchId,
+        tenantId: user?.tenantId
+      });
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Expense recorded successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/financial/expenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/financial/metrics"] });
+      expenseForm.reset();
       setShowNewExpenseDialog(false);
     },
     onError: (error: any) => {
@@ -96,20 +143,34 @@ export default function ComprehensiveFinancial() {
 
   // Payment processing mutation
   const processPaymentMutation = useMutation({
-    mutationFn: async (paymentData: any) => {
-      const response = await apiRequest('POST', '/api/financial/payments', paymentData);
+    mutationFn: async (paymentData: z.infer<typeof paymentSchema>) => {
+      const response = await apiRequest('POST', '/api/financial/payments', {
+        ...paymentData,
+        branchId: user?.branchId,
+        tenantId: user?.tenantId
+      });
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Payment processed successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/financial/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      paymentForm.reset();
       setShowNewPaymentDialog(false);
     },
     onError: (error: any) => {
       toast({ title: "Failed to process payment", description: error.message, variant: "destructive" });
     }
   });
+
+  // Form submission handlers
+  const onExpenseSubmit = (data: z.infer<typeof expenseSchema>) => {
+    newExpenseMutation.mutate(data);
+  };
+
+  const onPaymentSubmit = (data: z.infer<typeof paymentSchema>) => {
+    processPaymentMutation.mutate(data);
+  };
 
   const formatCurrency = (amount: number | string) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -723,58 +784,105 @@ export default function ComprehensiveFinancial() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Record New Expense</DialogTitle>
+            <DialogDescription>
+              Add a new expense record to track operational costs and spending.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="expenseCategory">Category</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="operational">Operational</SelectItem>
-                    <SelectItem value="equipment">Equipment</SelectItem>
-                    <SelectItem value="utilities">Utilities</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="supplies">Medical Supplies</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="expenseAmount">Amount (₦)</Label>
-                <Input
-                  id="expenseAmount"
-                  type="number"
-                  placeholder="0.00"
+          <Form {...expenseForm}>
+            <form onSubmit={expenseForm.handleSubmit(onExpenseSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={expenseForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="operational">Operational</SelectItem>
+                          <SelectItem value="equipment">Equipment</SelectItem>
+                          <SelectItem value="utilities">Utilities</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                          <SelectItem value="supplies">Medical Supplies</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={expenseForm.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount (₦)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="expenseDescription">Description</Label>
-              <Input
-                id="expenseDescription"
-                placeholder="Brief description of the expense"
+              <FormField
+                control={expenseForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Brief description of the expense" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="expenseNotes">Notes (Optional)</Label>
-              <Textarea
-                id="expenseNotes"
-                placeholder="Additional notes or details"
-                rows={3}
+              <FormField
+                control={expenseForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Additional notes or details"
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowNewExpenseDialog(false)}>
-              Cancel
-            </Button>
-            <Button>
-              Record Expense
-            </Button>
-          </div>
+              <div className="flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowNewExpenseDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={newExpenseMutation.isPending}
+                >
+                  {newExpenseMutation.isPending ? "Recording..." : "Record Expense"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -783,70 +891,126 @@ export default function ComprehensiveFinancial() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Process Payment</DialogTitle>
+            <DialogDescription>
+              Record a payment transaction for invoices, expenses, or other financial obligations.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="paymentType">Payment Type</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payment type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="invoice">Invoice Payment</SelectItem>
-                  <SelectItem value="expense">Expense Payment</SelectItem>
-                  <SelectItem value="salary">Salary Payment</SelectItem>
-                  <SelectItem value="vendor">Vendor Payment</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="paymentAmount">Amount (₦)</Label>
-                <Input
-                  id="paymentAmount"
-                  type="number"
-                  placeholder="0.00"
+          <Form {...paymentForm}>
+            <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+              <FormField
+                control={paymentForm.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select payment type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="invoice">Invoice Payment</SelectItem>
+                        <SelectItem value="expense">Expense Payment</SelectItem>
+                        <SelectItem value="salary">Salary Payment</SelectItem>
+                        <SelectItem value="vendor">Vendor Payment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={paymentForm.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount (₦)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={paymentForm.control}
+                  name="method"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Method</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Payment method" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="card">Card</SelectItem>
+                          <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                          <SelectItem value="check">Check</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Method</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="card">Card</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="check">Check</SelectItem>
-                  </SelectContent>
-                </Select>
+              <FormField
+                control={paymentForm.control}
+                name="reference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reference/Invoice Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter reference number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={paymentForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Payment notes or details"
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowNewPaymentDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={processPaymentMutation.isPending}
+                >
+                  {processPaymentMutation.isPending ? "Processing..." : "Process Payment"}
+                </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentReference">Reference/Invoice Number</Label>
-              <Input
-                id="paymentReference"
-                placeholder="Enter reference number"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentNotes">Notes</Label>
-              <Textarea
-                id="paymentNotes"
-                placeholder="Payment notes or details"
-                rows={3}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowNewPaymentDialog(false)}>
-              Cancel
-            </Button>
-            <Button>
-              Process Payment
-            </Button>
-          </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
