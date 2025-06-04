@@ -363,6 +363,25 @@ export function registerRoutes(app: Express): Server {
         createdBy: req.user?.id || 1
       });
 
+      // Create patient test records for each test in the invoice
+      const tests = invoiceData.tests || invoiceData.items || [];
+      for (const test of tests) {
+        try {
+          await storage.createPatientTest({
+            patientId: invoiceData.patientId,
+            testId: test.testId,
+            branchId: invoiceData.branchId,
+            tenantId: invoiceData.tenantId,
+            status: "pending",
+            scheduledAt: new Date(),
+            createdBy: req.user?.id || 1
+          });
+        } catch (error) {
+          console.error(`Error creating patient test record for test ${test.testId}:`, error);
+          // Continue with other tests even if one fails
+        }
+      }
+
       res.status(201).json(invoice);
     } catch (error) {
       console.error("Error creating invoice:", error);

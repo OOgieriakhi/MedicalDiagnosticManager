@@ -24,7 +24,8 @@ import {
   Calendar,
   User,
   Beaker,
-  Target
+  Target,
+  XCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +86,30 @@ export default function LaboratoryManagement() {
       setTestResults("");
       setTestNotes("");
       setSelectedTest(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation for updating test status
+  const updateTestStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const response = await apiRequest("PATCH", `/api/patient-tests/${id}/status`, {
+        status
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      toast({
+        title: "Status Updated",
+        description: "Test status has been successfully updated.",
+      });
     },
     onError: (error: Error) => {
       toast({
