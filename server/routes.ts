@@ -72,6 +72,27 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Search patients
+  app.get("/api/patients/search", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { query, branchId } = req.query;
+      
+      if (!query || !branchId) {
+        return res.status(400).json({ message: "Query and branchId are required" });
+      }
+
+      const patients = await storage.searchPatients(parseInt(branchId as string), query as string);
+      res.json(patients);
+    } catch (error) {
+      console.error("Error searching patients:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // System alerts
   app.get("/api/alerts/:tenantId", async (req, res) => {
     try {

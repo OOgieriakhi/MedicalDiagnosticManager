@@ -42,7 +42,7 @@ export default function PatientIntake() {
     email: "",
     phone: "",
     dateOfBirth: "",
-    gender: "",
+    gender: "male",
     address: ""
   });
   

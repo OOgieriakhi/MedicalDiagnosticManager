@@ -69,6 +69,7 @@ export interface IStorage {
   getPatient(id: number): Promise<Patient | undefined>;
   createPatient(patient: InsertPatient): Promise<Patient>;
   generatePatientId(tenantId: number): Promise<string>;
+  searchPatients(branchId: number, query: string): Promise<Patient[]>;
   
   // Patient tests management
   getPatientTestsByBranch(branchId: number, limit?: number): Promise<PatientTest[]>;
@@ -206,6 +207,25 @@ export class DatabaseStorage implements IStorage {
     
     const nextNumber = (count[0]?.count || 0) + 1;
     return `P-${year}-${String(nextNumber).padStart(3, '0')}`;
+  }
+
+  async searchPatients(branchId: number, query: string): Promise<Patient[]> {
+    const searchTerm = `%${query.toLowerCase()}%`;
+    const results = await db.select()
+      .from(patients)
+      .where(
+        and(
+          eq(patients.branchId, branchId),
+          or(
+            sql`LOWER(${patients.firstName}) LIKE ${searchTerm}`,
+            sql`LOWER(${patients.lastName}) LIKE ${searchTerm}`,
+            sql`LOWER(${patients.phone}) LIKE ${searchTerm}`,
+            sql`LOWER(${patients.patientId}) LIKE ${searchTerm}`
+          )
+        )
+      )
+      .limit(10);
+    return results;
   }
 
   async getPatientTestsByBranch(branchId: number, limit = 50): Promise<PatientTest[]> {
