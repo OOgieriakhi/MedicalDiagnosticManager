@@ -219,10 +219,72 @@ export const systemAlerts = pgTable("system_alerts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Badge definitions - templates for different types of achievements
+export const badgeDefinitions = pgTable("badge_definitions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon").notNull(), // lucide icon name
+  category: text("category").notNull(), // performance, milestone, teamwork, innovation, customer_service
+  level: text("level").notNull().default("bronze"), // bronze, silver, gold, platinum
+  criteria: jsonb("criteria").notNull(), // Achievement criteria (e.g., {type: "tests_completed", threshold: 100})
+  points: integer("points").notNull().default(10),
+  isActive: boolean("is_active").notNull().default(true),
+  tenantId: integer("tenant_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Staff achievements - when staff members earn badges
+export const staffAchievements = pgTable("staff_achievements", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  badgeDefinitionId: integer("badge_definition_id").notNull().references(() => badgeDefinitions.id),
+  progress: decimal("progress", { precision: 5, scale: 2 }).notNull().default("0.00"), // Progress towards achievement (0-100%)
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  branchId: integer("branch_id").notNull(),
+  tenantId: integer("tenant_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Performance metrics - track various performance indicators
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  metricType: text("metric_type").notNull(), // tests_completed, patients_served, invoices_processed, etc.
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  period: text("period").notNull().default("daily"), // daily, weekly, monthly, yearly
+  date: timestamp("date").notNull(),
+  branchId: integer("branch_id").notNull(),
+  tenantId: integer("tenant_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Staff recognition events - peer nominations, manager recognition
+export const recognitionEvents = pgTable("recognition_events", {
+  id: serial("id").primaryKey(),
+  recipientId: integer("recipient_id").notNull().references(() => users.id),
+  nominatorId: integer("nominator_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // peer_nomination, manager_recognition, customer_feedback
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  points: integer("points").notNull().default(5),
+  isApproved: boolean("is_approved").notNull().default(false),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  branchId: integer("branch_id").notNull(),
+  tenantId: integer("tenant_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   tenant: one(tenants, { fields: [users.tenantId], references: [tenants.id] }),
   branch: one(branches, { fields: [users.branchId], references: [branches.id] }),
+  staffAchievements: many(staffAchievements),
+  performanceMetrics: many(performanceMetrics),
+  recognitionEventsReceived: many(recognitionEvents, { relationName: "recipient" }),
+  recognitionEventsGiven: many(recognitionEvents, { relationName: "nominator" }),
 }));
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({
@@ -275,6 +337,33 @@ export const patientTestsRelations = relations(patientTests, ({ one }) => ({
   tenant: one(tenants, { fields: [patientTests.tenantId], references: [tenants.id] }),
 }));
 
+// Badge system relations
+export const badgeDefinitionsRelations = relations(badgeDefinitions, ({ one, many }) => ({
+  tenant: one(tenants, { fields: [badgeDefinitions.tenantId], references: [tenants.id] }),
+  staffAchievements: many(staffAchievements),
+}));
+
+export const staffAchievementsRelations = relations(staffAchievements, ({ one }) => ({
+  user: one(users, { fields: [staffAchievements.userId], references: [users.id] }),
+  badgeDefinition: one(badgeDefinitions, { fields: [staffAchievements.badgeDefinitionId], references: [badgeDefinitions.id] }),
+  branch: one(branches, { fields: [staffAchievements.branchId], references: [branches.id] }),
+  tenant: one(tenants, { fields: [staffAchievements.tenantId], references: [tenants.id] }),
+}));
+
+export const performanceMetricsRelations = relations(performanceMetrics, ({ one }) => ({
+  user: one(users, { fields: [performanceMetrics.userId], references: [users.id] }),
+  branch: one(branches, { fields: [performanceMetrics.branchId], references: [branches.id] }),
+  tenant: one(tenants, { fields: [performanceMetrics.tenantId], references: [tenants.id] }),
+}));
+
+export const recognitionEventsRelations = relations(recognitionEvents, ({ one }) => ({
+  recipient: one(users, { fields: [recognitionEvents.recipientId], references: [users.id], relationName: "recipient" }),
+  nominator: one(users, { fields: [recognitionEvents.nominatorId], references: [users.id], relationName: "nominator" }),
+  approver: one(users, { fields: [recognitionEvents.approvedBy], references: [users.id] }),
+  branch: one(branches, { fields: [recognitionEvents.branchId], references: [branches.id] }),
+  tenant: one(tenants, { fields: [recognitionEvents.tenantId], references: [tenants.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -323,6 +412,29 @@ export const insertSystemAlertSchema = createInsertSchema(systemAlerts).omit({
   createdAt: true,
 });
 
+// Badge system insert schemas
+export const insertBadgeDefinitionSchema = createInsertSchema(badgeDefinitions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStaffAchievementSchema = createInsertSchema(staffAchievements).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+export const insertPerformanceMetricSchema = createInsertSchema(performanceMetrics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRecognitionEventSchema = createInsertSchema(recognitionEvents).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -355,3 +467,16 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 
 export type SystemAlert = typeof systemAlerts.$inferSelect;
 export type InsertSystemAlert = z.infer<typeof insertSystemAlertSchema>;
+
+// Badge system types
+export type BadgeDefinition = typeof badgeDefinitions.$inferSelect;
+export type InsertBadgeDefinition = z.infer<typeof insertBadgeDefinitionSchema>;
+
+export type StaffAchievement = typeof staffAchievements.$inferSelect;
+export type InsertStaffAchievement = z.infer<typeof insertStaffAchievementSchema>;
+
+export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricSchema>;
+
+export type RecognitionEvent = typeof recognitionEvents.$inferSelect;
+export type InsertRecognitionEvent = z.infer<typeof insertRecognitionEventSchema>;
