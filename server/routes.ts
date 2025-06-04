@@ -223,7 +223,7 @@ export function registerRoutes(app: Express): Server {
         description: `Invoice payment for ${invoiceData.tests.length} test(s)`,
         branchId: invoiceData.branchId,
         tenantId: invoiceData.tenantId,
-        createdBy: invoiceData.createdBy
+        createdBy: req.user?.id || 1
       });
 
       // Create patient tests for each test in the invoice
