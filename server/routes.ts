@@ -35,8 +35,12 @@ import {
   sql 
 } from "drizzle-orm";
 import { notificationService, PDFService } from "./notifications";
+import { rbacStorage } from "./rbac-storage";
+import { RBACMiddleware, rbacHelpers } from "./rbac-middleware";
+import { seedRBACSystem, assignUserRole } from "./rbac-seed";
 import { z } from "zod";
 import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema } from "@shared/schema";
+import { insertRoleSchema, insertPermissionSchema, insertUserRoleSchema, insertSecurityPolicySchema } from "@shared/rbac-schema";
 
 // Thermal receipt generator for POS printers
 function generateThermalReceipt(invoice: any, patient: any, tests: any[], branch: any, tenant: any): string {
@@ -3240,6 +3244,361 @@ export function registerRoutes(app: Express): Server {
       const tenantId = req.user.tenantId;
       const metrics = await storage.getHRMetrics(tenantId);
       res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== RBAC API ROUTES ====================
+
+  // Initialize RBAC System
+  app.post("/api/rbac/initialize", rbacHelpers.isSystemAdmin, async (req, res) => {
+    try {
+      await seedRBACSystem();
+      res.json({ message: "RBAC system initialized successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== ROLES MANAGEMENT ====================
+
+  // Get all roles
+  app.get("/api/roles", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      const roles = await rbacStorage.getRoles(tenantId);
+      res.json(roles);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create new role
+  app.post("/api/roles", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const roleData = insertRoleSchema.parse({
+        ...req.body,
+        tenantId: req.user.tenantId,
+        createdBy: req.user.id
+      });
+      const role = await rbacStorage.createRole(roleData);
+      res.status(201).json(role);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid role data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  });
+
+  // Get role with permissions
+  app.get("/api/roles/:id", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const roleId = parseInt(req.params.id);
+      const tenantId = req.user.tenantId;
+      const role = await rbacStorage.getRoleWithPermissions(roleId, tenantId);
+      
+      if (!role) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+      
+      res.json(role);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update role
+  app.put("/api/roles/:id", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const roleId = parseInt(req.params.id);
+      const updateData = insertRoleSchema.partial().parse(req.body);
+      const role = await rbacStorage.updateRole(roleId, updateData);
+      res.json(role);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid role data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  });
+
+  // ==================== PERMISSIONS MANAGEMENT ====================
+
+  // Get all permissions
+  app.get("/api/permissions", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const permissions = await rbacStorage.getPermissions();
+      res.json(permissions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get permissions by category
+  app.get("/api/permissions/category/:category", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const category = req.params.category;
+      const permissions = await rbacStorage.getPermissionsByCategory(category);
+      res.json(permissions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create new permission
+  app.post("/api/permissions", RBACMiddleware.authenticateWithRBAC, rbacHelpers.isSystemAdmin, async (req, res) => {
+    try {
+      const permissionData = insertPermissionSchema.parse(req.body);
+      const permission = await rbacStorage.createPermission(permissionData);
+      res.status(201).json(permission);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid permission data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  });
+
+  // ==================== ROLE-PERMISSION ASSIGNMENT ====================
+
+  // Assign permission to role
+  app.post("/api/roles/:roleId/permissions/:permissionId", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const roleId = parseInt(req.params.roleId);
+      const permissionId = parseInt(req.params.permissionId);
+      const { conditions } = req.body;
+
+      const assignment = await rbacStorage.assignPermissionToRole({
+        roleId,
+        permissionId,
+        conditions,
+        grantedBy: req.user.id,
+        tenantId: req.user.tenantId
+      });
+
+      res.status(201).json(assignment);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Remove permission from role
+  app.delete("/api/roles/:roleId/permissions/:permissionId", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const roleId = parseInt(req.params.roleId);
+      const permissionId = parseInt(req.params.permissionId);
+
+      await rbacStorage.removePermissionFromRole(roleId, permissionId, req.user.id, req.user.tenantId);
+      res.json({ message: "Permission removed from role successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== USER-ROLE ASSIGNMENT ====================
+
+  // Get user roles
+  app.get("/api/users/:userId/roles", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageUsers, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const tenantId = req.user.tenantId;
+      const userRoles = await rbacStorage.getUserRoles(userId, tenantId);
+      res.json(userRoles);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Assign role to user
+  app.post("/api/users/:userId/roles/:roleId", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageUsers, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const roleId = parseInt(req.params.roleId);
+      const { conditions, expiresAt } = req.body;
+
+      const assignment = await rbacStorage.assignRoleToUser({
+        userId,
+        roleId,
+        assignedBy: req.user.id,
+        tenantId: req.user.tenantId,
+        conditions,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined
+      });
+
+      res.status(201).json(assignment);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Remove role from user
+  app.delete("/api/users/:userId/roles/:roleId", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageUsers, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const roleId = parseInt(req.params.roleId);
+
+      await rbacStorage.removeRoleFromUser(userId, roleId, req.user.id, req.user.tenantId);
+      res.json({ message: "Role removed from user successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get user effective permissions
+  app.get("/api/users/:userId/permissions", RBACMiddleware.authenticateWithRBAC, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const tenantId = req.user.tenantId;
+      
+      // Users can view their own permissions, or admins can view any user's permissions
+      if (userId !== req.user.id && !req.permissions?.includes('users:manage')) {
+        return res.status(403).json({ message: "Cannot view other user's permissions" });
+      }
+
+      const permissions = await rbacStorage.getUserEffectivePermissions(userId, tenantId);
+      res.json(permissions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== SECURITY POLICIES ====================
+
+  // Get security policies
+  app.get("/api/security/policies", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageSystem, async (req, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      const { policyType } = req.query;
+      const policies = await rbacStorage.getSecurityPolicies(tenantId, policyType as string);
+      res.json(policies);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create security policy
+  app.post("/api/security/policies", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageSystem, async (req, res) => {
+    try {
+      const policyData = insertSecurityPolicySchema.parse({
+        ...req.body,
+        tenantId: req.user.tenantId,
+        createdBy: req.user.id
+      });
+
+      const policy = await rbacStorage.createSecurityPolicy(policyData);
+      res.status(201).json(policy);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        res.status(400).json({ message: "Invalid policy data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: error.message });
+      }
+    }
+  });
+
+  // ==================== AUDIT & SECURITY ====================
+
+  // Get security audit trail
+  app.get("/api/security/audit", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canViewAuditLogs, async (req, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      const { userId, eventType, startDate, endDate, limit } = req.query;
+
+      const filters: any = {};
+      if (userId) filters.userId = parseInt(userId as string);
+      if (eventType) filters.eventType = eventType as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+      if (limit) filters.limit = parseInt(limit as string);
+
+      const auditTrail = await rbacStorage.getSecurityAuditTrail(tenantId, filters);
+      res.json(auditTrail);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get security metrics
+  app.get("/api/security/metrics", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canViewAuditLogs, async (req, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      const { startDate, endDate } = req.query;
+
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+
+      const metrics = await rbacStorage.getSecurityMetrics(tenantId, start, end);
+      res.json(metrics);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== SESSION MANAGEMENT ====================
+
+  // Get active user sessions
+  app.get("/api/users/:userId/sessions", RBACMiddleware.authenticateWithRBAC, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      
+      // Users can view their own sessions, or admins can view any user's sessions
+      if (userId !== req.user.id && !req.permissions?.includes('users:manage')) {
+        return res.status(403).json({ message: "Cannot view other user's sessions" });
+      }
+
+      const sessions = await rbacStorage.getActiveUserSessions(userId);
+      res.json(sessions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Invalidate user sessions
+  app.delete("/api/users/:userId/sessions", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageUsers, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { exceptCurrent } = req.query;
+
+      const exceptSessionId = exceptCurrent === 'true' ? req.sessionID : undefined;
+      await rbacStorage.invalidateUserSessions(userId, exceptSessionId);
+
+      res.json({ message: "User sessions invalidated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ==================== PERMISSION GROUPS ====================
+
+  // Get permission groups
+  app.get("/api/permission-groups", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
+    try {
+      const tenantId = req.user.tenantId;
+      const groups = await rbacStorage.getPermissionGroups(tenantId);
+      res.json(groups);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Check user permission (utility endpoint)
+  app.get("/api/check-permission/:permission", RBACMiddleware.authenticateWithRBAC, async (req, res) => {
+    try {
+      const permission = req.params.permission;
+      const { resource } = req.query;
+      
+      const hasPermission = await rbacStorage.checkUserPermission(
+        req.user.id, 
+        permission, 
+        resource as string
+      );
+      
+      res.json({ hasPermission });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
