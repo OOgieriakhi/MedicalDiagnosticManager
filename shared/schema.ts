@@ -1276,3 +1276,6 @@ export type InsertPettyCashReconciliation = z.infer<typeof insertPettyCashReconc
 
 export type PaymentVoucher = typeof paymentVouchers.$inferSelect;
 export type InsertPaymentVoucher = z.infer<typeof insertPaymentVoucherSchema>;
+
+// Export RBAC schemas
+export * from "./rbac-schema";
