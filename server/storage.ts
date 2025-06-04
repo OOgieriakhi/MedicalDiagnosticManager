@@ -410,26 +410,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
-    // Use only the columns that exist in the current database
-    const adaptedTransaction = {
+    // Use only the columns that exist in the current database schema
+    const adaptedTransaction: any = {
       type: insertTransaction.type,
       amount: insertTransaction.amount,
       currency: insertTransaction.currency || 'NGN',
       description: insertTransaction.description,
       branchId: insertTransaction.branchId,
       tenantId: insertTransaction.tenantId,
-      createdBy: insertTransaction.createdBy,
-      // Remove optional fields that may not exist in current database
-      ...(insertTransaction.patientTestId && { patientTestId: insertTransaction.patientTestId }),
-      ...(insertTransaction.referralProviderId && { referralProviderId: insertTransaction.referralProviderId }),
-      ...(insertTransaction.consultantId && { consultantId: insertTransaction.consultantId })
+      createdBy: insertTransaction.createdBy
     };
 
-    const [transaction] = await db
-      .insert(transactions)
-      .values(adaptedTransaction)
-      .returning();
-    return transaction;
+    // Only add optional fields if they have values
+    if (insertTransaction.patientTestId) {
+      adaptedTransaction.patientTestId = insertTransaction.patientTestId;
+    }
+    if (insertTransaction.referralProviderId) {
+      adaptedTransaction.referralProviderId = insertTransaction.referralProviderId;
+    }
+    if (insertTransaction.consultantId) {
+      adaptedTransaction.consultantId = insertTransaction.consultantId;
+    }
+
+    try {
+      const [transaction] = await db
+        .insert(transactions)
+        .values(adaptedTransaction)
+        .returning();
+      return transaction;
+    } catch (error) {
+      console.error("Transaction creation error:", error);
+      throw error;
+    }
   }
 
   async getTodayRevenue(branchId: number): Promise<number> {
