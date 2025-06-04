@@ -35,6 +35,12 @@ export default function InvoiceManagement() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [createdInvoice, setCreatedInvoice] = useState<any>(null);
+  
+  // Payment details for non-cash transactions
+  const [transactionReference, setTransactionReference] = useState("");
+  const [cardLastFourDigits, setCardLastFourDigits] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
 
   // Fetch patients
   const { data: patients = [] } = useQuery({
@@ -150,6 +156,12 @@ export default function InvoiceManagement() {
       totalAmount: calculateTotal(),
       netAmount: calculateNetAmount(),
       paymentMethod,
+      paymentDetails: {
+        transactionReference: transactionReference || null,
+        cardLastFourDigits: cardLastFourDigits || null,
+        bankName: bankName || null,
+        accountNumber: accountNumber || null
+      },
       tenantId: user?.tenantId,
       branchId: user?.branchId,
       createdBy: user?.id
@@ -424,6 +436,94 @@ export default function InvoiceManagement() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Additional Payment Details for Non-Cash Payments */}
+              {paymentMethod !== "cash" && (
+                <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-medium text-blue-900">Payment Details</h4>
+                  
+                  {paymentMethod === "card" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Card Last 4 Digits</Label>
+                        <Input
+                          value={cardLastFourDigits}
+                          onChange={(e) => setCardLastFourDigits(e.target.value)}
+                          placeholder="1234"
+                          maxLength={4}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Transaction Reference</Label>
+                        <Input
+                          value={transactionReference}
+                          onChange={(e) => setTransactionReference(e.target.value)}
+                          placeholder="POS reference number"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {paymentMethod === "bank_transfer" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Bank Name</Label>
+                        <Input
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          placeholder="Customer's bank"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Account Number (Last 4 Digits)</Label>
+                        <Input
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          placeholder="1234"
+                          maxLength={4}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Transfer Reference</Label>
+                        <Input
+                          value={transactionReference}
+                          onChange={(e) => setTransactionReference(e.target.value)}
+                          placeholder="Transfer reference/receipt number"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {paymentMethod === "insurance" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Insurance Provider</Label>
+                        <Input
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          placeholder="Insurance company name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Policy Number</Label>
+                        <Input
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          placeholder="Patient's policy number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Authorization Code</Label>
+                        <Input
+                          value={transactionReference}
+                          onChange={(e) => setTransactionReference(e.target.value)}
+                          placeholder="Pre-authorization code"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -623,6 +723,78 @@ export default function InvoiceManagement() {
                   <span>Payment Method</span>
                   <span className="capitalize">{paymentMethod.replace('_', ' ')}</span>
                 </div>
+                
+                {/* Payment Details for Non-Cash Payments */}
+                {paymentMethod !== "cash" && (
+                  <div className="mt-2 p-3 bg-blue-50 rounded border border-blue-200">
+                    <h5 className="font-medium text-blue-900 mb-2">Payment Details</h5>
+                    <div className="space-y-1 text-sm">
+                      {paymentMethod === "card" && (
+                        <>
+                          {cardLastFourDigits && (
+                            <div className="flex justify-between">
+                              <span>Card ending in:</span>
+                              <span>****{cardLastFourDigits}</span>
+                            </div>
+                          )}
+                          {transactionReference && (
+                            <div className="flex justify-between">
+                              <span>POS Reference:</span>
+                              <span>{transactionReference}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      
+                      {paymentMethod === "bank_transfer" && (
+                        <>
+                          {bankName && (
+                            <div className="flex justify-between">
+                              <span>Bank:</span>
+                              <span>{bankName}</span>
+                            </div>
+                          )}
+                          {accountNumber && (
+                            <div className="flex justify-between">
+                              <span>Account ending in:</span>
+                              <span>****{accountNumber}</span>
+                            </div>
+                          )}
+                          {transactionReference && (
+                            <div className="flex justify-between">
+                              <span>Transfer Reference:</span>
+                              <span>{transactionReference}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      
+                      {paymentMethod === "insurance" && (
+                        <>
+                          {bankName && (
+                            <div className="flex justify-between">
+                              <span>Insurance Provider:</span>
+                              <span>{bankName}</span>
+                            </div>
+                          )}
+                          {accountNumber && (
+                            <div className="flex justify-between">
+                              <span>Policy Number:</span>
+                              <span>{accountNumber}</span>
+                            </div>
+                          )}
+                          {transactionReference && (
+                            <div className="flex justify-between">
+                              <span>Authorization Code:</span>
+                              <span>{transactionReference}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {createdInvoice && (
                   <div className="flex justify-between text-sm">
                     <span>Status</span>
@@ -642,6 +814,11 @@ export default function InvoiceManagement() {
                       setSelectedPatient("");
                       setSelectedTests([]);
                       setDiscountPercentage(0);
+                      setPaymentMethod("cash");
+                      setTransactionReference("");
+                      setCardLastFourDigits("");
+                      setBankName("");
+                      setAccountNumber("");
                       setCreatedInvoice(null);
                       setShowInvoicePreview(false);
                     }}
