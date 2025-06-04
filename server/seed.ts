@@ -362,7 +362,7 @@ async function seedDatabase() {
         completedAt: yesterday,
         results: "Normal blood count values. All parameters within normal range.",
         notes: "Patient fasted for 12 hours before test.",
-        technicianId: staffUsers[1] ? staffUsers[1].id : adminUser.id,
+        technicianId: createdStaffUsers[1] ? createdStaffUsers[1].id : adminUser.id,
         branchId: createdBranches[0].id,
         tenantId: tenant.id
       },
@@ -371,7 +371,7 @@ async function seedDatabase() {
         testId: createdTests[2].id, // Chest X-Ray
         status: "in_progress",
         scheduledAt: today,
-        technicianId: staffUsers[1] ? staffUsers[1].id : adminUser.id,
+        technicianId: createdStaffUsers[1] ? createdStaffUsers[1].id : adminUser.id,
         consultantId: createdConsultants[0].id,
         branchId: createdBranches[0].id,
         tenantId: tenant.id
@@ -381,7 +381,7 @@ async function seedDatabase() {
         testId: createdTests[4].id, // ECG
         status: "scheduled",
         scheduledAt: new Date(today.getTime() + 2 * 60 * 60 * 1000), // 2 hours from now
-        technicianId: staffUsers[1] ? staffUsers[1].id : adminUser.id,
+        technicianId: createdStaffUsers[1] ? createdStaffUsers[1].id : adminUser.id,
         consultantId: createdConsultants[1].id,
         branchId: createdBranches[1].id,
         tenantId: tenant.id
