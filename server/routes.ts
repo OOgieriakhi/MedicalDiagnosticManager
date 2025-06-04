@@ -298,6 +298,32 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Create new referral provider
+  app.post("/api/referral-providers", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { name, tenantId, requiresCommissionSetup } = req.body;
+      
+      if (!name || !tenantId) {
+        return res.status(400).json({ message: "Name and tenant ID are required" });
+      }
+
+      const newProvider = await storage.createReferralProvider({
+        name,
+        tenantId,
+        requiresCommissionSetup: requiresCommissionSetup || true
+      });
+
+      res.status(201).json(newProvider);
+    } catch (error) {
+      console.error("Error creating referral provider:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get test categories (with tenant ID from user session)
   app.get("/api/test-categories", async (req, res) => {
     try {

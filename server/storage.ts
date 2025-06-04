@@ -78,6 +78,7 @@ export interface IStorage {
   
   // Additional methods for patient intake workflow
   getReferralProviders(tenantId: number): Promise<ReferralProvider[]>;
+  createReferralProvider(provider: { name: string; tenantId: number; requiresCommissionSetup: boolean }): Promise<ReferralProvider>;
   getTestCategories(tenantId: number): Promise<TestCategory[]>;
   getTests(tenantId: number): Promise<Test[]>;
   getTest(id: number): Promise<Test | undefined>;
@@ -330,6 +331,21 @@ export class DatabaseStorage implements IStorage {
       .from(referralProviders)
       .where(eq(referralProviders.tenantId, tenantId))
       .orderBy(referralProviders.name);
+  }
+
+  async createReferralProvider(provider: { name: string; tenantId: number; requiresCommissionSetup: boolean }): Promise<ReferralProvider> {
+    const [newProvider] = await db
+      .insert(referralProviders)
+      .values({
+        name: provider.name,
+        tenantId: provider.tenantId,
+        type: "doctor", // Default type
+        commissionRate: "0.00",
+        requiresCommissionSetup: provider.requiresCommissionSetup,
+        isActive: true
+      })
+      .returning();
+    return newProvider;
   }
 
   async getTestCategories(tenantId: number): Promise<TestCategory[]> {

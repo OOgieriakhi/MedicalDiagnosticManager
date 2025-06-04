@@ -81,6 +81,7 @@ export const referralProviders = pgTable("referral_providers", {
   address: text("address"),
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Percentage
   maxRebateLimit: decimal("max_rebate_limit", { precision: 10, scale: 2 }).default("0.00"), // Per test limit
+  requiresCommissionSetup: boolean("requires_commission_setup").notNull().default(false), // Flag for managers
   tenantId: integer("tenant_id").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
