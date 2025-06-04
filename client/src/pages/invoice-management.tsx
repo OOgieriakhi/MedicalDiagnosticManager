@@ -582,6 +582,76 @@ export default function InvoiceManagement() {
                             Collect Payment
                           </Button>
                         )}
+                        {invoice.paymentStatus === 'paid' && (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/invoices/${invoice.id}/thermal-receipt`);
+                                  if (response.ok) {
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `thermal-receipt-${invoice.invoiceNumber}.txt`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                    toast({
+                                      title: "Thermal Receipt Downloaded",
+                                      description: "POS receipt ready for thermal printer",
+                                    });
+                                  }
+                                } catch (error) {
+                                  toast({
+                                    title: "Download Failed",
+                                    description: "Could not generate thermal receipt",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              <Printer className="w-4 h-4 mr-1" />
+                              POS Receipt
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/invoices/${invoice.id}/receipt`);
+                                  if (response.ok) {
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `receipt-${invoice.invoiceNumber}.pdf`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                    toast({
+                                      title: "PDF Receipt Downloaded",
+                                      description: "Receipt downloaded successfully",
+                                    });
+                                  }
+                                } catch (error) {
+                                  toast({
+                                    title: "Download Failed",
+                                    description: "Could not generate PDF receipt",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              <Receipt className="w-4 h-4 mr-1" />
+                              PDF Receipt
+                            </Button>
+                          </>
+                        )}
                         <Button variant="outline" size="sm">
                           <Eye className="w-4 h-4 mr-1" />
                           View

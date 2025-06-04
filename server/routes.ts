@@ -6,6 +6,103 @@ import { notificationService, PDFService } from "./notifications";
 import { z } from "zod";
 import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema } from "@shared/schema";
 
+// Thermal receipt generator for POS printers
+function generateThermalReceipt(invoice: any, patient: any, tests: any[], branch: any, tenant: any): string {
+  const centerText = (text: string, width = 32) => {
+    const padding = Math.max(0, (width - text.length) / 2);
+    return ' '.repeat(Math.floor(padding)) + text;
+  };
+
+  const formatLine = (left: string, right: string, width = 32) => {
+    const rightPadding = Math.max(0, width - left.length - right.length);
+    return left + ' '.repeat(rightPadding) + right;
+  };
+
+  const separator = '='.repeat(32);
+  const dashes = '-'.repeat(32);
+
+  let receipt = '';
+  
+  // Header
+  receipt += centerText('ORIENT MEDICAL') + '\n';
+  receipt += centerText('DIAGNOSTIC CENTER') + '\n';
+  receipt += centerText(branch?.name || 'Main Branch') + '\n';
+  receipt += centerText(branch?.address || '') + '\n';
+  receipt += centerText(branch?.phone || '') + '\n';
+  receipt += separator + '\n';
+  receipt += centerText('PAYMENT RECEIPT') + '\n';
+  receipt += separator + '\n';
+  
+  // Invoice details
+  receipt += formatLine('Receipt #:', invoice.invoiceNumber) + '\n';
+  receipt += formatLine('Date:', new Date(invoice.paidAt || invoice.createdAt).toLocaleDateString('en-GB')) + '\n';
+  receipt += formatLine('Time:', new Date(invoice.paidAt || invoice.createdAt).toLocaleTimeString('en-GB', { hour12: false })) + '\n';
+  receipt += dashes + '\n';
+  
+  // Patient details
+  receipt += 'PATIENT INFORMATION:\n';
+  receipt += formatLine('Name:', `${patient.firstName} ${patient.lastName}`) + '\n';
+  receipt += formatLine('ID:', patient.patientId) + '\n';
+  if (patient.phone) {
+    receipt += formatLine('Phone:', patient.phone) + '\n';
+  }
+  receipt += dashes + '\n';
+  
+  // Tests/Services
+  receipt += 'SERVICES:\n';
+  let total = 0;
+  tests.forEach((test, index) => {
+    const price = typeof test.price === 'string' ? parseFloat(test.price) : test.price;
+    total += price;
+    
+    // Test name (may wrap to next line if too long)
+    if (test.name.length > 32) {
+      receipt += test.name.substring(0, 29) + '...\n';
+    } else {
+      receipt += test.name + '\n';
+    }
+    receipt += formatLine('', `₦${price.toLocaleString()}`) + '\n';
+  });
+  
+  receipt += dashes + '\n';
+  
+  // Totals
+  const subtotal = parseFloat(invoice.subtotal || total);
+  const discountAmount = parseFloat(invoice.discountAmount || 0);
+  const totalAmount = parseFloat(invoice.totalAmount || subtotal);
+  
+  receipt += formatLine('Subtotal:', `₦${subtotal.toLocaleString()}`) + '\n';
+  if (discountAmount > 0) {
+    receipt += formatLine('Discount:', `-₦${discountAmount.toLocaleString()}`) + '\n';
+  }
+  receipt += formatLine('TOTAL:', `₦${totalAmount.toLocaleString()}`) + '\n';
+  receipt += separator + '\n';
+  
+  // Payment details
+  receipt += 'PAYMENT DETAILS:\n';
+  receipt += formatLine('Method:', invoice.paymentMethod?.toUpperCase() || 'CASH') + '\n';
+  receipt += formatLine('Amount Paid:', `₦${totalAmount.toLocaleString()}`) + '\n';
+  receipt += formatLine('Status:', 'PAID') + '\n';
+  receipt += dashes + '\n';
+  
+  // Footer
+  receipt += centerText('Thank you for choosing') + '\n';
+  receipt += centerText('Orient Medical!') + '\n';
+  receipt += '\n';
+  receipt += centerText('For results inquiry:') + '\n';
+  receipt += centerText(branch?.phone || 'Contact reception') + '\n';
+  receipt += '\n';
+  receipt += centerText('Visit us online:') + '\n';
+  receipt += centerText('www.orientmedical.ng') + '\n';
+  receipt += '\n';
+  receipt += separator + '\n';
+  
+  // Extra lines for paper cutting
+  receipt += '\n\n\n';
+  
+  return receipt;
+}
+
 export function registerRoutes(app: Express): Server {
   // Setup authentication routes
   setupAuth(app);
@@ -272,7 +369,45 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Generate receipt PDF
+  // Generate thermal receipt (text format for POS printers)
+  app.get("/api/invoices/:id/thermal-receipt", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceId = parseInt(req.params.id);
+      const invoice = await storage.getInvoice(invoiceId);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      const patient = await storage.getPatient(invoice.patientId);
+      if (!patient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+
+      const branch = await storage.getBranch(invoice.branchId);
+      const tenant = await storage.getTenant(invoice.tenantId);
+
+      // Get test details from invoice
+      const tests = Array.isArray(invoice.tests) ? invoice.tests : [];
+      
+      // Generate thermal receipt text
+      const receiptText = generateThermalReceipt(invoice, patient, tests, branch, tenant);
+      
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="thermal-receipt-${invoice.invoiceNumber}.txt"`);
+      res.send(receiptText);
+
+    } catch (error) {
+      console.error("Error generating thermal receipt:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Generate receipt PDF (for record keeping)
   app.get("/api/invoices/:id/receipt", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
