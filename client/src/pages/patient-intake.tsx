@@ -213,7 +213,7 @@ export default function PatientIntake() {
       // 4. Create transaction record
       await apiRequest("POST", "/api/transactions", {
         type: "payment",
-        amount: Math.max(0, calculateTotal() - calculateCommission()),
+        amount: Math.max(0, calculateTotal() - calculateCommission()).toString(),
         description: `Payment for ${selectedTests.length} diagnostic test(s)`,
         patientTestId: scheduledTests[0]?.id,
         branchId: user?.branchId,
