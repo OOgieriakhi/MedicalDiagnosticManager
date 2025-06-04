@@ -249,6 +249,17 @@ export default function LaboratoryManagement() {
 
         {/* Test Management Tab */}
         <TabsContent value="tests" className="space-y-6">
+          {/* Payment Verification Alert */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2 text-blue-800">
+              <AlertCircle className="w-5 h-5" />
+              <h3 className="font-semibold">Payment Verification Required</h3>
+            </div>
+            <p className="text-blue-700 text-sm mt-1">
+              Lab staff must verify payment completion before collecting specimens for processing. 
+              Only tests with "PAID" status can proceed to specimen collection.
+            </p>
+          </div>
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
@@ -340,7 +351,35 @@ export default function LaboratoryManagement() {
                       </div>
                       
                       <div className="flex items-center gap-2 ml-4">
-                        {test.status !== "completed" && (
+                        {/* Payment Verification Step */}
+                        {test.paymentStatus === "unpaid" && (
+                          <Button variant="outline" size="sm" className="border-red-300 text-red-600">
+                            <AlertCircle className="w-4 h-4 mr-1" />
+                            Verify Payment
+                          </Button>
+                        )}
+                        
+                        {/* Specimen Collection Step */}
+                        {test.paymentStatus === "paid" && test.status === "pending" && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-green-300 text-green-600"
+                            onClick={() => {
+                              // Update to specimen collected status
+                              updateTestStatusMutation.mutate({
+                                id: test.id,
+                                status: "specimen_collected"
+                              });
+                            }}
+                          >
+                            <TestTube className="w-4 h-4 mr-1" />
+                            Collect Specimen
+                          </Button>
+                        )}
+                        
+                        {/* Test Processing Step */}
+                        {test.status === "specimen_collected" && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -353,12 +392,29 @@ export default function LaboratoryManagement() {
                             Add Results
                           </Button>
                         )}
+                        
+                        {/* View Results */}
                         {test.status === "completed" && (
                           <Button variant="outline" size="sm">
                             <FileText className="w-4 h-4 mr-1" />
                             View Results
                           </Button>
                         )}
+                        
+                        {/* Payment Status Indicator */}
+                        <div className="ml-2">
+                          {test.paymentStatus === "paid" ? (
+                            <div className="flex items-center text-green-600 text-xs">
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              PAID
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-red-600 text-xs">
+                              <XCircle className="w-4 h-4 mr-1" />
+                              UNPAID
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
