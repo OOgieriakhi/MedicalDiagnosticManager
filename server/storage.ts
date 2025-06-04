@@ -40,7 +40,7 @@ import {
   type InsertRecognitionEvent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, between, ilike } from "drizzle-orm";
+import { eq, and, or, desc, sql, between, ilike, gte, lte } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -92,6 +92,9 @@ export interface IStorage {
   
   // Dashboard metrics
   getDashboardMetrics(branchId: number): Promise<any>;
+  
+  // Laboratory workflow metrics
+  getLabWorkflowMetrics(branchId: number, startDate?: Date, endDate?: Date): Promise<any>;
   
   // System alerts
   getSystemAlerts(tenantId: number, limit?: number): Promise<SystemAlert[]>;
@@ -865,6 +868,112 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(patientTests.id, testId));
+  }
+
+  async getLabWorkflowMetrics(branchId: number, startDate?: Date, endDate?: Date): Promise<any> {
+    const defaultStartDate = startDate || new Date(new Date().setHours(0, 0, 0, 0));
+    const defaultEndDate = endDate || new Date(new Date().setHours(23, 59, 59, 999));
+
+    // Get counts for different workflow stages
+    const awaitingPaymentVerification = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patientTests)
+      .leftJoin(invoices, eq(patientTests.patientId, invoices.patientId))
+      .where(
+        and(
+          eq(patientTests.branchId, branchId),
+          eq(invoices.paymentStatus, 'paid'),
+          eq(patientTests.paymentVerified, false),
+          gte(patientTests.scheduledAt, defaultStartDate),
+          lte(patientTests.scheduledAt, defaultEndDate)
+        )
+      );
+
+    const awaitingSpecimenCollection = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patientTests)
+      .where(
+        and(
+          eq(patientTests.branchId, branchId),
+          eq(patientTests.paymentVerified, true),
+          eq(patientTests.specimenCollected, false),
+          gte(patientTests.scheduledAt, defaultStartDate),
+          lte(patientTests.scheduledAt, defaultEndDate)
+        )
+      );
+
+    const inProcessing = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patientTests)
+      .where(
+        and(
+          eq(patientTests.branchId, branchId),
+          eq(patientTests.specimenCollected, true),
+          eq(patientTests.processingStarted, true),
+          eq(patientTests.status, 'processing'),
+          gte(patientTests.scheduledAt, defaultStartDate),
+          lte(patientTests.scheduledAt, defaultEndDate)
+        )
+      );
+
+    const completedToday = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patientTests)
+      .where(
+        and(
+          eq(patientTests.branchId, branchId),
+          eq(patientTests.status, 'completed'),
+          gte(patientTests.completedAt, defaultStartDate),
+          lte(patientTests.completedAt, defaultEndDate)
+        )
+      );
+
+    const totalRequests = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(patientTests)
+      .where(
+        and(
+          eq(patientTests.branchId, branchId),
+          gte(patientTests.scheduledAt, defaultStartDate),
+          lte(patientTests.scheduledAt, defaultEndDate)
+        )
+      );
+
+    // Get recent completed tests with details
+    const recentCompletedTests = await db
+      .select({
+        id: patientTests.id,
+        testName: tests.name,
+        patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
+        completedAt: patientTests.completedAt,
+        turnaroundTime: sql<number>`EXTRACT(EPOCH FROM (${patientTests.completedAt} - ${patientTests.processingStartedAt})) / 3600`
+      })
+      .from(patientTests)
+      .innerJoin(tests, eq(patientTests.testId, tests.id))
+      .innerJoin(patients, eq(patientTests.patientId, patients.id))
+      .where(
+        and(
+          eq(patientTests.branchId, branchId),
+          eq(patientTests.status, 'completed'),
+          gte(patientTests.completedAt, defaultStartDate),
+          lte(patientTests.completedAt, defaultEndDate)
+        )
+      )
+      .orderBy(desc(patientTests.completedAt))
+      .limit(10);
+
+    return {
+      awaitingPaymentVerification: awaitingPaymentVerification[0]?.count || 0,
+      awaitingSpecimenCollection: awaitingSpecimenCollection[0]?.count || 0,
+      inProcessing: inProcessing[0]?.count || 0,
+      completedToday: completedToday[0]?.count || 0,
+      totalRequests: totalRequests[0]?.count || 0,
+      recentCompletedTests,
+      dateRange: {
+        startDate: defaultStartDate,
+        endDate: defaultEndDate
+      }
+    };
   }
 }
 

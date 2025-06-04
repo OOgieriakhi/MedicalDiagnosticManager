@@ -665,6 +665,27 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Laboratory workflow metrics
+  app.get("/api/laboratory/metrics", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { startDate, endDate } = req.query;
+      const userBranchId = req.user?.branchId || 1;
+      
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+      
+      const metrics = await storage.getLabWorkflowMetrics(userBranchId, start, end);
+      res.json(metrics);
+    } catch (error: any) {
+      console.error("Error fetching laboratory metrics:", error);
+      res.status(500).json({ message: "Error fetching laboratory metrics" });
+    }
+  });
+
   // Laboratory workflow management endpoints
   app.post("/api/patient-tests/:id/verify-payment", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
