@@ -344,12 +344,20 @@ export default function PatientIntake() {
     <div className="p-6">
       {/* Navigation Header */}
       <div className="mb-6">
-        <Link href="/">
-          <Button variant="outline" className="mb-4">
-            <ArrowLeft className="mr-2 w-4 h-4" />
-            Back to Dashboard
-          </Button>
-        </Link>
+        <div className="flex gap-2 mb-4">
+          <Link href="/">
+            <Button variant="outline">
+              <ArrowLeft className="mr-2 w-4 h-4" />
+              Back to Dashboard
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline">
+              <Home className="mr-2 w-4 h-4" />
+              Home
+            </Button>
+          </Link>
+        </div>
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Intake & Test Scheduling</h1>
           <p className="text-gray-600">Complete patient registration and schedule diagnostic tests</p>

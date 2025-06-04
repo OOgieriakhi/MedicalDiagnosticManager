@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Receipt, Eye, CreditCard, Banknote, Smartphone, FileText, Printer, DollarSign, Clock } from "lucide-react";
+import { Search, Plus, Receipt, Eye, CreditCard, Banknote, Smartphone, FileText, Printer, DollarSign, Clock, Home, ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -316,6 +317,20 @@ export default function InvoiceManagement() {
   return (
     <div className="p-6">
       <div className="mb-6">
+        <div className="flex gap-2 mb-4">
+          <Link href="/">
+            <Button variant="outline">
+              <ArrowLeft className="mr-2 w-4 h-4" />
+              Back to Dashboard
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline">
+              <Home className="mr-2 w-4 h-4" />
+              Home
+            </Button>
+          </Link>
+        </div>
         <h1 className="text-2xl font-bold">Invoice Management</h1>
         <p className="text-muted-foreground">Two-stage billing: Create invoices and process payments separately</p>
       </div>
