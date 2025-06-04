@@ -2083,6 +2083,306 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Cardiology Unit API endpoints
+  app.get("/api/cardiology/metrics", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date();
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
+
+      // Set time to start and end of day
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+
+      // Get ECG tests by name
+      const ecgTests = await db
+        .select()
+        .from(tests)
+        .where(
+          and(
+            eq(tests.tenantId, req.user?.tenantId || 1),
+            or(
+              ilike(tests.name, '%ecg%'),
+              ilike(tests.name, '%ekg%'),
+              ilike(tests.name, '%electrocardiogram%')
+            )
+          )
+        );
+
+      // Get Echo tests by name
+      const echoTests = await db
+        .select()
+        .from(tests)
+        .where(
+          and(
+            eq(tests.tenantId, req.user?.tenantId || 1),
+            or(
+              ilike(tests.name, '%echo%'),
+              ilike(tests.name, '%echocardiogram%')
+            )
+          )
+        );
+
+      const allCardiologyTests = [...ecgTests, ...echoTests];
+      const cardiologyTestIds = [...new Set(allCardiologyTests.map(test => test.id))];
+
+      if (cardiologyTestIds.length === 0) {
+        return res.json({
+          totalProcedures: 0,
+          todayProcedures: 0,
+          ecgStudies: 0,
+          ecgToday: 0,
+          echoStudies: 0,
+          echoToday: 0,
+          completionRate: 0,
+          avgTurnaroundTime: 0
+        });
+      }
+
+      // Get total procedures
+      const totalProcedures = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, cardiologyTestIds),
+            gte(patientTests.scheduledAt, startDate),
+            lte(patientTests.scheduledAt, endDate)
+          )
+        );
+
+      // Get today's procedures
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const todayProcedures = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, cardiologyTestIds),
+            gte(patientTests.scheduledAt, today),
+            lt(patientTests.scheduledAt, tomorrow)
+          )
+        );
+
+      // Get ECG studies
+      const ecgTestIds = ecgTests.map(test => test.id);
+      const ecgStudies = ecgTestIds.length > 0 ? await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, ecgTestIds),
+            gte(patientTests.scheduledAt, startDate),
+            lte(patientTests.scheduledAt, endDate)
+          )
+        ) : [{ count: 0 }];
+
+      const ecgToday = ecgTestIds.length > 0 ? await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, ecgTestIds),
+            gte(patientTests.scheduledAt, today),
+            lt(patientTests.scheduledAt, tomorrow)
+          )
+        ) : [{ count: 0 }];
+
+      // Get Echo studies
+      const echoTestIds = echoTests.map(test => test.id);
+      const echoStudies = echoTestIds.length > 0 ? await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, echoTestIds),
+            gte(patientTests.scheduledAt, startDate),
+            lte(patientTests.scheduledAt, endDate)
+          )
+        ) : [{ count: 0 }];
+
+      const echoToday = echoTestIds.length > 0 ? await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, echoTestIds),
+            gte(patientTests.scheduledAt, today),
+            lt(patientTests.scheduledAt, tomorrow)
+          )
+        ) : [{ count: 0 }];
+
+      // Get completion rate
+      const completedProcedures = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, cardiologyTestIds),
+            eq(patientTests.status, 'completed'),
+            gte(patientTests.scheduledAt, startDate),
+            lte(patientTests.scheduledAt, endDate)
+          )
+        );
+
+      const completionRate = totalProcedures[0]?.count > 0 
+        ? Math.round((completedProcedures[0]?.count / totalProcedures[0]?.count) * 100)
+        : 0;
+
+      // Calculate average turnaround time
+      const completedWithTimes = await db
+        .select({
+          scheduledAt: patientTests.scheduledAt,
+          completedAt: patientTests.completedAt
+        })
+        .from(patientTests)
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, cardiologyTestIds),
+            eq(patientTests.status, 'completed'),
+            isNotNull(patientTests.completedAt),
+            gte(patientTests.scheduledAt, startDate),
+            lte(patientTests.scheduledAt, endDate)
+          )
+        );
+
+      let avgTurnaroundTime = 0;
+      if (completedWithTimes.length > 0) {
+        const totalHours = completedWithTimes.reduce((sum, test) => {
+          if (test.completedAt && test.scheduledAt) {
+            const hours = (test.completedAt.getTime() - test.scheduledAt.getTime()) / (1000 * 60 * 60);
+            return sum + hours;
+          }
+          return sum;
+        }, 0);
+        avgTurnaroundTime = Math.round(totalHours / completedWithTimes.length);
+      }
+
+      res.json({
+        totalProcedures: totalProcedures[0]?.count || 0,
+        todayProcedures: todayProcedures[0]?.count || 0,
+        ecgStudies: ecgStudies[0]?.count || 0,
+        ecgToday: ecgToday[0]?.count || 0,
+        echoStudies: echoStudies[0]?.count || 0,
+        echoToday: echoToday[0]?.count || 0,
+        completionRate,
+        avgTurnaroundTime
+      });
+    } catch (error) {
+      console.error('Error fetching cardiology metrics:', error);
+      res.status(500).json({ error: 'Failed to fetch cardiology metrics' });
+    }
+  });
+
+  app.get("/api/cardiology/studies", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+      const procedure = req.query.procedure as string;
+
+      // Get ECG tests by name
+      const ecgTests = await db
+        .select()
+        .from(tests)
+        .where(
+          and(
+            eq(tests.tenantId, req.user?.tenantId || 1),
+            or(
+              ilike(tests.name, '%ecg%'),
+              ilike(tests.name, '%ekg%'),
+              ilike(tests.name, '%electrocardiogram%')
+            )
+          )
+        );
+
+      // Get Echo tests by name
+      const echoTests = await db
+        .select()
+        .from(tests)
+        .where(
+          and(
+            eq(tests.tenantId, req.user?.tenantId || 1),
+            or(
+              ilike(tests.name, '%echo%'),
+              ilike(tests.name, '%echocardiogram%')
+            )
+          )
+        );
+
+      const allCardiologyTests = [...ecgTests, ...echoTests];
+      const cardiologyTestIds = [...new Set(allCardiologyTests.map(test => test.id))];
+
+      if (cardiologyTestIds.length === 0) {
+        return res.json([]);
+      }
+
+      // Filter by procedure type if specified
+      let filteredTestIds = cardiologyTestIds;
+      if (procedure && procedure !== 'all') {
+        if (procedure === 'ecg') {
+          filteredTestIds = ecgTests.map(test => test.id);
+        } else if (procedure === 'echo') {
+          filteredTestIds = echoTests.map(test => test.id);
+        }
+      }
+
+      // Query patient tests for cardiology procedures
+      const directStudies = await db
+        .select({
+          id: patientTests.id,
+          testId: patientTests.testId,
+          scheduledAt: patientTests.scheduledAt,
+          status: patientTests.status,
+          results: patientTests.results,
+          patientName: sql<string>`${patients.firstName} || ' ' || ${patients.lastName}`,
+          patientId: patients.patientId,
+          testName: tests.name,
+          categoryName: testCategories.name,
+          price: tests.price
+        })
+        .from(patientTests)
+        .leftJoin(patients, eq(patientTests.patientId, patients.id))
+        .leftJoin(tests, eq(patientTests.testId, tests.id))
+        .leftJoin(testCategories, eq(tests.categoryId, testCategories.id))
+        .where(
+          and(
+            eq(patientTests.branchId, branchId),
+            inArray(patientTests.testId, filteredTestIds)
+          )
+        )
+        .orderBy(desc(patientTests.scheduledAt))
+        .limit(50);
+
+      const formattedStudies = directStudies.map(study => ({
+        id: `pt-${study.id}`,
+        testName: study.testName || 'Cardiology Procedure',
+        patientName: study.patientName || 'Unknown Patient',
+        patientId: study.patientId || `P${study.id}`,
+        scheduledAt: study.scheduledAt,
+        status: study.status || 'scheduled',
+        price: study.price || 0,
+        categoryName: study.categoryName || 'Cardiology',
+        paymentVerified: true
+      }));
+
+      res.json(formattedStudies);
+    } catch (error) {
+      console.error('Error fetching cardiology studies:', error);
+      res.status(500).json({ error: 'Failed to fetch cardiology studies' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
