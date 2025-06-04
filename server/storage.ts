@@ -399,9 +399,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
+    // Adapt to existing database schema by removing unsupported columns
+    const adaptedTransaction = {
+      type: insertTransaction.type,
+      amount: insertTransaction.amount,
+      currency: insertTransaction.currency || 'NGN',
+      description: insertTransaction.description,
+      patientTestId: insertTransaction.patientTestId,
+      referralProviderId: insertTransaction.referralProviderId,
+      consultantId: insertTransaction.consultantId,
+      branchId: insertTransaction.branchId,
+      tenantId: insertTransaction.tenantId,
+      createdBy: insertTransaction.createdBy
+    };
+
     const [transaction] = await db
       .insert(transactions)
-      .values(insertTransaction)
+      .values(adaptedTransaction)
       .returning();
     return transaction;
   }

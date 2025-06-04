@@ -28,6 +28,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
 
 export default function PharmacyManagement() {
   const { user } = useAuth();

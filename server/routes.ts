@@ -1125,12 +1125,16 @@ export function registerRoutes(app: Express): Server {
       const invoice = await storage.getInvoice(invoiceId);
       if (invoice) {
         await storage.createTransaction({
-          amount: parseFloat(invoice.netAmount),
+          amount: invoice.totalAmount,
           type: "payment",
           description: `Invoice payment - ${invoice.invoiceNumber}`,
+          currency: "NGN",
           tenantId: invoice.tenantId,
           branchId: invoice.branchId,
           createdBy: req.user.id,
+          patientTestId: null,
+          referralProviderId: null,
+          consultantId: null
         });
       }
 
