@@ -26,11 +26,13 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import DynamicProgressTracker from "@/components/progress/dynamic-progress-tracker";
 
 export default function PatientIntake() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
+  const [currentWorkflowStep, setCurrentWorkflowStep] = useState("registration");
   const [selectedTests, setSelectedTests] = useState<number[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,6 +100,7 @@ export default function PatientIntake() {
     },
     onSuccess: (patient) => {
       setSelectedPatient(patient);
+      setCurrentWorkflowStep("pathway");
       toast({
         title: "Patient Registered",
         description: `Patient ID: ${patient.patientId} created successfully.`,
@@ -212,54 +215,21 @@ export default function PatientIntake() {
 
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Patient Intake Process</h1>
-        <p className="text-slate-gray">Search existing patients or register new ones for diagnostic tests</p>
-        
-        {/* Progress Steps */}
-        <div className="flex items-center justify-between mt-6 mb-8">
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            const isActive = currentStep === step.id;
-            const isCompleted = currentStep > step.id;
-            
-            return (
-              <div key={step.id} className="flex items-center">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                  isCompleted 
-                    ? 'bg-medical-green border-medical-green text-white' 
-                    : isActive 
-                      ? 'bg-medical-blue border-medical-blue text-white' 
-                      : 'border-gray-300 text-gray-300'
-                }`}>
-                  {isCompleted ? (
-                    <CheckCircle className="w-5 h-5" />
-                  ) : (
-                    <Icon className="w-5 h-5" />
-                  )}
-                </div>
-                <div className="ml-3">
-                  <p className={`text-sm font-medium ${
-                    isActive ? 'text-medical-blue' : isCompleted ? 'text-medical-green' : 'text-gray-400'
-                  }`}>
-                    Step {step.id}
-                  </p>
-                  <p className={`text-xs ${
-                    isActive || isCompleted ? 'text-gray-900' : 'text-gray-400'
-                  }`}>
-                    {step.title}
-                  </p>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-12 h-0.5 mx-6 ${
-                    isCompleted ? 'bg-medical-green' : 'bg-gray-300'
-                  }`} />
-                )}
-              </div>
-            );
-          })}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Dynamic Progress Tracker */}
+        <div className="lg:col-span-1">
+          <DynamicProgressTracker 
+            currentStep={currentWorkflowStep}
+            patientData={selectedPatient || (newPatientData.firstName ? newPatientData : null)}
+          />
         </div>
-      </div>
+
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Patient Intake Process</h1>
+            <p className="text-slate-gray">Search existing patients or register new ones for diagnostic tests</p>
+          </div>
 
       {/* Step 1: Patient Selection */}
       {currentStep === 1 && (
@@ -875,6 +845,8 @@ export default function PatientIntake() {
           </CardContent>
         </Card>
       )}
+        </div>
+      </div>
     </div>
   );
 }
