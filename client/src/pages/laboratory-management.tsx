@@ -25,7 +25,11 @@ import {
   User,
   Beaker,
   Target,
-  XCircle
+  XCircle,
+  CreditCard,
+  Syringe,
+  Play,
+  FileCheck
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +46,8 @@ export default function LaboratoryManagement() {
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [testResults, setTestResults] = useState("");
   const [testNotes, setTestNotes] = useState("");
+  const [specimenType, setSpecimenType] = useState("");
+  const [expectedHours, setExpectedHours] = useState("");
 
   // Query for laboratory tests - only show paid requests
   const { data: labTests, isLoading: labTestsLoading } = useQuery({
@@ -105,25 +111,91 @@ export default function LaboratoryManagement() {
     },
   });
 
-  // Mutation for updating test status
-  const updateTestStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const response = await apiRequest("PATCH", `/api/patient-tests/${id}/status`, {
-        status
-      });
+  // Workflow management mutations
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (testId: number) => {
+      const response = await apiRequest("POST", `/api/patient-tests/${testId}/verify-payment`);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
       toast({
-        title: "Status Updated",
-        description: "Test status has been successfully updated.",
+        title: "Payment Verified",
+        description: "Payment has been verified successfully.",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
-        title: "Update Failed",
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to verify payment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const collectSpecimenMutation = useMutation({
+    mutationFn: async ({ testId, specimenType }: { testId: number; specimenType: string }) => {
+      const response = await apiRequest("POST", `/api/patient-tests/${testId}/collect-specimen`, { specimenType });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      toast({
+        title: "Specimen Collected",
+        description: "Specimen has been collected successfully.",
+      });
+      setSpecimenType("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to collect specimen",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const startProcessingMutation = useMutation({
+    mutationFn: async ({ testId, expectedHours }: { testId: number; expectedHours: number }) => {
+      const response = await apiRequest("POST", `/api/patient-tests/${testId}/start-processing`, { expectedHours });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      toast({
+        title: "Processing Started",
+        description: "Test processing has been started successfully.",
+      });
+      setExpectedHours("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start processing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const completeTestMutation = useMutation({
+    mutationFn: async ({ testId, results, notes }: { testId: number; results: string; notes?: string }) => {
+      const response = await apiRequest("POST", `/api/patient-tests/${testId}/complete`, { results, notes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      toast({
+        title: "Test Completed",
+        description: "Test has been completed successfully.",
+      });
+      setShowResultDialog(false);
+      setTestResults("");
+      setTestNotes("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to complete test",
         variant: "destructive",
       });
     },
@@ -386,44 +458,128 @@ export default function LaboratoryManagement() {
                       
                       <div className="flex items-center gap-2 ml-4">
                         {/* Payment Verification Step */}
-                        {test.paymentStatus === "unpaid" && (
-                          <Button variant="outline" size="sm" className="border-red-300 text-red-600">
-                            <AlertCircle className="w-4 h-4 mr-1" />
-                            Verify Payment
+                        {!test.paymentVerified && test.paymentStatus === "paid" && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-blue-300 text-blue-600"
+                            onClick={() => verifyPaymentMutation.mutate(test.id)}
+                            disabled={verifyPaymentMutation.isPending}
+                          >
+                            <CreditCard className="w-4 h-4 mr-1" />
+                            {verifyPaymentMutation.isPending ? "Verifying..." : "Verify Payment"}
                           </Button>
                         )}
                         
                         {/* Specimen Collection Step */}
-                        {test.paymentStatus === "paid" && test.status === "pending" && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="border-green-300 text-green-600"
-                            onClick={() => {
-                              // Update to specimen collected status
-                              updateTestStatusMutation.mutate({
-                                id: test.id,
-                                status: "specimen_collected"
-                              });
-                            }}
-                          >
-                            <TestTube className="w-4 h-4 mr-1" />
-                            Collect Specimen
-                          </Button>
+                        {test.paymentVerified && !test.specimenCollected && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="border-green-300 text-green-600"
+                              >
+                                <Syringe className="w-4 h-4 mr-1" />
+                                Collect Specimen
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Collect Specimen</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label htmlFor="specimenType">Specimen Type</Label>
+                                  <Select value={specimenType} onValueChange={setSpecimenType}>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select specimen type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="blood">Blood</SelectItem>
+                                      <SelectItem value="urine">Urine</SelectItem>
+                                      <SelectItem value="stool">Stool</SelectItem>
+                                      <SelectItem value="saliva">Saliva</SelectItem>
+                                      <SelectItem value="tissue">Tissue</SelectItem>
+                                      <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <Button 
+                                  onClick={() => {
+                                    if (specimenType) {
+                                      collectSpecimenMutation.mutate({ testId: test.id, specimenType });
+                                    }
+                                  }}
+                                  disabled={!specimenType || collectSpecimenMutation.isPending}
+                                  className="w-full"
+                                >
+                                  {collectSpecimenMutation.isPending ? "Collecting..." : "Confirm Collection"}
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         )}
                         
-                        {/* Test Processing Step */}
-                        {test.status === "specimen_collected" && (
+                        {/* Processing Step */}
+                        {test.specimenCollected && !test.processingStarted && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="border-yellow-300 text-yellow-600"
+                              >
+                                <Play className="w-4 h-4 mr-1" />
+                                Start Processing
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Start Test Processing</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label htmlFor="expectedHours">Expected Turnaround Time (Hours)</Label>
+                                  <Input
+                                    id="expectedHours"
+                                    type="number"
+                                    min="1"
+                                    max="168"
+                                    value={expectedHours}
+                                    onChange={(e) => setExpectedHours(e.target.value)}
+                                    placeholder="Enter expected hours"
+                                  />
+                                </div>
+                                <Button 
+                                  onClick={() => {
+                                    if (expectedHours && parseInt(expectedHours) > 0) {
+                                      startProcessingMutation.mutate({ testId: test.id, expectedHours: parseInt(expectedHours) });
+                                    }
+                                  }}
+                                  disabled={!expectedHours || parseInt(expectedHours) <= 0 || startProcessingMutation.isPending}
+                                  className="w-full"
+                                >
+                                  {startProcessingMutation.isPending ? "Starting..." : "Start Processing"}
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
+                        
+                        {/* Complete Test Step */}
+                        {test.processingStarted && test.status !== "completed" && (
                           <Button
                             variant="outline"
                             size="sm"
+                            className="border-green-300 text-green-600"
                             onClick={() => {
                               setSelectedTest(test);
                               setShowResultDialog(true);
                             }}
                           >
-                            <FileText className="w-4 h-4 mr-1" />
-                            Add Results
+                            <FileCheck className="w-4 h-4 mr-1" />
+                            Complete Test
                           </Button>
                         )}
                         

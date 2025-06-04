@@ -665,6 +665,78 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Laboratory workflow management endpoints
+  app.post("/api/patient-tests/:id/verify-payment", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    
+    try {
+      await storage.verifyPayment(parseInt(id), req.user.id);
+      res.json({ message: "Payment verified successfully" });
+    } catch (error: any) {
+      console.error("Error verifying payment:", error);
+      res.status(500).json({ message: "Error verifying payment" });
+    }
+  });
+
+  app.post("/api/patient-tests/:id/collect-specimen", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    const { specimenType } = req.body;
+    
+    if (!specimenType) {
+      return res.status(400).json({ message: "Specimen type is required" });
+    }
+    
+    try {
+      await storage.collectSpecimen(parseInt(id), req.user.id, specimenType);
+      res.json({ message: "Specimen collected successfully" });
+    } catch (error: any) {
+      console.error("Error collecting specimen:", error);
+      res.status(500).json({ message: "Error collecting specimen" });
+    }
+  });
+
+  app.post("/api/patient-tests/:id/start-processing", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    const { expectedHours } = req.body;
+    
+    if (!expectedHours || expectedHours <= 0) {
+      return res.status(400).json({ message: "Expected hours must be a positive number" });
+    }
+    
+    try {
+      await storage.startProcessing(parseInt(id), req.user.id, expectedHours);
+      res.json({ message: "Processing started successfully" });
+    } catch (error: any) {
+      console.error("Error starting processing:", error);
+      res.status(500).json({ message: "Error starting processing" });
+    }
+  });
+
+  app.post("/api/patient-tests/:id/complete", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    const { results, notes } = req.body;
+    
+    if (!results) {
+      return res.status(400).json({ message: "Test results are required" });
+    }
+    
+    try {
+      await storage.completeTest(parseInt(id), results, notes);
+      res.json({ message: "Test completed successfully" });
+    } catch (error: any) {
+      console.error("Error completing test:", error);
+      res.status(500).json({ message: "Error completing test" });
+    }
+  });
+
   // Get tests (with tenant ID parameter)
   app.get("/api/tests/:tenantId", async (req, res) => {
     try {
