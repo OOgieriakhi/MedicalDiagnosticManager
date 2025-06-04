@@ -306,6 +306,46 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get patient tests with filtering
+  app.get("/api/patient-tests", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { branchId, paidOnly, startDate, endDate, limit } = req.query;
+      const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+      const testLimit = limit ? parseInt(limit as string) : 50;
+      const isPaidOnly = paidOnly === 'true';
+
+      if (!userBranchId) {
+        return res.status(400).json({ message: "Branch ID is required" });
+      }
+
+      let tests = await storage.getPatientTestsByBranch(userBranchId, testLimit, isPaidOnly);
+
+      // Apply date filtering if provided
+      if (startDate || endDate) {
+        const start = startDate ? new Date(startDate as string) : null;
+        const end = endDate ? new Date(endDate as string) : null;
+
+        tests = tests.filter((test: any) => {
+          const testDate = new Date(test.scheduledAt || test.createdAt);
+          
+          if (start && testDate < start) return false;
+          if (end && testDate > end) return false;
+          
+          return true;
+        });
+      }
+
+      res.json(tests);
+    } catch (error) {
+      console.error("Error fetching patient tests:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Update patient test status
   app.patch("/api/patient-tests/:id/status", async (req, res) => {
     try {
@@ -725,8 +765,8 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const { startDate, endDate } = req.query;
-      const userBranchId = req.user?.branchId || 1;
+      const { startDate, endDate, branchId } = req.query;
+      const userBranchId = branchId ? parseInt(branchId as string) : (req.user?.branchId || 1);
       
       const start = startDate ? new Date(startDate as string) : undefined;
       const end = endDate ? new Date(endDate as string) : undefined;
