@@ -31,35 +31,82 @@ export class FinancialStorage {
   }
 
   async createPurchaseOrder(data: any) {
-    // Determine approval workflow based on amount
-    const workflow = await this.getApprovalWorkflow(data.tenantId, parseFloat(data.totalAmount));
+    // Generate PO number
+    const poNumber = await this.generatePONumber(data.tenantId);
     
-    // Get the first approver in the hierarchy
-    const firstApprover = await this.getFirstApprover(data.tenantId, data.branchId, data.requestedBy, parseFloat(data.totalAmount));
+    // Get unit/center manager (first in workflow)
+    const unitManager = await this.getUnitManager(data.tenantId, data.branchId, data.requestedBy);
     
     const poData = {
       ...data,
+      poNumber,
       approvalLevel: 1,
-      currentApprover: firstApprover?.userId || null,
-      status: firstApprover ? 'pending' : 'approved'
+      workflowStage: 'unit_manager_review',
+      currentStageUser: unitManager?.userId || null,
+      status: 'pending'
     };
     
-    const [po] = await db
-      .insert(purchaseOrders)
-      .values(poData)
-      .returning();
+    const result = await db.execute(sql`
+      INSERT INTO purchase_orders (
+        tenant_id, branch_id, po_number, vendor_name, vendor_email, vendor_phone, vendor_address,
+        requested_by, status, approval_level, workflow_stage, current_stage_user,
+        subtotal, tax_amount, discount_amount, total_amount, currency, items, notes, 
+        terms_conditions, delivery_date, urgency_level, created_at, updated_at
+      ) VALUES (
+        ${poData.tenantId}, ${poData.branchId}, ${poData.poNumber}, ${poData.vendorName}, 
+        ${poData.vendorEmail || null}, ${poData.vendorPhone || null}, ${poData.vendorAddress || null},
+        ${poData.requestedBy}, ${poData.status}, ${poData.approvalLevel}, ${poData.workflowStage}, 
+        ${poData.currentStageUser}, ${poData.subtotal}, ${poData.taxAmount || 0}, 
+        ${poData.discountAmount || 0}, ${poData.totalAmount}, ${poData.currency || 'NGN'}, 
+        ${JSON.stringify(poData.items)}, ${poData.notes || null}, ${poData.termsConditions || null}, 
+        ${poData.deliveryDate || null}, ${poData.urgencyLevel || 'normal'}, NOW(), NOW()
+      ) RETURNING *
+    `);
     
-    // Create approval record if approver exists
-    if (firstApprover) {
+    const po = result.rows[0];
+    
+    // Create approval record for unit manager
+    if (unitManager) {
       await this.createApprovalRecord({
         purchaseOrderId: po.id,
-        approverId: firstApprover.userId,
+        approverId: unitManager.userId,
         approvalLevel: 1,
         status: 'pending'
       });
     }
     
     return po;
+  }
+
+  async generatePONumber(tenantId: number) {
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    
+    const result = await db.execute(sql`
+      SELECT COUNT(*) as count FROM purchase_orders 
+      WHERE tenant_id = ${tenantId} 
+        AND EXTRACT(YEAR FROM created_at) = ${year}
+        AND EXTRACT(MONTH FROM created_at) = ${new Date().getMonth() + 1}
+    `);
+    
+    const count = (parseInt(result.rows[0]?.count || '0') + 1).toString().padStart(4, '0');
+    return `PO-${year}${month}-${count}`;
+  }
+
+  async getUnitManager(tenantId: number, branchId: number, requestedBy: number) {
+    // Get the unit/center manager who is the first in the workflow
+    const result = await db.execute(sql`
+      SELECT ah.manager_id as user_id, u.username
+      FROM approval_hierarchy ah
+      JOIN users u ON u.id = ah.manager_id
+      WHERE ah.tenant_id = ${tenantId} 
+        AND ah.branch_id = ${branchId} 
+        AND ah.user_id = ${requestedBy}
+        AND ah.is_active = true
+      LIMIT 1
+    `);
+    
+    return result.rows[0] ? { userId: result.rows[0].user_id, username: result.rows[0].username } : null;
   }
 
   async getApprovalWorkflow(tenantId: number, amount: number) {
@@ -113,55 +160,120 @@ export class FinancialStorage {
   }
 
   async approvePurchaseOrder(id: number, approverId: number, comments?: string) {
-    // Get current PO and approval record
+    // Get current PO
     const po = await db.execute(sql`
       SELECT * FROM purchase_orders WHERE id = ${id}
     `);
     
     if (!po.rows[0]) throw new Error('Purchase order not found');
     
-    // Update approval record
-    await db.execute(sql`
-      UPDATE purchase_order_approvals 
-      SET status = 'approved', approved_at = NOW(), comments = ${comments || ''}
-      WHERE purchase_order_id = ${id} AND approver_id = ${approverId}
-    `);
+    const currentStage = po.rows[0].workflow_stage;
+    let nextStage = '';
+    let nextUser = null;
     
-    // Check if more approvals needed
-    const workflow = await this.getApprovalWorkflow(po.rows[0].tenant_id, parseFloat(po.rows[0].total_amount));
-    const currentLevel = po.rows[0].approval_level;
-    
-    if (currentLevel < (workflow?.approval_levels || 1)) {
-      // Need next level approval
-      const nextApprover = await this.getNextApprover(
-        po.rows[0].tenant_id, 
-        po.rows[0].branch_id, 
-        approverId, 
-        parseFloat(po.rows[0].total_amount)
-      );
-      
-      if (nextApprover) {
+    // Implement the specific workflow: Unit Manager → Accountant → Approving Authority → Manager Execution → Confirmation
+    switch (currentStage) {
+      case 'unit_manager_review':
+        // Unit Manager approves, goes to Accountant
+        nextStage = 'accountant_review';
+        nextUser = await this.getAccountant(po.rows[0].tenant_id, po.rows[0].branch_id);
+        break;
+        
+      case 'accountant_review':
+        // Accountant approves, goes to Approving Authority
+        nextStage = 'approving_authority_review';
+        nextUser = await this.getApprovingAuthority(po.rows[0].tenant_id, po.rows[0].branch_id, parseFloat(po.rows[0].total_amount));
+        break;
+        
+      case 'approving_authority_review':
+        // Approving Authority approves, goes back to Manager for execution
+        nextStage = 'manager_execution';
+        nextUser = await this.getUnitManager(po.rows[0].tenant_id, po.rows[0].branch_id, po.rows[0].requested_by);
+        break;
+        
+      case 'manager_execution':
+        // Manager executes purchase, goes to delivery/receiving
+        nextStage = 'delivery_pending';
         await db.execute(sql`
           UPDATE purchase_orders 
-          SET approval_level = ${currentLevel + 1}, current_approver = ${nextApprover.userId}
+          SET status = 'approved', workflow_stage = ${nextStage}, execution_confirmed_by = ${approverId}
           WHERE id = ${id}
         `);
+        return { success: true, message: 'Purchase order approved for execution' };
         
-        await this.createApprovalRecord({
-          purchaseOrderId: id,
-          approverId: nextApprover.userId,
-          approvalLevel: currentLevel + 1,
-          status: 'pending'
-        });
-      }
-    } else {
-      // Final approval
-      await db.execute(sql`
-        UPDATE purchase_orders 
-        SET status = 'approved', current_approver = NULL
-        WHERE id = ${id}
-      `);
+      default:
+        throw new Error('Invalid workflow stage');
     }
+    
+    // Update PO to next stage
+    await db.execute(sql`
+      UPDATE purchase_orders 
+      SET workflow_stage = ${nextStage}, current_stage_user = ${nextUser?.userId || null}
+      WHERE id = ${id}
+    `);
+    
+    // Record approval
+    await db.execute(sql`
+      INSERT INTO purchase_order_approvals 
+      (purchase_order_id, approver_id, approval_level, status, approved_at, comments, created_at)
+      VALUES (${id}, ${approverId}, 1, 'approved', NOW(), ${comments || ''}, NOW())
+    `);
+    
+    return { success: true, nextStage, nextUser: nextUser?.username };
+  }
+
+  async getAccountant(tenantId: number, branchId: number) {
+    // Get accountant for the branch
+    const result = await db.execute(sql`
+      SELECT u.id as user_id, u.username
+      FROM users u
+      JOIN approval_hierarchy ah ON ah.user_id = u.id
+      WHERE ah.tenant_id = ${tenantId} 
+        AND ah.branch_id = ${branchId}
+        AND ah.role_type = 'accountant'
+        AND ah.is_active = true
+      LIMIT 1
+    `);
+    
+    return result.rows[0] ? { userId: result.rows[0].user_id, username: result.rows[0].username } : null;
+  }
+
+  async getApprovingAuthority(tenantId: number, branchId: number, amount: number) {
+    // Get appropriate approving authority based on amount
+    const result = await db.execute(sql`
+      SELECT u.id as user_id, u.username
+      FROM users u
+      JOIN approval_hierarchy ah ON ah.user_id = u.id
+      WHERE ah.tenant_id = ${tenantId} 
+        AND ah.branch_id = ${branchId}
+        AND ah.role_type = 'approving_authority'
+        AND ah.is_active = true
+        AND (ah.max_approval_amount >= ${amount} OR ah.max_approval_amount IS NULL)
+      ORDER BY ah.max_approval_amount ASC
+      LIMIT 1
+    `);
+    
+    return result.rows[0] ? { userId: result.rows[0].user_id, username: result.rows[0].username } : null;
+  }
+
+  async confirmPurchaseReceived(id: number, confirmedBy: number, confirmationType: 'accountant' | 'unit') {
+    const field = confirmationType === 'accountant' ? 'accountant_confirmed_by' : 'unit_confirmed_by';
+    
+    await db.execute(sql`
+      UPDATE purchase_orders 
+      SET ${sql.raw(field)} = ${confirmedBy}, 
+          status = CASE 
+            WHEN accountant_confirmed_by IS NOT NULL AND unit_confirmed_by IS NOT NULL 
+            THEN 'completed' 
+            ELSE 'partially_received' 
+          END,
+          workflow_stage = CASE 
+            WHEN accountant_confirmed_by IS NOT NULL AND unit_confirmed_by IS NOT NULL 
+            THEN 'completed' 
+            ELSE workflow_stage 
+          END
+      WHERE id = ${id}
+    `);
     
     return { success: true };
   }
