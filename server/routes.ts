@@ -1010,16 +1010,19 @@ export function registerRoutes(app: Express): Server {
             console.log('Parsed tests:', testsArray);
             
             for (const test of testsArray) {
+              console.log('Processing raw test:', test);
               let testId = null;
               let testName = '';
               let testPrice = 0;
 
               // Handle both old format (description) and new format (testId)
               if (test.testId) {
+                console.log('Found testId format:', test.testId);
                 testId = test.testId;
                 testName = test.name;
                 testPrice = test.price;
               } else if (test.description) {
+                console.log('Found description format:', test.description);
                 // For old format, try to find test by name
                 const foundTest = await db
                   .select({ id: tests.id, name: tests.name, price: tests.price })
@@ -1031,54 +1034,61 @@ export function registerRoutes(app: Express): Server {
                   testId = foundTest[0].id;
                   testName = foundTest[0].name;
                   testPrice = foundTest[0].price;
+                  console.log('Resolved test from description:', testName, 'ID:', testId);
                 }
               }
 
               if (testId) {
                 console.log('Processing test:', testName, 'with ID:', testId);
                 
-                // Get test details to check category
-                const testDetails = await db
-                  .select({
-                    id: tests.id,
-                    name: tests.name,
-                    categoryName: testCategories.name,
-                    price: tests.price
-                  })
-                  .from(tests)
-                  .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
-                  .where(eq(tests.id, testId))
-                  .limit(1);
+                try {
+                  // Get test details to check category
+                  const testDetails = await db
+                    .select({
+                      id: tests.id,
+                      name: tests.name,
+                      categoryName: testCategories.name,
+                      price: tests.price
+                    })
+                    .from(tests)
+                    .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
+                    .where(eq(tests.id, testId))
+                    .limit(1);
 
-                if (testDetails.length > 0) {
-                  const testDetail = testDetails[0];
-                  const categoryName = testDetail.categoryName.toLowerCase();
-                  console.log('Test category:', categoryName, 'for test:', testDetail.name);
-                  console.log('Category check results:', {
-                    hasRadiology: categoryName.includes('radiology'),
-                    hasImaging: categoryName.includes('imaging'),
-                    hasUltrasound: categoryName.includes('ultrasound'),
-                    hasCtScan: categoryName.includes('ct scan')
-                  });
-                  
-                  // Check if it's an imaging test
-                  if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound') || categoryName.includes('ct scan')) {
-                    console.log('Adding imaging test:', testDetail.name);
-                    imagingTests.push({
-                      id: `${invoice.invoiceId}-${testId}`,
-                      testId: testId,
-                      testName: testName,
-                      patientId: invoice.patientId,
-                      patientName: invoice.patientName,
-                      price: testPrice,
-                      status: 'scheduled',
-                      scheduledAt: invoice.paidAt,
-                      categoryName: testDetail.categoryName,
-                      paymentMethod: invoice.paymentMethod
+                  console.log('Test details query result:', testDetails);
+
+                  if (testDetails.length > 0) {
+                    const testDetail = testDetails[0];
+                    const categoryName = testDetail.categoryName.toLowerCase();
+                    console.log('Test category:', categoryName, 'for test:', testDetail.name);
+                    console.log('Category check results:', {
+                      hasRadiology: categoryName.includes('radiology'),
+                      hasImaging: categoryName.includes('imaging'),
+                      hasUltrasound: categoryName.includes('ultrasound'),
+                      hasCtScan: categoryName.includes('ct scan')
                     });
+                    
+                    // Check if it's an imaging test
+                    if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound') || categoryName.includes('ct scan')) {
+                      console.log('Adding imaging test:', testDetail.name);
+                      imagingTests.push({
+                        id: `${invoice.invoiceId}-${testId}`,
+                        testId: testId,
+                        testName: testName,
+                        patientId: invoice.patientId,
+                        patientName: invoice.patientName,
+                        price: testPrice,
+                        status: 'scheduled',
+                        scheduledAt: invoice.paidAt,
+                        categoryName: testDetail.categoryName,
+                        paymentMethod: invoice.paymentMethod
+                      });
+                    }
+                  } else {
+                    console.log('No test details found for testId:', testId);
                   }
-                } else {
-                  console.log('No test details found for testId:', testId);
+                } catch (dbError) {
+                  console.log('Database error for testId:', testId, 'Error:', dbError);
                 }
               } else {
                 console.log('Could not resolve test:', test);
