@@ -20,6 +20,7 @@ import PharmacyManagement from "@/pages/pharmacy-management";
 import AdministrativeManagement from "@/pages/administrative-management";
 import UltrasoundUnit from "@/pages/ultrasound-unit";
 import CardiologyUnit from "@/pages/cardiology-unit";
+import ComprehensiveFinancial from "@/pages/comprehensive-financial";
 import CashiersModule from "@/pages/cashiers-module";
 
 function Router() {
@@ -38,6 +39,7 @@ function Router() {
       <ProtectedRoute path="/cardiology-unit" component={CardiologyUnit} />
       <ProtectedRoute path="/pharmacy-management" component={PharmacyManagement} />
       <ProtectedRoute path="/administrative-management" component={AdministrativeManagement} />
+      <ProtectedRoute path="/comprehensive-financial" component={ComprehensiveFinancial} />
       <ProtectedRoute path="/cashiers" component={CashiersModule} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />

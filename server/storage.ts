@@ -367,7 +367,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPatientTest(insertPatientTest: InsertPatientTest): Promise<PatientTest> {
-    // Adapt to existing database schema by removing unsupported columns
+    // Use only the columns that exist in the current database
     const adaptedPatientTest = {
       patientId: insertPatientTest.patientId,
       testId: insertPatientTest.testId,
@@ -375,10 +375,6 @@ export class DatabaseStorage implements IStorage {
       scheduledAt: insertPatientTest.scheduledAt || new Date(),
       branchId: insertPatientTest.branchId,
       tenantId: insertPatientTest.tenantId,
-      createdBy: insertPatientTest.createdBy,
-      referralProviderId: insertPatientTest.referralProviderId,
-      consultantId: insertPatientTest.consultantId,
-      priority: insertPatientTest.priority || 'normal',
       notes: insertPatientTest.notes
     };
 
