@@ -105,6 +105,18 @@ export default function LaboratoryManagement() {
     }
   };
 
+  // Query for test parameters (structured reporting)
+  const { data: testParameters, isLoading: parametersLoading } = useQuery({
+    queryKey: ["/api/test-parameters", selectedTest?.testId],
+    queryFn: async () => {
+      if (!selectedTest?.testId) return [];
+      const response = await fetch(`/api/test-parameters/${selectedTest.testId}`);
+      if (!response.ok) throw new Error("Failed to fetch test parameters");
+      return response.json();
+    },
+    enabled: !!selectedTest?.testId,
+  });
+
   // Query for laboratory workflow metrics
   const { data: labMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ["/api/laboratory/metrics", user?.branchId, startDate, endDate],
@@ -318,6 +330,48 @@ export default function LaboratoryManagement() {
     },
   });
 
+  // Complete test mutation with structured results
+  const completeStructuredTestMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedTest || !testParameters) return;
+      
+      const structuredResults = testParameters.map((param: any) => ({
+        parameterId: param.id,
+        value: resultValues[param.id] || "",
+        numericValue: parseFloat(resultValues[param.id] || "0") || null,
+        ...interpretResult(param, resultValues[param.id] || "")
+      }));
+
+      const response = await apiRequest("POST", `/api/patient-tests/${selectedTest.id}/complete-structured`, {
+        structuredResults,
+        additionalNotes: testNotes,
+        interpretation: generateInterpretation(testParameters)
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
+      refetchMetrics();
+      toast({
+        title: "Test Completed",
+        description: "Test results have been saved and report is ready for review.",
+      });
+      setShowResultDialog(false);
+      setResultValues({});
+      setTestNotes("");
+      setShowReportPreview(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to complete test",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Legacy complete test mutation for fallback
   const completeTestMutation = useMutation({
     mutationFn: async ({ testId, results, notes }: { testId: number; results: string; notes?: string }) => {
       setProcessingTests(prev => new Set(prev).add(testId));
@@ -1061,24 +1115,111 @@ export default function LaboratoryManagement() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="results">Test Results *</Label>
-                  <Textarea
-                    id="results"
-                    placeholder="Enter detailed test results..."
-                    value={testResults}
-                    onChange={(e) => setTestResults(e.target.value)}
-                    rows={8}
-                    className="mt-1"
-                  />
-                </div>
+              <div className="space-y-6">
+                {/* Structured Parameters Section */}
+                {testParameters && testParameters.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-lg font-semibold">Laboratory Parameters</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowReportPreview(!showReportPreview)}
+                      >
+                        {showReportPreview ? "Hide Preview" : "Preview Report"}
+                      </Button>
+                    </div>
+                    
+                    <div className="grid gap-4 max-h-96 overflow-y-auto">
+                      {testParameters.map((param: any) => {
+                        const value = resultValues[param.id] || "";
+                        const interpretation = value ? interpretResult(param, value) : { status: "normal", flag: "" };
+                        
+                        return (
+                          <div key={param.id} className="border rounded-lg p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{param.parameterName}</p>
+                                <p className="text-sm text-gray-600">
+                                  Code: {param.parameterCode} 
+                                  {param.normalRangeMin !== null && param.normalRangeMax !== null && (
+                                    <span className="ml-2">
+                                      Normal: {param.normalRangeMin}-{param.normalRangeMax} {param.unit}
+                                    </span>
+                                  )}
+                                  {param.normalRangeText && (
+                                    <span className="ml-2">Normal: {param.normalRangeText}</span>
+                                  )}
+                                </p>
+                              </div>
+                              {interpretation.flag && (
+                                <Badge 
+                                  variant={interpretation.status === "high" ? "destructive" : 
+                                          interpretation.status === "low" ? "secondary" : "default"}
+                                  className="ml-2"
+                                >
+                                  {interpretation.flag}
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder={`Enter ${param.parameterName.toLowerCase()} value`}
+                                value={value}
+                                onChange={(e) => setResultValues(prev => ({
+                                  ...prev,
+                                  [param.id]: e.target.value
+                                }))}
+                                className={`flex-1 ${
+                                  interpretation.status === "high" ? "border-red-300 bg-red-50" :
+                                  interpretation.status === "low" ? "border-yellow-300 bg-yellow-50" :
+                                  value ? "border-green-300 bg-green-50" : ""
+                                }`}
+                              />
+                              {param.unit && (
+                                <span className="text-sm text-gray-500 min-w-fit">{param.unit}</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Automated Interpretation Preview */}
+                    {showReportPreview && (
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        <h4 className="font-semibold mb-2">Automated Interpretation</h4>
+                        <p className="text-sm">{generateInterpretation(testParameters)}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : parametersLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full"></div>
+                    <span className="ml-2">Loading test parameters...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="results">Test Results *</Label>
+                      <Textarea
+                        id="results"
+                        placeholder="Enter detailed test results..."
+                        value={testResults}
+                        onChange={(e) => setTestResults(e.target.value)}
+                        rows={8}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="notes">Additional Notes</Label>
                   <Textarea
                     id="notes"
-                    placeholder="Any additional observations or notes..."
+                    placeholder="Any additional observations or clinical notes..."
                     value={testNotes}
                     onChange={(e) => setTestNotes(e.target.value)}
                     rows={3}
@@ -1094,25 +1235,41 @@ export default function LaboratoryManagement() {
                     setShowResultDialog(false);
                     setTestResults("");
                     setTestNotes("");
+                    setResultValues({});
+                    setShowReportPreview(false);
                     setSelectedTest(null);
                   }}
                 >
                   Cancel
                 </Button>
-                <Button
-                  onClick={() => {
-                    if (selectedTest && testResults.trim()) {
-                      completeTestMutation.mutate({
-                        testId: selectedTest.id,
-                        results: testResults,
-                        notes: testNotes
-                      });
+                
+                {testParameters && testParameters.length > 0 ? (
+                  <Button
+                    onClick={() => completeStructuredTestMutation.mutate()}
+                    disabled={
+                      completeStructuredTestMutation.isPending || 
+                      Object.keys(resultValues).length === 0 ||
+                      testParameters.some((param: any) => !resultValues[param.id]?.trim())
                     }
-                  }}
-                  disabled={completeTestMutation.isPending || !testResults.trim()}
-                >
-                  {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
-                </Button>
+                  >
+                    {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      if (selectedTest && testResults.trim()) {
+                        completeTestMutation.mutate({
+                          testId: selectedTest.id,
+                          results: testResults,
+                          notes: testNotes
+                        });
+                      }
+                    }}
+                    disabled={completeTestMutation.isPending || !testResults.trim()}
+                  >
+                    {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
+                  </Button>
+                )}
               </div>
             </div>
           )}

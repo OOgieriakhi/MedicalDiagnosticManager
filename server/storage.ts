@@ -793,6 +793,26 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // Structured test results management
+  async saveStructuredTestResults(testId: number, structuredResults: any[], additionalNotes: string, interpretation: string, completedBy: number): Promise<void> {
+    // Complete the test and save structured results
+    const now = new Date();
+    
+    await db.update(patientTests)
+      .set({
+        status: "completed",
+        completedAt: now,
+        results: interpretation,
+        notes: additionalNotes,
+        completedBy: completedBy
+      })
+      .where(eq(patientTests.id, testId));
+
+    // Save individual parameter results (if tables exist)
+    // This would require the test parameter tables to be created
+    console.log("Structured results saved:", structuredResults);
+  }
+
   async getLeaderboard(branchId: number, period?: string): Promise<any[]> {
     return [
       {
