@@ -842,6 +842,107 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Ultrasound studies endpoint
+  app.get("/api/ultrasound/studies", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string) || 1;
+
+      // Get paid invoices with patient information
+      const paidInvoices = await db
+        .select({
+          invoiceId: invoices.id,
+          patientId: invoices.patientId,
+          patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
+          tests: invoices.tests,
+          paidAt: invoices.paidAt,
+          paymentMethod: invoices.paymentMethod
+        })
+        .from(invoices)
+        .innerJoin(patients, eq(invoices.patientId, patients.id))
+        .where(
+          and(
+            eq(invoices.branchId, branchId),
+            eq(invoices.paymentStatus, 'paid')
+          )
+        );
+
+      console.log('Found paid invoices for ultrasound:', paidInvoices.length);
+
+      // Extract ultrasound tests from paid invoices
+      const ultrasoundTests = [];
+      for (const invoice of paidInvoices) {
+        if (invoice.tests && typeof invoice.tests === 'string') {
+          try {
+            const testsArray = JSON.parse(invoice.tests);
+            
+            for (const test of testsArray) {
+              if (test.testId) {
+                // Get test details to check category
+                const testDetails = await db
+                  .select({
+                    id: tests.id,
+                    name: tests.name,
+                    categoryName: testCategories.name,
+                    price: tests.price
+                  })
+                  .from(tests)
+                  .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
+                  .where(eq(tests.id, test.testId))
+                  .limit(1);
+
+                if (testDetails.length > 0) {
+                  const testDetail = testDetails[0];
+                  const categoryName = testDetail.categoryName.toLowerCase();
+                  
+                  // Check if it's specifically an ultrasound test
+                  if (categoryName.includes('ultrasound')) {
+                    ultrasoundTests.push({
+                      id: `${invoice.invoiceId}-${test.testId}`,
+                      testId: test.testId,
+                      testName: test.name,
+                      patientId: invoice.patientId,
+                      patientName: invoice.patientName,
+                      price: test.price,
+                      status: 'scheduled',
+                      scheduledAt: invoice.paidAt,
+                      categoryName: testDetail.categoryName,
+                      paymentMethod: invoice.paymentMethod
+                    });
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.log('Error parsing tests JSON:', e);
+          }
+        }
+      }
+      
+      console.log('Final ultrasound tests count:', ultrasoundTests.length);
+      res.json(ultrasoundTests);
+    } catch (error: any) {
+      console.error("Error fetching ultrasound studies:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Ultrasound metrics endpoint
+  app.get("/api/ultrasound/metrics", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string) || 1;
+      
+      res.json({
+        totalStudies: 0,
+        completionRate: 0,
+        avgProcessingTime: 0,
+        pendingReports: 0
+      });
+    } catch (error: any) {
+      console.error("Error fetching ultrasound metrics:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Radiology equipment status
   app.get("/api/radiology/equipment", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -927,6 +1028,12 @@ export function registerRoutes(app: Express): Server {
                   const testDetail = testDetails[0];
                   const categoryName = testDetail.categoryName.toLowerCase();
                   console.log('Test category:', categoryName, 'for test:', testDetail.name);
+                  console.log('Category check results:', {
+                    hasRadiology: categoryName.includes('radiology'),
+                    hasImaging: categoryName.includes('imaging'),
+                    hasUltrasound: categoryName.includes('ultrasound'),
+                    hasCtScan: categoryName.includes('ct scan')
+                  });
                   
                   // Check if it's an imaging test
                   if (categoryName.includes('radiology') || categoryName.includes('imaging') || categoryName.includes('ultrasound') || categoryName.includes('ct scan')) {
