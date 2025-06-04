@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Receipt, 
   Calculator, 
@@ -19,7 +20,8 @@ import {
   DollarSign,
   FileText,
   Plus,
-  Minus
+  Minus,
+  Printer
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -528,8 +530,147 @@ export default function InvoiceManagement() {
         </div>
       </div>
 
-      {/* Invoice Preview */}
-      {showInvoicePreview && selectedTests.length > 0 && <InvoicePreview />}
+      {/* Invoice Preview Dialog */}
+      <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {createdInvoice ? `Invoice #${createdInvoice.invoiceNumber}` : "Invoice Preview"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Invoice Header */}
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-semibold text-medical-blue">Orient Medical Diagnostic Center</h3>
+                <p className="text-sm text-slate-gray">Multi-Branch Medical Diagnostics</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-slate-gray">Invoice Date</p>
+                <p className="font-medium">{new Date().toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            {/* Patient Information */}
+            {selectedPatientData && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Patient Information</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-gray">Name</p>
+                    <p className="font-medium">{selectedPatientData.firstName} {selectedPatientData.lastName}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-gray">Patient ID</p>
+                    <p className="font-medium">{selectedPatientData.patientId}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-gray">Phone</p>
+                    <p className="font-medium">{selectedPatientData.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-gray">Age</p>
+                    <p className="font-medium">{selectedPatientData.age} years</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Test Items */}
+            <div>
+              <h4 className="font-medium mb-3">Test Items</h4>
+              <div className="space-y-2">
+                {selectedTests.map((test, index) => (
+                  <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <div>
+                      <p className="font-medium">{test.name}</p>
+                      <p className="text-sm text-slate-gray">{test.code}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">₦{test.price.toLocaleString()}</p>
+                      <p className="text-sm text-slate-gray">Qty: {test.quantity}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Invoice Summary */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>₦{calculateSubtotal().toLocaleString()}</span>
+                </div>
+                {discountPercentage > 0 && (
+                  <div className="flex justify-between text-medical-green">
+                    <span>Discount ({discountPercentage}%)</span>
+                    <span>-₦{calculateDiscount().toLocaleString()}</span>
+                  </div>
+                )}
+                {calculateCommission() > 0 && (
+                  <div className="flex justify-between text-blue-600">
+                    <span>Provider Commission</span>
+                    <span>₦{calculateCommission().toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                  <span>Total Amount</span>
+                  <span>₦{calculateTotal().toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Payment Method</span>
+                  <span className="capitalize">{paymentMethod.replace('_', ' ')}</span>
+                </div>
+                {createdInvoice && (
+                  <div className="flex justify-between text-sm">
+                    <span>Status</span>
+                    <Badge className="bg-medical-green">Paid</Badge>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-4">
+              {createdInvoice ? (
+                <>
+                  <Button
+                    onClick={() => {
+                      // Reset form for new invoice
+                      setSelectedPatient("");
+                      setSelectedTests([]);
+                      setDiscountPercentage(0);
+                      setCreatedInvoice(null);
+                      setShowInvoicePreview(false);
+                    }}
+                    className="flex-1"
+                    variant="outline"
+                  >
+                    Create New Invoice
+                  </Button>
+                  <Button
+                    onClick={() => window.print()}
+                    className="flex-1 bg-medical-blue hover:bg-blue-700"
+                  >
+                    <Printer className="mr-2 w-4 h-4" />
+                    Print Invoice
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={() => setShowInvoicePreview(false)}
+                  className="w-full"
+                  variant="outline"
+                >
+                  Close Preview
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
