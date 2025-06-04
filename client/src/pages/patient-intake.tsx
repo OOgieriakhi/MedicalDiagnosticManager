@@ -536,7 +536,7 @@ export default function PatientIntake() {
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                  <Tabs defaultValue="1" className="space-y-4">
+                  <Tabs defaultValue={testCategories[0]?.id?.toString() || "1"} className="space-y-4">
                     <TabsList>
                       {testCategories.map((category: any) => (
                         <TabsTrigger key={category.id} value={category.id.toString()}>
@@ -564,7 +564,7 @@ export default function PatientIntake() {
                                   <div className="flex items-center space-x-3">
                                     <Checkbox 
                                       checked={selectedTests.includes(test.id)}
-                                      onChange={() => handleTestSelection(test.id)}
+                                      onCheckedChange={() => handleTestSelection(test.id)}
                                     />
                                     <div>
                                       <h4 className="font-medium text-gray-900">{test.name}</h4>
