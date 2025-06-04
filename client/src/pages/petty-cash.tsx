@@ -362,9 +362,9 @@ export default function PettyCash() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTab value="overview">Funds Overview</TabsTab>
-          <TabsTab value="transactions">Transactions</TabsTab>
-          <TabsTab value="reconciliations">Reconciliations</TabsTab>
+          <TabsTrigger value="overview">Funds Overview</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="reconciliations">Reconciliations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">

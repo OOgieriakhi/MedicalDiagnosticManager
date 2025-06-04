@@ -25,7 +25,8 @@ import {
   Building,
   Monitor,
   Waves,
-  Heart
+  Heart,
+  Receipt
 } from "lucide-react";
 
 export default function Sidebar() {
