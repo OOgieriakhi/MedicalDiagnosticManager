@@ -23,7 +23,8 @@ import {
   Eye,
   Pill,
   Building,
-  Monitor
+  Monitor,
+  Waves
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -49,6 +50,7 @@ export default function Sidebar() {
       items: [
         { icon: Activity, label: "Laboratory Management", path: "/laboratory-management", active: location === "/laboratory-management" },
         { icon: Eye, label: "Radiology Management", path: "/radiology-management", active: location === "/radiology-management" },
+        { icon: Waves, label: "Ultrasound Dashboard", path: "/ultrasound-dashboard", active: location === "/ultrasound-dashboard" },
         { icon: Pill, label: "Pharmacy Management", path: "/pharmacy-management", active: location === "/pharmacy-management" },
         { icon: Building, label: "Administrative Management", path: "/administrative-management", active: location === "/administrative-management" },
         { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
