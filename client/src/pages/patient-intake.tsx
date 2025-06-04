@@ -60,7 +60,18 @@ export default function PatientIntake() {
   });
 
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [selectedBank, setSelectedBank] = useState("");
   const [completedInvoiceId, setCompletedInvoiceId] = useState<number | null>(null);
+
+  // Nigerian banks list for payment processing
+  const nigerianBanks = [
+    "Access Bank", "Citibank", "Ecobank", "Fidelity Bank", "First Bank of Nigeria",
+    "First City Monument Bank (FCMB)", "Globus Bank", "Guaranty Trust Bank (GTBank)",
+    "Heritage Bank", "Jaiz Bank", "Keystone Bank", "Kuda Bank", "Parallex Bank",
+    "Polaris Bank", "Providus Bank", "Stanbic IBTC Bank", "Standard Chartered Bank",
+    "Sterling Bank", "SunTrust Bank", "Titan Bank", "Union Bank", "United Bank for Africa (UBA)",
+    "Unity Bank", "Wema Bank", "Zenith Bank"
+  ];
 
   // Search existing patients
   const { data: searchResults = [], refetch: searchPatients } = useQuery({
@@ -205,6 +216,7 @@ export default function PatientIntake() {
           paymentMethod: paymentMethod,
           paymentDetails: {
             method: paymentMethod,
+            bank: selectedBank || null,
             processedAt: new Date().toISOString(),
             processedBy: user?.id
           }
@@ -215,7 +227,7 @@ export default function PatientIntake() {
       await apiRequest("POST", "/api/transactions", {
         type: "payment",
         amount: Math.max(0, calculateTotal() - calculateCommission()).toString(),
-        description: `Payment for ${selectedTests.length} diagnostic test(s)`,
+        description: `Payment for ${selectedTests.length} diagnostic test(s) - ${paymentMethod.toUpperCase()}${selectedBank ? ` via ${selectedBank}` : ''}`,
         patientTestId: scheduledTests[0]?.id,
         branchId: user?.branchId,
         tenantId: user?.tenantId,
@@ -707,24 +719,54 @@ export default function PatientIntake() {
                     </Select>
                   </div>
 
-                  {paymentMethod === "card" && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-700">Card payment will be processed at the counter with our POS system.</p>
-                    </div>
-                  )}
+                  {(paymentMethod === "card" || paymentMethod === "pos" || paymentMethod === "transfer") && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="bank">Select Bank</Label>
+                        <Select value={selectedBank} onValueChange={setSelectedBank}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose bank for this transaction" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {nigerianBanks.map(bank => (
+                              <SelectItem key={bank} value={bank}>
+                                {bank}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  {paymentMethod === "transfer" && (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
-                      <p className="text-sm font-medium text-green-800">Bank Transfer Details:</p>
-                      <p className="text-sm text-green-700">Account: Orient Medical Diagnostic</p>
-                      <p className="text-sm text-green-700">Bank: First Bank of Nigeria</p>
-                      <p className="text-sm text-green-700">Account No: 2025647890</p>
+                      {paymentMethod === "card" && (
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-700">Card payment will be processed at the counter with our POS system.</p>
+                        </div>
+                      )}
+
+                      {paymentMethod === "transfer" && (
+                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
+                          <p className="text-sm font-medium text-green-800">Bank Transfer Details:</p>
+                          <p className="text-sm text-green-700">Account: Orient Medical Diagnostic</p>
+                          <p className="text-sm text-green-700">Bank: First Bank of Nigeria</p>
+                          <p className="text-sm text-green-700">Account No: 2025647890</p>
+                        </div>
+                      )}
+
+                      {paymentMethod === "pos" && (
+                        <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                          <p className="text-sm text-purple-700">POS payment will be processed with the selected bank's card.</p>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   <Button 
                     onClick={handleProceedToPayment}
-                    disabled={!appointmentDetails.scheduledAt || !paymentMethod}
+                    disabled={
+                      !appointmentDetails.scheduledAt || 
+                      !paymentMethod || 
+                      ((paymentMethod === "card" || paymentMethod === "pos" || paymentMethod === "transfer") && !selectedBank)
+                    }
                     className="w-full"
                   >
                     {paymentMethod === "invoice" ? "Generate Invoice & Schedule" : "Process Payment & Schedule"}
