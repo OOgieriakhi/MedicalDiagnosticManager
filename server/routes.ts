@@ -292,7 +292,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Get test details from invoice
-      const tests = invoice.tests || [];
+      const tests = Array.isArray(invoice.tests) ? invoice.tests : [];
       
       // Generate PDF receipt
       const pdfBuffer = await PDFService.generatePaymentReceiptPDF(invoice, patient, tests);

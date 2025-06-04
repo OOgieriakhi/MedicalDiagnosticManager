@@ -60,6 +60,7 @@ export default function PatientIntake() {
   });
 
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [completedInvoiceId, setCompletedInvoiceId] = useState<number | null>(null);
 
   // Search existing patients
   const { data: searchResults = [], refetch: searchPatients } = useQuery({
@@ -749,6 +750,46 @@ export default function PatientIntake() {
                   <p className="text-gray-600 mb-6">
                     Patient {selectedPatient?.firstName} {selectedPatient?.lastName} has been scheduled for {selectedTests.length} test(s).
                   </p>
+                  
+                  {completedInvoiceId && paymentMethod !== "invoice" && (
+                    <div className="mb-6">
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/invoices/${completedInvoiceId}/receipt`);
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `receipt-${completedInvoiceId}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                              toast({
+                                title: "Receipt Downloaded",
+                                description: "Payment receipt has been downloaded successfully.",
+                              });
+                            } else {
+                              throw new Error('Failed to download receipt');
+                            }
+                          } catch (error) {
+                            toast({
+                              title: "Download Failed",
+                              description: "Could not download receipt. Please try again.",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        variant="outline"
+                        className="w-full mb-4"
+                      >
+                        <Receipt className="mr-2 w-4 h-4" />
+                        Download Receipt
+                      </Button>
+                    </div>
+                  )}
                   
                   <Button 
                     onClick={() => {
