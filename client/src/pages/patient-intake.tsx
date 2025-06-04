@@ -36,6 +36,7 @@ export default function PatientIntake() {
   const [selectedTests, setSelectedTests] = useState<number[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [testSearchTerm, setTestSearchTerm] = useState("");
   const [isNewPatient, setIsNewPatient] = useState(true);
   
   const [newPatientData, setNewPatientData] = useState({
@@ -215,6 +216,12 @@ export default function PatientIntake() {
     const total = calculateTotal();
     return Math.round(total * (provider?.commissionRate || 0) / 100);
   };
+
+  // Filter tests based on search term
+  const filteredTests = (tests as any[] || []).filter(test =>
+    test.name.toLowerCase().includes(testSearchTerm.toLowerCase()) ||
+    test.code.toLowerCase().includes(testSearchTerm.toLowerCase())
+  );
 
   const steps = [
     { id: 1, title: "Patient Selection", icon: UserPlus },
@@ -514,91 +521,97 @@ export default function PatientIntake() {
               <CardTitle>Select Diagnostic Tests</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Debug info */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mb-4 p-2 bg-yellow-50 text-xs">
-                  <p>Categories: {testCategories.length} | Tests: {tests.length}</p>
+              <div className="space-y-4">
+                {/* Test Search */}
+                <div>
+                  <Input
+                    placeholder="Search tests by name or code..."
+                    value={testSearchTerm}
+                    onChange={(e) => setTestSearchTerm(e.target.value)}
+                    className="mb-4"
+                  />
                 </div>
-              )}
-              
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  {testCategories.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-slate-gray">Loading test categories...</p>
-                    </div>
-                  ) : tests.length === 0 ? (
+
+                {/* Available Tests */}
+                <div>
+                  <h3 className="font-medium mb-3">Available Tests</h3>
+                  {tests.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-slate-gray">Loading diagnostic tests...</p>
                     </div>
                   ) : (
-                    <Tabs defaultValue={testCategories[0]?.id?.toString() || "1"} className="space-y-4">
-                      <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-                        {testCategories.slice(0, 4).map((category: any) => (
-                          <TabsTrigger key={category.id} value={category.id.toString()}>
-                            {category.name}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-
-                      {testCategories.map((category: any) => {
-                        const categoryTests = tests.filter((test: any) => test.categoryId === category.id);
-                        return (
-                          <TabsContent key={category.id} value={category.id.toString()}>
-                            <div className="space-y-3">
-                              {categoryTests.length === 0 ? (
-                                <div className="text-center py-8">
-                                  <p className="text-slate-gray">No tests available in this category</p>
+                    <div className="max-h-80 overflow-y-auto border rounded-md">
+                      {filteredTests.map((test: any) => (
+                        <div
+                          key={test.id}
+                          className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                            selectedTests.includes(test.id) ? 'bg-blue-50' : ''
+                          }`}
+                          onClick={() => handleTestSelection(test.id)}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center space-x-3">
+                              <Checkbox 
+                                checked={selectedTests.includes(test.id)}
+                                onCheckedChange={() => handleTestSelection(test.id)}
+                              />
+                              <div>
+                                <div className="font-medium">{test.name}</div>
+                                <div className="text-sm text-gray-500">Code: {test.code}</div>
+                                <div className="flex items-center space-x-4 mt-1">
+                                  <span className="text-xs text-slate-gray">
+                                    <Clock className="inline w-3 h-3 mr-1" />
+                                    {test.duration} min
+                                  </span>
+                                  {test.requiresConsultant && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Requires Specialist
+                                    </Badge>
+                                  )}
                                 </div>
-                              ) : (
-                                categoryTests.map((test: any) => (
-                                  <div 
-                                    key={test.id} 
-                                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                                      selectedTests.includes(test.id) 
-                                        ? 'border-medical-blue bg-blue-50' 
-                                        : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                    onClick={() => handleTestSelection(test.id)}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center space-x-3">
-                                        <Checkbox 
-                                          checked={selectedTests.includes(test.id)}
-                                          onCheckedChange={() => handleTestSelection(test.id)}
-                                        />
-                                        <div>
-                                          <h4 className="font-medium text-gray-900">{test.name}</h4>
-                                          <p className="text-sm text-slate-gray">Code: {test.code}</p>
-                                          <div className="flex items-center space-x-4 mt-1">
-                                            <span className="text-xs text-slate-gray">
-                                              <Clock className="inline w-3 h-3 mr-1" />
-                                              {test.duration} min
-                                            </span>
-                                            {test.requiresConsultant && (
-                                              <Badge variant="outline" className="text-xs">
-                                                Requires Specialist
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-lg font-bold text-gray-900">
-                                          ₦{test.price?.toLocaleString() || '0'}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium">₦{test.price?.toLocaleString() || '0'}</div>
+                              {selectedTests.includes(test.id) && (
+                                <Badge variant="default" className="text-xs">Selected</Badge>
                               )}
                             </div>
-                          </TabsContent>
-                        )
-                      })}
-                    </Tabs>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
+
+                {/* Selected Tests Summary */}
+                {selectedTests.length > 0 && (
+                  <div>
+                    <h3 className="font-medium mb-3">Selected Tests ({selectedTests.length})</h3>
+                    <div className="space-y-2">
+                      {selectedTests.map((testId) => {
+                        const test = tests.find((t: any) => t.id === testId);
+                        if (!test) return null;
+                        return (
+                          <div key={testId} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                            <span className="font-medium">{test.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span>₦{test.price?.toLocaleString() || '0'}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleTestSelection(testId)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
 
                 {/* Order Summary */}
                 <div>
@@ -657,7 +670,6 @@ export default function PatientIntake() {
                     </CardContent>
                   </Card>
                 </div>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -855,8 +867,6 @@ export default function PatientIntake() {
           </CardContent>
         </Card>
       )}
-        </div>
-      </div>
     </div>
   );
 }
