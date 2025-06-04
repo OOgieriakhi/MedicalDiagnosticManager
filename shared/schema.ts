@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, jsonb, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, jsonb, varchar, real } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -458,6 +458,61 @@ export const insertRecognitionEventSchema = createInsertSchema(recognitionEvents
   approvedAt: true,
 });
 
+// Test parameter templates for structured reporting
+export const testParameters = pgTable("test_parameters", {
+  id: serial("id").primaryKey(),
+  testId: integer("test_id").notNull().references(() => tests.id),
+  parameterName: text("parameter_name").notNull(),
+  parameterCode: text("parameter_code").notNull(),
+  unit: text("unit").notNull(),
+  normalRangeMin: real("normal_range_min"),
+  normalRangeMax: real("normal_range_max"),
+  normalRangeText: text("normal_range_text"),
+  category: text("category"), // e.g., "hematology", "chemistry", "immunology"
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Test result values for structured reporting
+export const testResultValues = pgTable("test_result_values", {
+  id: serial("id").primaryKey(),
+  patientTestId: integer("patient_test_id").notNull().references(() => patientTests.id),
+  parameterId: integer("parameter_id").notNull().references(() => testParameters.id),
+  value: text("value").notNull(),
+  numericValue: real("numeric_value"),
+  status: text("status"), // "normal", "high", "low", "abnormal"
+  flag: text("flag"), // "H", "L", "HH", "LL", "N"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Report templates for different test types
+export const reportTemplates = pgTable("report_templates", {
+  id: serial("id").primaryKey(),
+  testId: integer("test_id").notNull().references(() => tests.id),
+  templateName: text("template_name").notNull(),
+  headerTemplate: text("header_template"),
+  footerTemplate: text("footer_template"),
+  interpretationRules: json("interpretation_rules"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTestParameterSchema = createInsertSchema(testParameters).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTestResultValueSchema = createInsertSchema(testResultValues).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReportTemplateSchema = createInsertSchema(reportTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -503,3 +558,12 @@ export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricSche
 
 export type RecognitionEvent = typeof recognitionEvents.$inferSelect;
 export type InsertRecognitionEvent = z.infer<typeof insertRecognitionEventSchema>;
+
+export type TestParameter = typeof testParameters.$inferSelect;
+export type InsertTestParameter = z.infer<typeof insertTestParameterSchema>;
+
+export type TestResultValue = typeof testResultValues.$inferSelect;
+export type InsertTestResultValue = z.infer<typeof insertTestResultValueSchema>;
+
+export type ReportTemplate = typeof reportTemplates.$inferSelect;
+export type InsertReportTemplate = z.infer<typeof insertReportTemplateSchema>;
