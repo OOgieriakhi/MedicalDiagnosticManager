@@ -418,7 +418,11 @@ export class DatabaseStorage implements IStorage {
       description: insertTransaction.description,
       branchId: insertTransaction.branchId,
       tenantId: insertTransaction.tenantId,
-      createdBy: insertTransaction.createdBy
+      createdBy: insertTransaction.createdBy,
+      // Remove optional fields that may not exist in current database
+      ...(insertTransaction.patientTestId && { patientTestId: insertTransaction.patientTestId }),
+      ...(insertTransaction.referralProviderId && { referralProviderId: insertTransaction.referralProviderId }),
+      ...(insertTransaction.consultantId && { consultantId: insertTransaction.consultantId })
     };
 
     const [transaction] = await db
