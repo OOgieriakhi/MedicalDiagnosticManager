@@ -74,6 +74,8 @@ export default function InvoiceManagement() {
   const [paymentDetails, setPaymentDetails] = useState<any>({});
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [testSearchTerm, setTestSearchTerm] = useState("");
+  const [showNewReferralDialog, setShowNewReferralDialog] = useState(false);
+  const [newReferralName, setNewReferralName] = useState("");
 
   // Query for patients
   const { data: patients } = useQuery({
@@ -159,6 +161,36 @@ export default function InvoiceManagement() {
     },
   });
 
+  // Mutation for creating new referral provider
+  const createReferralMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/referral-providers", {
+        name,
+        tenantId: user?.tenantId,
+        commissionRate: "0", // Default, to be set by manager/accountant
+        requiresCommissionSetup: true // Flag for managers
+      });
+      return res.json();
+    },
+    onSuccess: (newProvider) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/referral-providers"] });
+      setShowNewReferralDialog(false);
+      setNewReferralName("");
+      setReferralProviderId(newProvider.id);
+      toast({
+        title: "Referral provider added",
+        description: "New referral provider created. Manager will be notified to set commission rate.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetForm = () => {
     setSelectedPatient(null);
     setSelectedTests([]);
@@ -178,6 +210,18 @@ export default function InvoiceManagement() {
 
   const handleRemoveTest = (testId: number) => {
     setSelectedTests(selectedTests.filter(t => t.testId !== testId));
+  };
+
+  const handleCreateReferral = () => {
+    if (!newReferralName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a referral provider name",
+        variant: "destructive",
+      });
+      return;
+    }
+    createReferralMutation.mutate(newReferralName.trim());
   };
 
   const calculateInvoiceAmounts = () => {
@@ -378,18 +422,29 @@ export default function InvoiceManagement() {
               {/* Referral Provider */}
               <div>
                 <Label>Referral Provider (Optional)</Label>
-                <Select value={referralProviderId?.toString() || ""} onValueChange={(value) => setReferralProviderId(value ? parseInt(value) : null)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select referral provider..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(referralProviders as ReferralProvider[] || []).map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id.toString()}>
-                        {provider.name} ({provider.commissionRate}% commission)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={referralProviderId?.toString() || ""} onValueChange={(value) => setReferralProviderId(value ? parseInt(value) : null)}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select referral provider..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {(referralProviders as ReferralProvider[] || []).map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id.toString()}>
+                          {provider.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowNewReferralDialog(true)}
+                    className="whitespace-nowrap"
+                  >
+                    Add New
+                  </Button>
+                </div>
               </div>
 
               {/* Discount */}
@@ -424,16 +479,6 @@ export default function InvoiceManagement() {
                       <span>Patient Pays:</span>
                       <span>₦{amounts.totalAmount.toLocaleString()}</span>
                     </div>
-                    {amounts.commissionAmount > 0 && (
-                      <div className="mt-2 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
-                        <div className="text-xs text-blue-700 font-medium">Commission Tracking (Not deducted from patient)</div>
-                        <div className="flex justify-between text-xs text-blue-600">
-                          <span>Commission ({((amounts.commissionAmount / amounts.totalAmount) * 100).toFixed(1)}%):</span>
-                          <span>₦{amounts.commissionAmount.toLocaleString()}</span>
-                        </div>
-                        <div className="text-xs text-blue-600 mt-1">Paid separately by accounting at month-end</div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -615,6 +660,46 @@ export default function InvoiceManagement() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* New Referral Provider Dialog */}
+      <Dialog open={showNewReferralDialog} onOpenChange={setShowNewReferralDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Referral Provider</DialogTitle>
+            <DialogDescription>
+              Create a new referral provider. The manager will be notified to set the commission rate.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="referralName">Provider Name</Label>
+              <Input
+                id="referralName"
+                placeholder="Enter referral provider name"
+                value={newReferralName}
+                onChange={(e) => setNewReferralName(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowNewReferralDialog(false);
+                setNewReferralName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateReferral}
+              disabled={createReferralMutation.isPending || !newReferralName.trim()}
+            >
+              {createReferralMutation.isPending ? "Creating..." : "Create Provider"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
