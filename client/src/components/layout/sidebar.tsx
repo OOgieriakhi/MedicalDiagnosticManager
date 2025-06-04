@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { 
   Stethoscope, 
   BarChart3, 
