@@ -335,6 +335,8 @@ export function registerRoutes(app: Express): Server {
         queryParams: req.query 
       });
       
+      console.log('Calling storage.getPatientTestsByBranch with:', { userBranchId, testLimit, isPaidOnly, start, end });
+      
       let tests = await storage.getPatientTestsByBranch(userBranchId, testLimit, isPaidOnly, start, end);
 
       res.json(tests);
