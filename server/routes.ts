@@ -919,6 +919,34 @@ export function registerRoutes(app: Express): Server {
       }
       
       console.log('Final ultrasound tests count:', ultrasoundTests.length);
+      
+      // If no results from invoice parsing, try direct patient_tests query for ultrasound
+      if (ultrasoundTests.length === 0) {
+        console.log('No ultrasound results from invoice parsing, trying direct query...');
+        
+        try {
+          const directResults = await storage.getPatientTestsByCategory(branchId, 'Ultrasound', 50);
+          console.log('Direct ultrasound query results:', directResults.length);
+          
+          const formattedResults = directResults.map(test => ({
+            id: `pt-${test.id}`,
+            testId: test.testId,
+            testName: test.testName,
+            patientId: test.patientId,
+            patientName: test.patientName,
+            price: test.price || 0,
+            status: test.status || 'scheduled',
+            scheduledAt: test.scheduledAt,
+            categoryName: 'Ultrasound Services',
+            paymentMethod: 'paid'
+          }));
+          
+          return res.json(formattedResults);
+        } catch (directError) {
+          console.log('Direct ultrasound query failed:', directError);
+        }
+      }
+      
       res.json(ultrasoundTests);
     } catch (error: any) {
       console.error("Error fetching ultrasound studies:", error);
