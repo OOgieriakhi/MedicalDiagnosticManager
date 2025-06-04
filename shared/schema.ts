@@ -349,5 +349,8 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 
 export type CommissionPayment = typeof commissionPayments.$inferSelect;
 
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+
 export type SystemAlert = typeof systemAlerts.$inferSelect;
 export type InsertSystemAlert = z.infer<typeof insertSystemAlertSchema>;

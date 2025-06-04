@@ -9,6 +9,7 @@ import {
   referralProviders,
   transactions,
   systemAlerts,
+  invoices,
   type User, 
   type InsertUser,
   type Tenant,
@@ -23,7 +24,9 @@ import {
   type InsertSystemAlert,
   type ReferralProvider,
   type TestCategory,
-  type Test
+  type Test,
+  type Invoice,
+  type InsertInvoice
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, between } from "drizzle-orm";
@@ -78,6 +81,13 @@ export interface IStorage {
   getTestCategories(tenantId: number): Promise<TestCategory[]>;
   getTests(tenantId: number): Promise<Test[]>;
   getTest(id: number): Promise<Test | undefined>;
+  
+  // Invoice management (two-stage billing process)
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  getInvoicesByBranch(branchId: number, status?: string): Promise<Invoice[]>;
+  getInvoice(id: number): Promise<Invoice | undefined>;
+  markInvoiceAsPaid(id: number, paymentData: { paymentMethod: string; paymentDetails: any; paidBy: number }): Promise<void>;
+  generateInvoiceNumber(tenantId: number): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -344,6 +354,84 @@ export class DatabaseStorage implements IStorage {
       .from(tests)
       .where(eq(tests.id, id));
     return test || undefined;
+  }
+
+  // Invoice management methods for two-stage billing
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const [invoice] = await db
+      .insert(invoices)
+      .values(insertInvoice)
+      .returning();
+    return invoice;
+  }
+
+  async getInvoicesByBranch(branchId: number, status?: string): Promise<any[]> {
+    let query = db
+      .select({
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        patientId: invoices.patientId,
+        patientName: sql`${patients.firstName} || ' ' || ${patients.lastName}`.as('patientName'),
+        totalAmount: invoices.totalAmount,
+        paymentStatus: invoices.paymentStatus,
+        paymentMethod: invoices.paymentMethod,
+        createdAt: invoices.createdAt,
+        paidAt: invoices.paidAt,
+        createdByName: sql`${users.username}`.as('createdByName'),
+        tests: invoices.tests
+      })
+      .from(invoices)
+      .leftJoin(patients, eq(invoices.patientId, patients.id))
+      .leftJoin(users, eq(invoices.createdBy, users.id))
+      .where(eq(invoices.branchId, branchId))
+      .orderBy(desc(invoices.createdAt));
+
+    if (status) {
+      query = query.where(and(eq(invoices.branchId, branchId), eq(invoices.paymentStatus, status)));
+    }
+
+    return await query;
+  }
+
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice || undefined;
+  }
+
+  async markInvoiceAsPaid(id: number, paymentData: { paymentMethod: string; paymentDetails: any; paidBy: number }): Promise<void> {
+    await db
+      .update(invoices)
+      .set({
+        paymentStatus: 'paid',
+        paymentMethod: paymentData.paymentMethod,
+        paymentDetails: paymentData.paymentDetails,
+        paidBy: paymentData.paidBy,
+        paidAt: new Date()
+      })
+      .where(eq(invoices.id, id));
+  }
+
+  async generateInvoiceNumber(tenantId: number): Promise<string> {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    
+    // Get count of invoices created today for this tenant
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    const result = await db
+      .select({ count: sql`count(*)` })
+      .from(invoices)
+      .where(and(
+        eq(invoices.tenantId, tenantId),
+        between(invoices.createdAt, startOfDay, endOfDay)
+      ));
+    
+    const count = Number(result[0]?.count || 0) + 1;
+    const sequence = String(count).padStart(4, '0');
+    
+    return `INV-${year}${month}-${sequence}`;
   }
 }
 
