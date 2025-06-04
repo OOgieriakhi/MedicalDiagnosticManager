@@ -77,6 +77,7 @@ export interface IStorage {
   getReferralProviders(tenantId: number): Promise<ReferralProvider[]>;
   getTestCategories(tenantId: number): Promise<TestCategory[]>;
   getTests(tenantId: number): Promise<Test[]>;
+  getTest(id: number): Promise<Test | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -335,6 +336,14 @@ export class DatabaseStorage implements IStorage {
       .from(tests)
       .where(eq(tests.tenantId, tenantId))
       .orderBy(tests.name);
+  }
+
+  async getTest(id: number): Promise<Test | undefined> {
+    const [test] = await db
+      .select()
+      .from(tests)
+      .where(eq(tests.id, id));
+    return test || undefined;
   }
 }
 

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import { notificationService } from "./notifications";
 import { z } from "zod";
 import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema } from "@shared/schema";
 
@@ -280,6 +281,90 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching patients:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Notification endpoints
+  app.post("/api/notifications/test-status", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { patientTestId, status } = req.body;
+      
+      // Update test status
+      await storage.updatePatientTestStatus(patientTestId, status);
+      
+      // Get related data for notifications
+      const patientTest = await storage.getPatientTest(patientTestId);
+      if (patientTest) {
+        const patient = await storage.getPatient(patientTest.patientId);
+        const test = await storage.getTest(patientTest.testId);
+        
+        if (patient && test) {
+          await notificationService.sendTestStatusUpdate(patient, patientTest, test);
+        }
+      }
+
+      res.json({ success: true, message: "Status updated and notifications sent" });
+    } catch (error) {
+      console.error("Error updating test status:", error);
+      res.status(500).json({ message: "Failed to update status" });
+    }
+  });
+
+  app.post("/api/notifications/test-results", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { patientTestId, results } = req.body;
+      
+      // Update test results
+      await storage.updatePatientTestResults(patientTestId, results);
+      
+      // Get related data for notifications
+      const patientTest = await storage.getPatientTest(patientTestId);
+      if (patientTest) {
+        const patient = await storage.getPatient(patientTest.patientId);
+        const test = await storage.getTest(patientTest.testId);
+        let referralProvider = null;
+        
+        if (patient?.referralProviderId) {
+          referralProvider = await storage.getReferralProvider(patient.referralProviderId);
+        }
+        
+        if (patient && test) {
+          await notificationService.sendTestResults(patient, patientTest, test, referralProvider);
+        }
+      }
+
+      res.json({ success: true, message: "Results sent and notifications delivered" });
+    } catch (error) {
+      console.error("Error sending test results:", error);
+      res.status(500).json({ message: "Failed to send results" });
+    }
+  });
+
+  app.post("/api/notifications/appointment-reminder", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { patientId, appointmentDate } = req.body;
+      
+      const patient = await storage.getPatient(patientId);
+      if (patient) {
+        await notificationService.sendReminder(patient, { scheduledAt: appointmentDate });
+      }
+
+      res.json({ success: true, message: "Reminder sent" });
+    } catch (error) {
+      console.error("Error sending reminder:", error);
+      res.status(500).json({ message: "Failed to send reminder" });
     }
   });
 
