@@ -31,22 +31,85 @@ export class FinancialStorage {
   }
 
   async createPurchaseOrder(data: any) {
+    // Determine approval workflow based on amount
+    const workflow = await this.getApprovalWorkflow(data.tenantId, parseFloat(data.totalAmount));
+    
+    // Get the first approver in the hierarchy
+    const firstApprover = await this.getFirstApprover(data.tenantId, data.branchId, data.requestedBy, parseFloat(data.totalAmount));
+    
+    const poData = {
+      ...data,
+      approvalLevel: 1,
+      currentApprover: firstApprover?.userId || null,
+      status: firstApprover ? 'pending' : 'approved'
+    };
+    
     const [po] = await db
       .insert(purchaseOrders)
-      .values(data)
+      .values(poData)
       .returning();
     
-    // Create items if provided
-    if (data.items && data.items.length > 0) {
-      const items = data.items.map((item: any) => ({
-        ...item,
-        purchaseOrderId: po.id
-      }));
-      
-      await db.insert(purchaseOrderItems).values(items);
+    // Create approval record if approver exists
+    if (firstApprover) {
+      await this.createApprovalRecord({
+        purchaseOrderId: po.id,
+        approverId: firstApprover.userId,
+        approvalLevel: 1,
+        status: 'pending'
+      });
     }
     
     return po;
+  }
+
+  async getApprovalWorkflow(tenantId: number, amount: number) {
+    const result = await db.execute(sql`
+      SELECT * FROM approval_workflows 
+      WHERE tenant_id = ${tenantId} 
+        AND type = 'purchase_order' 
+        AND is_active = true
+        AND min_amount <= ${amount}
+        AND (max_amount >= ${amount} OR max_amount IS NULL)
+      ORDER BY approval_levels ASC
+      LIMIT 1
+    `);
+    return result.rows[0];
+  }
+
+  async getFirstApprover(tenantId: number, branchId: number, requestedBy: number, amount: number) {
+    // Get requester's manager
+    const hierarchy = await db.execute(sql`
+      SELECT manager_id FROM approval_hierarchy 
+      WHERE tenant_id = ${tenantId} 
+        AND branch_id = ${branchId} 
+        AND user_id = ${requestedBy}
+        AND is_active = true
+    `);
+    
+    if (!hierarchy.rows[0]?.manager_id) return null;
+    
+    // Find manager who can approve this amount
+    const approver = await db.execute(sql`
+      SELECT user_id FROM approval_hierarchy 
+      WHERE tenant_id = ${tenantId} 
+        AND branch_id = ${branchId} 
+        AND user_id = ${hierarchy.rows[0].manager_id}
+        AND is_active = true
+        AND (max_approval_amount >= ${amount} OR max_approval_amount IS NULL)
+      LIMIT 1
+    `);
+    
+    return approver.rows[0] ? { userId: approver.rows[0].user_id } : null;
+  }
+
+  async createApprovalRecord(data: any) {
+    const result = await db.execute(sql`
+      INSERT INTO purchase_order_approvals 
+      (purchase_order_id, approver_id, approval_level, status, created_at)
+      VALUES (${data.purchaseOrderId}, ${data.approverId}, ${data.approvalLevel}, ${data.status}, NOW())
+      RETURNING *
+    `);
+    return result.rows[0];
   }
 
   async updatePurchaseOrderStatus(id: number, status: string, approvedBy?: number) {
