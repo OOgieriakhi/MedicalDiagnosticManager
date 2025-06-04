@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, jsonb, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -174,6 +174,38 @@ export const commissionPayments = pgTable("commission_payments", {
 });
 
 // System Alerts
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+  branchId: integer("branch_id").notNull().references(() => branches.id),
+  
+  // Test details
+  tests: json("tests").notNull(), // Array of {testId, quantity, unitPrice, totalPrice}
+  
+  // Financial calculations
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }).default("0"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
+  commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  netAmount: decimal("net_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Payment status and details
+  paymentStatus: text("payment_status").notNull().default("unpaid"), // 'unpaid', 'paid'
+  paymentMethod: text("payment_method"), // 'cash', 'card', 'bank_transfer', 'insurance'
+  paymentDetails: json("payment_details"), // Store payment-specific details
+  
+  // Staff tracking
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  paidBy: integer("paid_by").references(() => users.id), // Cashier who collected payment
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  paidAt: timestamp("paid_at"),
+});
+
 export const systemAlerts = pgTable("system_alerts", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -210,6 +242,15 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   branch: one(branches, { fields: [patients.branchId], references: [branches.id] }),
   referralProvider: one(referralProviders, { fields: [patients.referralProviderId], references: [referralProviders.id] }),
   patientTests: many(patientTests),
+  invoices: many(invoices),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one }) => ({
+  patient: one(patients, { fields: [invoices.patientId], references: [patients.id] }),
+  tenant: one(tenants, { fields: [invoices.tenantId], references: [tenants.id] }),
+  branch: one(branches, { fields: [invoices.branchId], references: [branches.id] }),
+  createdByUser: one(users, { fields: [invoices.createdBy], references: [users.id] }),
+  paidByUser: one(users, { fields: [invoices.paidBy], references: [users.id] }),
 }));
 
 export const referralProvidersRelations = relations(referralProviders, ({ one, many }) => ({
@@ -268,6 +309,12 @@ export const insertPatientTestSchema = createInsertSchema(patientTests).omit({
 export const insertTransactionSchema = createInsertSchema(transactions).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  paidAt: true,
 });
 
 export const insertSystemAlertSchema = createInsertSchema(systemAlerts).omit({
