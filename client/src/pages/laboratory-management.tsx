@@ -43,11 +43,11 @@ export default function LaboratoryManagement() {
   const [testResults, setTestResults] = useState("");
   const [testNotes, setTestNotes] = useState("");
 
-  // Query for laboratory tests
+  // Query for laboratory tests - only show paid requests
   const { data: labTests, isLoading: labTestsLoading } = useQuery({
-    queryKey: ["/api/patient-tests", user?.branchId],
+    queryKey: ["/api/patient-tests", user?.branchId, "paid"],
     queryFn: async () => {
-      const response = await fetch(`/api/patient-tests?branchId=${user?.branchId}`);
+      const response = await fetch(`/api/patient-tests?branchId=${user?.branchId}&paidOnly=true`);
       if (!response.ok) throw new Error("Failed to fetch lab tests");
       const allTests = await response.json();
       // Filter for laboratory-related categories

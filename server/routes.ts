@@ -261,12 +261,13 @@ export function registerRoutes(app: Express): Server {
 
       const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : (req.user!.branchId || 1);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const paidOnly = req.query.paidOnly === 'true';
 
       if (isNaN(branchId) || branchId <= 0) {
         return res.status(400).json({ message: "Invalid branch ID" });
       }
 
-      const patientTests = await storage.getPatientTestsByBranch(branchId, limit);
+      const patientTests = await storage.getPatientTestsByBranch(branchId, limit, paidOnly);
       res.json(patientTests);
     } catch (error) {
       console.error("Error fetching patient tests:", error);

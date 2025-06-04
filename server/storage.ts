@@ -72,7 +72,7 @@ export interface IStorage {
   searchPatients(branchId: number, query: string): Promise<Patient[]>;
   
   // Patient tests management
-  getPatientTestsByBranch(branchId: number, limit?: number): Promise<PatientTest[]>;
+  getPatientTestsByBranch(branchId: number, limit?: number, paidOnly?: boolean): Promise<PatientTest[]>;
   getPatientTestsByCategory(branchId: number, category: string, limit?: number): Promise<any[]>;
   getRecentPatientTests(branchId: number, limit?: number): Promise<any[]>;
   createPatientTest(patientTest: InsertPatientTest): Promise<PatientTest>;
@@ -231,8 +231,8 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
-  async getPatientTestsByBranch(branchId: number, limit = 50): Promise<any[]> {
-    return await db
+  async getPatientTestsByBranch(branchId: number, limit = 50, paidOnly = false): Promise<any[]> {
+    const query = db
       .select({
         id: patientTests.id,
         testId: patientTests.testId,
@@ -254,13 +254,26 @@ export class DatabaseStorage implements IStorage {
         description: tests.description,
         duration: tests.duration,
         price: tests.price,
-        requiresConsultant: tests.requiresConsultant
+        requiresConsultant: tests.requiresConsultant,
+        paymentStatus: invoices.paymentStatus,
+        invoiceNumber: invoices.invoiceNumber
       })
       .from(patientTests)
       .innerJoin(tests, eq(patientTests.testId, tests.id))
       .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
       .innerJoin(patients, eq(patientTests.patientId, patients.id))
-      .where(eq(patientTests.branchId, branchId))
+      .leftJoin(invoices, eq(patientTests.patientId, invoices.patientId));
+
+    if (paidOnly) {
+      query.where(and(
+        eq(patientTests.branchId, branchId),
+        eq(invoices.paymentStatus, 'paid')
+      ));
+    } else {
+      query.where(eq(patientTests.branchId, branchId));
+    }
+
+    return await query
       .orderBy(desc(patientTests.scheduledAt))
       .limit(limit);
   }
