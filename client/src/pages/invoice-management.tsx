@@ -600,7 +600,15 @@ export default function InvoiceManagement() {
                 </div>
                 <div className="flex justify-between">
                   <span>Amount Due:</span>
-                  <span className="font-medium">₦{parseFloat(selectedInvoice.totalAmount).toLocaleString()}</span>
+                  <span className="font-medium">₦{(
+                    selectedInvoice.totalAmount ? 
+                    parseFloat(selectedInvoice.totalAmount).toLocaleString() : 
+                    selectedInvoice.netAmount ? 
+                    parseFloat(selectedInvoice.netAmount).toLocaleString() :
+                    selectedInvoice.total ?
+                    parseFloat(selectedInvoice.total).toLocaleString() :
+                    '0'
+                  )}</span>
                 </div>
               </div>
 
