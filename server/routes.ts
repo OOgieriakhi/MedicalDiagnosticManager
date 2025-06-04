@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import { rbacStorage } from "./rbac-storage";
+import * as RBACMiddleware from "./rbac-middleware";
 import { financialStorage } from "./financial-storage";
 import { inventoryStorage } from "./inventory-storage";
 import { db } from "./db";
