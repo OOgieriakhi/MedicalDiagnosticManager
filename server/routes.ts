@@ -846,6 +846,229 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Patient Journey Visualization endpoints
+  app.get("/api/patient-journeys", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const branchId = req.user.branchId || 1;
+      const status = req.query.status as string;
+      
+      const patientTests = await storage.getPatientTestsByBranch(branchId, 100, false);
+      
+      const journeys = patientTests.map((test: any) => {
+        const steps = [
+          {
+            id: 'registration',
+            name: 'Registration',
+            status: 'completed',
+            timestamp: test.createdAt,
+            duration: 5,
+            staff: test.createdByName,
+            location: 'Reception'
+          },
+          {
+            id: 'payment',
+            name: 'Payment',
+            status: test.paymentVerified ? 'completed' : 'current',
+            timestamp: test.paymentVerifiedAt,
+            duration: test.paymentVerified ? 3 : null,
+            staff: test.paymentVerifiedBy ? 'Cashier' : null,
+            location: 'Billing'
+          },
+          {
+            id: 'specimen_collection',
+            name: 'Sample Collection',
+            status: test.specimenCollected ? 'completed' : 
+                   test.paymentVerified ? 'current' : 'pending',
+            timestamp: test.specimenCollectedAt,
+            duration: test.specimenCollected ? 10 : null,
+            staff: test.specimenCollectedBy ? 'Technician' : null,
+            location: 'Collection Room'
+          },
+          {
+            id: 'processing',
+            name: 'Processing',
+            status: test.processingStarted ? 'completed' : 
+                   test.specimenCollected ? 'current' : 'pending',
+            timestamp: test.processingStartedAt,
+            duration: test.processingStarted ? 120 : null,
+            staff: test.processingStartedBy ? 'Lab Tech' : null,
+            location: 'Laboratory'
+          },
+          {
+            id: 'results',
+            name: 'Results Ready',
+            status: test.reportReadyAt ? 'completed' : 
+                   test.processingStarted ? 'current' : 'pending',
+            timestamp: test.reportReadyAt,
+            duration: test.reportReadyAt ? 30 : null,
+            staff: 'Consultant',
+            location: 'Review Room'
+          },
+          {
+            id: 'report_delivery',
+            name: 'Report Delivery',
+            status: test.reportReleasedAt ? 'completed' : 
+                   test.reportReadyAt ? 'current' : 'pending',
+            timestamp: test.reportReleasedAt,
+            duration: test.reportReleasedAt ? 5 : null,
+            staff: 'Front Desk',
+            location: 'Reception'
+          }
+        ];
+
+        const currentStep = steps.find(step => step.status === 'current')?.name || 'Completed';
+        const priority = test.priority || 'normal';
+        
+        const startTime = new Date(test.scheduledAt);
+        const expectedCompletion = new Date(startTime.getTime() + (test.expectedTurnaroundHours || 4) * 60 * 60 * 1000);
+        
+        const now = new Date();
+        const isDelayed = now > expectedCompletion && test.status !== 'completed';
+        
+        const alerts = [];
+        if (isDelayed) {
+          alerts.push(`Test is ${Math.round((now.getTime() - expectedCompletion.getTime()) / (1000 * 60))} minutes overdue`);
+        }
+        if (priority === 'stat') {
+          alerts.push('STAT order - requires immediate attention');
+        }
+
+        return {
+          patientId: test.patientId,
+          patientName: test.patientName,
+          testName: test.testName,
+          status: isDelayed ? 'delayed' : test.status,
+          startedAt: test.scheduledAt,
+          expectedCompletion: expectedCompletion.toISOString(),
+          currentStep,
+          steps,
+          priority,
+          alerts: alerts.length > 0 ? alerts : undefined
+        };
+      });
+
+      const filteredJourneys = status && status !== 'all' 
+        ? journeys.filter((j: any) => j.status === status)
+        : journeys;
+
+      res.json(filteredJourneys);
+    } catch (error) {
+      console.error("Error fetching patient journeys:", error);
+      res.status(500).json({ error: "Failed to fetch patient journeys" });
+    }
+  });
+
+  app.get("/api/patient-journeys/:patientId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const patientId = parseInt(req.params.patientId);
+      const branchId = req.user.branchId || 1;
+      
+      const patientTests = await storage.getPatientTestsByBranch(branchId, 100, false);
+      const test = patientTests.find((t: any) => t.patientId === patientId);
+      
+      if (!test) {
+        return res.status(404).json({ error: "Patient journey not found" });
+      }
+
+      const steps = [
+        {
+          id: 'registration',
+          name: 'Patient Registration',
+          status: 'completed',
+          timestamp: test.createdAt,
+          duration: 5,
+          staff: test.createdByName || 'Reception Staff',
+          location: 'Reception Desk',
+          notes: 'Patient registered and demographic information collected'
+        },
+        {
+          id: 'payment',
+          name: 'Payment Verification',
+          status: test.paymentVerified ? 'completed' : 'current',
+          timestamp: test.paymentVerifiedAt,
+          duration: test.paymentVerified ? 3 : null,
+          staff: test.paymentVerifiedBy ? 'Cashier' : null,
+          location: 'Billing Counter',
+          notes: test.paymentVerified ? 'Payment verified and receipt issued' : 'Awaiting payment verification'
+        },
+        {
+          id: 'specimen_collection',
+          name: 'Specimen Collection',
+          status: test.specimenCollected ? 'completed' : 
+                 test.paymentVerified ? 'current' : 'pending',
+          timestamp: test.specimenCollectedAt,
+          duration: test.specimenCollected ? 10 : null,
+          staff: test.specimenCollectedBy ? 'Collection Technician' : null,
+          location: 'Sample Collection Room',
+          notes: test.specimenCollected ? `${test.specimenType || 'Sample'} collected successfully` : 'Waiting for sample collection'
+        },
+        {
+          id: 'processing',
+          name: 'Laboratory Processing',
+          status: test.processingStarted ? 'completed' : 
+                 test.specimenCollected ? 'current' : 'pending',
+          timestamp: test.processingStartedAt,
+          duration: test.processingStarted ? 120 : null,
+          staff: test.processingStartedBy ? 'Laboratory Technician' : null,
+          location: 'Main Laboratory',
+          notes: test.processingStarted ? 'Sample processing completed' : 'Waiting for laboratory processing'
+        },
+        {
+          id: 'analysis',
+          name: 'Result Analysis',
+          status: test.reportReadyAt ? 'completed' : 
+                 test.processingStarted ? 'current' : 'pending',
+          timestamp: test.reportReadyAt,
+          duration: test.reportReadyAt ? 30 : null,
+          staff: 'Consultant Pathologist',
+          location: 'Review Room',
+          notes: test.reportReadyAt ? 'Results analyzed and report prepared' : 'Awaiting consultant review'
+        },
+        {
+          id: 'report_delivery',
+          name: 'Report Delivery',
+          status: test.reportReleasedAt ? 'completed' : 
+                 test.reportReadyAt ? 'current' : 'pending',
+          timestamp: test.reportReleasedAt,
+          duration: test.reportReleasedAt ? 5 : null,
+          staff: 'Front Desk Staff',
+          location: 'Reception Desk',
+          notes: test.reportReleasedAt ? 'Report delivered to patient' : 'Report ready for collection'
+        }
+      ];
+
+      const totalDuration = test.reportReleasedAt 
+        ? Math.round((new Date(test.reportReleasedAt).getTime() - new Date(test.scheduledAt).getTime()) / (1000 * 60))
+        : null;
+
+      const expectedDuration = (test.expectedTurnaroundHours || 4) * 60;
+      const efficiencyScore = totalDuration ? Math.round((expectedDuration / totalDuration) * 100) : null;
+      const slaStatus = totalDuration && totalDuration <= expectedDuration ? 'on-time' : 'delayed';
+
+      const detailedJourney = {
+        patientId: test.patientId,
+        patientName: test.patientName,
+        testName: test.testName,
+        status: test.status,
+        startedAt: test.scheduledAt,
+        currentStep: steps.find(step => step.status === 'current')?.name || 'Completed',
+        steps,
+        totalDuration: totalDuration ? `${Math.floor(totalDuration / 60)}h ${totalDuration % 60}m` : null,
+        efficiencyScore: efficiencyScore ? `${efficiencyScore}%` : null,
+        slaStatus
+      };
+
+      res.json(detailedJourney);
+    } catch (error) {
+      console.error("Error fetching patient journey details:", error);
+      res.status(500).json({ error: "Failed to fetch journey details" });
+    }
+  });
+
   app.post("/api/patient-tests/:id/complete", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
