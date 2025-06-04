@@ -41,6 +41,7 @@ export default function InvoiceManagement() {
   const [cardLastFourDigits, setCardLastFourDigits] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
+  const [businessBankAccount, setBusinessBankAccount] = useState("");
 
   // Fetch patients
   const { data: patients = [] } = useQuery({
@@ -141,6 +142,15 @@ export default function InvoiceManagement() {
       return;
     }
 
+    if (paymentMethod !== "cash" && !businessBankAccount) {
+      toast({
+        title: "Missing Information",
+        description: "Please select which business bank account received the payment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const invoiceData = {
       patientId: parseInt(selectedPatient),
       tests: selectedTests.map(test => ({
@@ -160,7 +170,8 @@ export default function InvoiceManagement() {
         transactionReference: transactionReference || null,
         cardLastFourDigits: cardLastFourDigits || null,
         bankName: bankName || null,
-        accountNumber: accountNumber || null
+        accountNumber: accountNumber || null,
+        businessBankAccount: businessBankAccount || null
       },
       tenantId: user?.tenantId,
       branchId: user?.branchId,
@@ -442,6 +453,23 @@ export default function InvoiceManagement() {
                 <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <h4 className="font-medium text-blue-900">Payment Details</h4>
                   
+                  {/* Business Bank Account - Required for all non-cash payments */}
+                  <div className="space-y-2">
+                    <Label>Business Bank Account <span className="text-red-500">*</span></Label>
+                    <Select value={businessBankAccount} onValueChange={setBusinessBankAccount}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select business account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gtb_main">GTBank - Main Account (****2347)</SelectItem>
+                        <SelectItem value="access_operating">Access Bank - Operating Account (****8901)</SelectItem>
+                        <SelectItem value="zenith_savings">Zenith Bank - Savings Account (****5624)</SelectItem>
+                        <SelectItem value="fidelity_current">Fidelity Bank - Current Account (****1203)</SelectItem>
+                        <SelectItem value="ubn_business">UBA - Business Account (****7845)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
                   {paymentMethod === "card" && (
                     <>
                       <div className="space-y-2">
@@ -467,7 +495,7 @@ export default function InvoiceManagement() {
                   {paymentMethod === "bank_transfer" && (
                     <>
                       <div className="space-y-2">
-                        <Label>Bank Name</Label>
+                        <Label>Customer's Bank Name</Label>
                         <Input
                           value={bankName}
                           onChange={(e) => setBankName(e.target.value)}
@@ -475,7 +503,7 @@ export default function InvoiceManagement() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Account Number (Last 4 Digits)</Label>
+                        <Label>Customer Account (Last 4 Digits)</Label>
                         <Input
                           value={accountNumber}
                           onChange={(e) => setAccountNumber(e.target.value)}
@@ -729,6 +757,14 @@ export default function InvoiceManagement() {
                   <div className="mt-2 p-3 bg-blue-50 rounded border border-blue-200">
                     <h5 className="font-medium text-blue-900 mb-2">Payment Details</h5>
                     <div className="space-y-1 text-sm">
+                      {/* Business Bank Account - Always show for non-cash */}
+                      {businessBankAccount && (
+                        <div className="flex justify-between font-medium text-green-700">
+                          <span>Deposited to:</span>
+                          <span>{businessBankAccount.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                        </div>
+                      )}
+                      
                       {paymentMethod === "card" && (
                         <>
                           {cardLastFourDigits && (
@@ -750,13 +786,13 @@ export default function InvoiceManagement() {
                         <>
                           {bankName && (
                             <div className="flex justify-between">
-                              <span>Bank:</span>
+                              <span>Customer Bank:</span>
                               <span>{bankName}</span>
                             </div>
                           )}
                           {accountNumber && (
                             <div className="flex justify-between">
-                              <span>Account ending in:</span>
+                              <span>Customer Account:</span>
                               <span>****{accountNumber}</span>
                             </div>
                           )}
@@ -819,6 +855,7 @@ export default function InvoiceManagement() {
                       setCardLastFourDigits("");
                       setBankName("");
                       setAccountNumber("");
+                      setBusinessBankAccount("");
                       setCreatedInvoice(null);
                       setShowInvoicePreview(false);
                     }}
