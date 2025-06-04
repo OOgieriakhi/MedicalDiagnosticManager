@@ -25,158 +25,56 @@ async function hashPassword(password: string) {
 }
 
 async function seedDatabase() {
-  console.log("🌱 Starting database seeding for Orient Medical Diagnostic Center...");
+  console.log("🌱 Updating database with comprehensive diagnostic tests...");
 
   try {
-    // Create Orient Medical tenant
-    const [tenant] = await db.insert(tenants).values({
-      name: "Orient Medical Diagnostic Center",
-      slug: "orient-medical",
-      logo: null,
-      primaryColor: "#2563EB",
-      secondaryColor: "#059669",
-      contactEmail: "admin@orientmedical.ng",
-      contactPhone: "+234-800-ORIENT",
-      address: "123 Medical Drive, Lagos, Nigeria",
-      isActive: true
-    }).returning();
+    // Get existing tenant
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, "orient-medical"));
+    
+    if (!tenant) {
+      console.log("❌ Orient Medical tenant not found. Please run initial seeding first.");
+      return;
+    }
 
-    console.log("✓ Created tenant: Orient Medical Diagnostic Center");
+    console.log("✓ Found existing tenant: Orient Medical Diagnostic Center");
 
-    // Create branches
-    const branchesData = [
-      {
-        name: "Central Branch",
-        code: "OMD-CENTRAL",
-        tenantId: tenant.id,
-        address: "123 Medical Drive, Lagos, Nigeria",
-        phone: "+234-800-ORIENT-1",
-        email: "central@orientmedical.ng",
-        isActive: true
-      },
-      {
-        name: "Victoria Island Branch",
-        code: "OMD-VI",
-        tenantId: tenant.id,
-        address: "456 Victoria Island, Lagos, Nigeria",
-        phone: "+234-800-ORIENT-2",
-        email: "vi@orientmedical.ng",
-        isActive: true
-      },
-      {
-        name: "Abuja Branch",
-        code: "OMD-ABJ",
-        tenantId: tenant.id,
-        address: "789 Central Area, Abuja, Nigeria",
-        phone: "+234-800-ORIENT-3",
-        email: "abuja@orientmedical.ng",
-        isActive: true
-      }
+    // Get existing branches
+    const existingBranches = await db.select().from(branches).where(eq(branches.tenantId, tenant.id));
+    console.log(`✓ Found ${existingBranches.length} existing branches`);
+
+    // Get or create test categories
+    let existingCategories = await db.select().from(testCategories).where(eq(testCategories.tenantId, tenant.id));
+    
+    const newCategories = [
+      { name: "Ultrasound Services", description: "Abdominal, pelvic, obstetric, and vascular ultrasounds" },
+      { name: "CT Scan Services", description: "Computed tomography scans for various body parts" },
+      { name: "Laboratory Services", description: "Clinical chemistry, hematology, and biochemistry" }
     ];
 
-    const createdBranches = await db.insert(branches).values(branchesData).returning();
-    console.log("✓ Created 3 branches");
-
-    // Create admin user
-    const hashedPassword = await hashPassword("admin123");
-    const [adminUser] = await db.insert(users).values({
-      username: "admin",
-      password: hashedPassword,
-      email: "admin@orientmedical.ng",
-      firstName: "System",
-      lastName: "Administrator",
-      role: "admin",
-      tenantId: tenant.id,
-      branchId: createdBranches[0].id,
-      isActive: true
-    }).returning();
-
-    console.log("✓ Created admin user (username: admin, password: admin123)");
-
-    // Create staff users
-    const staffUsers = [
-      {
-        username: "manager1",
-        password: await hashPassword("manager123"),
-        email: "manager@orientmedical.ng",
-        firstName: "John",
-        lastName: "Manager",
-        role: "manager",
-        tenantId: tenant.id,
-        branchId: createdBranches[0].id,
-        isActive: true
-      },
-      {
-        username: "tech1",
-        password: await hashPassword("tech123"),
-        email: "tech1@orientmedical.ng",
-        firstName: "Mary",
-        lastName: "Technician",
-        role: "technician",
-        tenantId: tenant.id,
-        branchId: createdBranches[0].id,
-        isActive: true
-      },
-      {
-        username: "receptionist1",
-        password: await hashPassword("reception123"),
-        email: "reception@orientmedical.ng",
-        firstName: "Sarah",
-        lastName: "Reception",
-        role: "receptionist",
-        tenantId: tenant.id,
-        branchId: createdBranches[0].id,
-        isActive: true
+    // Add only new categories that don't exist
+    for (const category of newCategories) {
+      const exists = existingCategories.find(c => c.name === category.name);
+      if (!exists) {
+        const [created] = await db.insert(testCategories).values({
+          ...category,
+          tenantId: tenant.id,
+          isActive: true
+        }).returning();
+        existingCategories.push(created);
+        console.log(`✓ Created category: ${category.name}`);
       }
-    ];
+    }
 
-    const createdStaffUsers = await db.insert(users).values(staffUsers).returning();
-    console.log("✓ Created staff users");
-
-    // Update branch managers
-    await db.update(branches)
-      .set({ managerId: adminUser.id })
-      .where(eq(branches.id, createdBranches[0].id));
-
-    // Create test categories
-    const categories = [
-      {
-        name: "Blood Tests",
-        description: "Complete blood count, blood chemistry, etc.",
-        tenantId: tenant.id,
-        isActive: true
-      },
-      {
-        name: "Imaging",
-        description: "X-rays, CT scans, MRI, ultrasound",
-        tenantId: tenant.id,
-        isActive: true
-      },
-      {
-        name: "Cardiac Tests",
-        description: "ECG, echocardiogram, stress tests",
-        tenantId: tenant.id,
-        isActive: true
-      },
-      {
-        name: "Microbiology",
-        description: "Culture tests, sensitivity tests",
-        tenantId: tenant.id,
-        isActive: true
-      }
-    ];
-
-    const createdCategories = await db.insert(testCategories).values(categories).returning();
-    console.log("✓ Created test categories");
+    const createdCategories = existingCategories;
 
     // Create tests
     const testsData = [
-      // Blood Tests
+      // Blood Tests (Category 0)
       {
         name: "Complete Blood Count (CBC)",
         code: "CBC-001",
         categoryId: createdCategories[0].id,
-        description: "Full blood count analysis",
+        description: "Full blood count analysis including RBC, WBC, platelets",
         price: "5000.00",
         duration: 30,
         requiresConsultant: false,
@@ -187,19 +85,42 @@ async function seedDatabase() {
         name: "Lipid Profile",
         code: "LIP-001",
         categoryId: createdCategories[0].id,
-        description: "Cholesterol and triglycerides",
+        description: "Cholesterol, triglycerides, HDL, LDL analysis",
         price: "8000.00",
         duration: 45,
         requiresConsultant: false,
         tenantId: tenant.id,
         isActive: true
       },
-      // Imaging
       {
-        name: "Chest X-Ray",
+        name: "Liver Function Test (LFT)",
+        code: "LFT-001",
+        categoryId: createdCategories[0].id,
+        description: "ALT, AST, bilirubin, albumin levels",
+        price: "12000.00",
+        duration: 60,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Kidney Function Test",
+        code: "KFT-001",
+        categoryId: createdCategories[0].id,
+        description: "Creatinine, urea, electrolytes analysis",
+        price: "10000.00",
+        duration: 45,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+
+      // Radiology & Imaging (Category 1)
+      {
+        name: "Chest X-Ray (PA & Lateral)",
         code: "XR-001",
         categoryId: createdCategories[1].id,
-        description: "Chest radiography",
+        description: "Chest radiography - posteroanterior and lateral views",
         price: "12000.00",
         duration: 15,
         requiresConsultant: true,
@@ -207,25 +128,309 @@ async function seedDatabase() {
         isActive: true
       },
       {
+        name: "Pelvis X-Ray",
+        code: "XR-002",
+        categoryId: createdCategories[1].id,
+        description: "Pelvic bone and hip joint radiography",
+        price: "15000.00",
+        duration: 20,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Spine X-Ray (Lumbar)",
+        code: "XR-003",
+        categoryId: createdCategories[1].id,
+        description: "Lumbar spine radiography - AP and lateral",
+        price: "18000.00",
+        duration: 25,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Knee X-Ray",
+        code: "XR-004",
+        categoryId: createdCategories[1].id,
+        description: "Knee joint radiography - multiple views",
+        price: "14000.00",
+        duration: 20,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+
+      // Cardiac Tests (Category 2)
+      {
+        name: "ECG (Electrocardiogram)",
+        code: "ECG-001",
+        categoryId: createdCategories[2].id,
+        description: "12-lead electrocardiogram for heart rhythm analysis",
+        price: "10000.00",
+        duration: 20,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "2D Echocardiogram",
+        code: "ECHO-001",
+        categoryId: createdCategories[2].id,
+        description: "Two-dimensional echocardiography with Doppler",
+        price: "45000.00",
+        duration: 45,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Stress ECG (Treadmill Test)",
+        code: "STRESS-001",
+        categoryId: createdCategories[2].id,
+        description: "Exercise stress test with continuous ECG monitoring",
+        price: "35000.00",
+        duration: 60,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+
+      // Microbiology (Category 3)
+      {
+        name: "Urine Culture & Sensitivity",
+        code: "UC-001",
+        categoryId: createdCategories[3].id,
+        description: "Bacterial culture and antibiotic sensitivity testing",
+        price: "8000.00",
+        duration: 72,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Blood Culture",
+        code: "BC-001",
+        categoryId: createdCategories[3].id,
+        description: "Blood culture for bacterial infection detection",
+        price: "15000.00",
+        duration: 72,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+
+      // Ultrasound Services (Category 4)
+      {
         name: "Abdominal Ultrasound",
         code: "US-001",
-        categoryId: createdCategories[1].id,
-        description: "Abdominal organ ultrasound",
-        price: "15000.00",
+        categoryId: createdCategories[4].id,
+        description: "Complete abdominal organ ultrasound scan",
+        price: "25000.00",
         duration: 30,
         requiresConsultant: true,
         tenantId: tenant.id,
         isActive: true
       },
-      // Cardiac
       {
-        name: "ECG (Electrocardiogram)",
-        code: "ECG-001",
-        categoryId: createdCategories[2].id,
-        description: "Heart rhythm analysis",
-        price: "10000.00",
+        name: "Pelvic Ultrasound",
+        code: "US-002",
+        categoryId: createdCategories[4].id,
+        description: "Pelvic organ ultrasound (transabdominal)",
+        price: "22000.00",
+        duration: 25,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Obstetric Ultrasound (Dating)",
+        code: "US-003",
+        categoryId: createdCategories[4].id,
+        description: "Early pregnancy dating and viability scan",
+        price: "20000.00",
         duration: 20,
         requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Obstetric Ultrasound (Anomaly)",
+        code: "US-004",
+        categoryId: createdCategories[4].id,
+        description: "Mid-pregnancy anomaly and morphology scan",
+        price: "35000.00",
+        duration: 45,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Thyroid Ultrasound",
+        code: "US-005",
+        categoryId: createdCategories[4].id,
+        description: "Thyroid gland ultrasound examination",
+        price: "18000.00",
+        duration: 20,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Breast Ultrasound",
+        code: "US-006",
+        categoryId: createdCategories[4].id,
+        description: "Bilateral breast ultrasound examination",
+        price: "20000.00",
+        duration: 25,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Carotid Doppler Ultrasound",
+        code: "US-007",
+        categoryId: createdCategories[4].id,
+        description: "Carotid artery Doppler flow study",
+        price: "30000.00",
+        duration: 30,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+
+      // CT Scan Services (Category 5)
+      {
+        name: "CT Brain (Plain)",
+        code: "CT-001",
+        categoryId: createdCategories[5].id,
+        description: "Non-contrast CT scan of the brain",
+        price: "55000.00",
+        duration: 15,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "CT Brain (Contrast)",
+        code: "CT-002",
+        categoryId: createdCategories[5].id,
+        description: "Contrast-enhanced CT scan of the brain",
+        price: "75000.00",
+        duration: 30,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "CT Chest (HRCT)",
+        code: "CT-003",
+        categoryId: createdCategories[5].id,
+        description: "High-resolution CT scan of the chest",
+        price: "65000.00",
+        duration: 20,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "CT Abdomen & Pelvis",
+        code: "CT-004",
+        categoryId: createdCategories[5].id,
+        description: "CT scan of abdomen and pelvis with contrast",
+        price: "85000.00",
+        duration: 30,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "CT Spine (Lumbar)",
+        code: "CT-005",
+        categoryId: createdCategories[5].id,
+        description: "CT scan of lumbar spine",
+        price: "60000.00",
+        duration: 20,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "CT Angiography (Brain)",
+        code: "CT-006",
+        categoryId: createdCategories[5].id,
+        description: "CT angiography of cerebral vessels",
+        price: "95000.00",
+        duration: 45,
+        requiresConsultant: true,
+        tenantId: tenant.id,
+        isActive: true
+      },
+
+      // Laboratory Services (Category 6)
+      {
+        name: "Hepatitis B Surface Antigen",
+        code: "HEP-001",
+        categoryId: createdCategories[6].id,
+        description: "HBsAg screening test",
+        price: "3500.00",
+        duration: 120,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "HIV 1 & 2 Screening",
+        code: "HIV-001",
+        categoryId: createdCategories[6].id,
+        description: "HIV antibody screening test",
+        price: "4000.00",
+        duration: 60,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Malaria Parasite Test",
+        code: "MP-001",
+        categoryId: createdCategories[6].id,
+        description: "Microscopic examination for malaria parasites",
+        price: "2000.00",
+        duration: 30,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Thyroid Function Test (T3, T4, TSH)",
+        code: "TFT-001",
+        categoryId: createdCategories[6].id,
+        description: "Complete thyroid hormone analysis",
+        price: "15000.00",
+        duration: 180,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Prostate Specific Antigen (PSA)",
+        code: "PSA-001",
+        categoryId: createdCategories[6].id,
+        description: "PSA level for prostate cancer screening",
+        price: "8000.00",
+        duration: 120,
+        requiresConsultant: false,
+        tenantId: tenant.id,
+        isActive: true
+      },
+      {
+        name: "Pregnancy Test (Beta hCG)",
+        code: "PREG-001",
+        categoryId: createdCategories[6].id,
+        description: "Quantitative beta human chorionic gonadotropin",
+        price: "3000.00",
+        duration: 60,
+        requiresConsultant: false,
         tenantId: tenant.id,
         isActive: true
       }
