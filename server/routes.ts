@@ -518,6 +518,114 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Two-stage invoice management endpoints
+  app.post("/api/invoices", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceData = req.body;
+      
+      // Generate invoice number
+      const invoiceNumber = await storage.generateInvoiceNumber(invoiceData.tenantId);
+      
+      // Create unpaid invoice
+      const invoice = await storage.createInvoice({
+        invoiceNumber,
+        patientId: invoiceData.patientId,
+        tenantId: invoiceData.tenantId,
+        branchId: invoiceData.branchId,
+        tests: invoiceData.tests,
+        subtotal: invoiceData.subtotal.toString(),
+        discountPercentage: invoiceData.discountPercentage.toString(),
+        discountAmount: invoiceData.discountAmount.toString(),
+        commissionAmount: invoiceData.commissionAmount.toString(),
+        totalAmount: invoiceData.totalAmount.toString(),
+        netAmount: invoiceData.netAmount.toString(),
+        paymentStatus: "unpaid",
+        createdBy: req.user.id,
+      });
+
+      // Create patient tests for each test in the invoice
+      for (const test of invoiceData.tests) {
+        await storage.createPatientTest({
+          patientId: invoiceData.patientId,
+          testId: test.testId,
+          status: "pending",
+          scheduledAt: new Date(),
+          tenantId: invoiceData.tenantId,
+          branchId: invoiceData.branchId,
+          technicianId: req.user.id
+        });
+      }
+
+      res.json({ success: true, invoice });
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ error: "Failed to create invoice" });
+    }
+  });
+
+  // Get invoices by branch with optional status filter
+  app.get("/api/invoices", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branchId = req.query.branchId as string;
+      const status = req.query.status as string;
+      
+      if (!branchId) {
+        return res.status(400).json({ error: "Branch ID is required" });
+      }
+
+      const invoices = await storage.getInvoicesByBranch(parseInt(branchId), status);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ error: "Failed to fetch invoices" });
+    }
+  });
+
+  // Mark invoice as paid (payment collection stage)
+  app.put("/api/invoices/:id/pay", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceId = parseInt(req.params.id);
+      const paymentData = req.body;
+      
+      // Mark invoice as paid
+      await storage.markInvoiceAsPaid(invoiceId, {
+        paymentMethod: paymentData.paymentMethod,
+        paymentDetails: paymentData.paymentDetails,
+        paidBy: req.user.id,
+      });
+
+      // Create transaction record
+      const invoice = await storage.getInvoice(invoiceId);
+      if (invoice) {
+        await storage.createTransaction({
+          amount: parseFloat(invoice.netAmount),
+          type: "payment",
+          description: `Invoice payment - ${invoice.invoiceNumber}`,
+          tenantId: invoice.tenantId,
+          branchId: invoice.branchId,
+          createdBy: req.user.id,
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      res.status(500).json({ error: "Failed to process payment" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

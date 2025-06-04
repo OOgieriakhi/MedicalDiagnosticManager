@@ -366,7 +366,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInvoicesByBranch(branchId: number, status?: string): Promise<any[]> {
-    let query = db
+    const baseQuery = db
       .select({
         id: invoices.id,
         invoiceNumber: invoices.invoiceNumber,
@@ -382,15 +382,17 @@ export class DatabaseStorage implements IStorage {
       })
       .from(invoices)
       .leftJoin(patients, eq(invoices.patientId, patients.id))
-      .leftJoin(users, eq(invoices.createdBy, users.id))
-      .where(eq(invoices.branchId, branchId))
-      .orderBy(desc(invoices.createdAt));
+      .leftJoin(users, eq(invoices.createdBy, users.id));
 
     if (status) {
-      query = query.where(and(eq(invoices.branchId, branchId), eq(invoices.paymentStatus, status)));
+      return await baseQuery
+        .where(and(eq(invoices.branchId, branchId), eq(invoices.paymentStatus, status)))
+        .orderBy(desc(invoices.createdAt));
+    } else {
+      return await baseQuery
+        .where(eq(invoices.branchId, branchId))
+        .orderBy(desc(invoices.createdAt));
     }
-
-    return await query;
   }
 
   async getInvoice(id: number): Promise<Invoice | undefined> {

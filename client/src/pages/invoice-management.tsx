@@ -1,426 +1,387 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  Receipt, 
-  Calculator, 
-  Download, 
-  Eye,
-  CreditCard,
-  CheckCircle,
-  Clock,
-  DollarSign,
-  FileText,
-  Plus,
-  Minus,
-  Printer
-} from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Search, Plus, Receipt, Eye, CreditCard, Banknote, Smartphone, FileText, Printer, DollarSign, Clock } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+
+interface Patient {
+  id: number;
+  patientId: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  email?: string;
+}
+
+interface Test {
+  id: number;
+  name: string;
+  price: string;
+  categoryId: number;
+}
+
+interface ReferralProvider {
+  id: number;
+  name: string;
+  commissionRate: string;
+}
+
+interface InvoiceItem {
+  testId: number;
+  name: string;
+  price: number;
+}
+
+interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  patientId: number;
+  patientName: string;
+  totalAmount: string;
+  paymentStatus: 'unpaid' | 'paid';
+  paymentMethod?: string;
+  createdAt: string;
+  paidAt?: string;
+  createdByName: string;
+  tests: any[];
+}
 
 export default function InvoiceManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedPatient, setSelectedPatient] = useState("");
-  const [selectedTests, setSelectedTests] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedTests, setSelectedTests] = useState<InvoiceItem[]>([]);
   const [discountPercentage, setDiscountPercentage] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
-  const [createdInvoice, setCreatedInvoice] = useState<any>(null);
-  
-  // Payment details for non-cash transactions
-  const [transactionReference, setTransactionReference] = useState("");
-  const [cardLastFourDigits, setCardLastFourDigits] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [businessBankAccount, setBusinessBankAccount] = useState("");
+  const [referralProviderId, setReferralProviderId] = useState<number | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState<any>({});
+  const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
 
-  // Fetch patients
-  const { data: patients = [] } = useQuery({
+  // Query for patients
+  const { data: patients } = useQuery({
     queryKey: ["/api/patients", user?.branchId],
     enabled: !!user?.branchId,
   });
 
-  // Fetch tests
-  const { data: tests = [] } = useQuery({
+  // Query for tests
+  const { data: tests } = useQuery({
     queryKey: ["/api/tests", user?.tenantId],
     enabled: !!user?.tenantId,
   });
 
-  // Fetch referral providers
-  const { data: referralProviders = [] } = useQuery({
+  // Query for referral providers
+  const { data: referralProviders } = useQuery({
     queryKey: ["/api/referral-providers", user?.tenantId],
     enabled: !!user?.tenantId,
   });
 
-  // Create invoice mutation
+  // Query for invoices with status filter
+  const { data: invoices, refetch: refetchInvoices } = useQuery({
+    queryKey: ["/api/invoices", user?.branchId, invoiceFilter === "all" ? undefined : invoiceFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        branchId: user?.branchId?.toString() || "",
+      });
+      if (invoiceFilter !== "all") {
+        params.append("status", invoiceFilter);
+      }
+      const response = await apiRequest("GET", `/api/invoices?${params}`);
+      return response.json();
+    },
+    enabled: !!user?.branchId,
+  });
+
+  // Mutation for creating invoices
   const createInvoiceMutation = useMutation({
     mutationFn: async (invoiceData: any) => {
       const response = await apiRequest("POST", "/api/invoices", invoiceData);
       return response.json();
     },
-    onSuccess: (invoice) => {
-      setCreatedInvoice(invoice);
-      setShowInvoicePreview(true);
+    onSuccess: () => {
       toast({
         title: "Invoice Created",
-        description: `Invoice #${invoice.invoiceNumber} has been generated successfully.`,
+        description: "Invoice created successfully and is ready for payment collection.",
       });
+      refetchInvoices();
+      setShowCreateDialog(false);
+      resetForm();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
-        title: "Invoice Creation Failed",
-        description: "Failed to create invoice. Please try again.",
+        title: "Error",
+        description: error.message || "Failed to create invoice",
         variant: "destructive",
       });
     },
   });
 
-  const selectedPatientData = patients.find((p: any) => p.id.toString() === selectedPatient);
+  // Mutation for processing payments
+  const processPaymentMutation = useMutation({
+    mutationFn: async ({ invoiceId, paymentData }: { invoiceId: number; paymentData: any }) => {
+      const response = await apiRequest("PUT", `/api/invoices/${invoiceId}/pay`, paymentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Payment Processed",
+        description: "Payment has been successfully processed and recorded.",
+      });
+      refetchInvoices();
+      setShowPaymentDialog(false);
+      setSelectedInvoice(null);
+      setPaymentMethod("");
+      setPaymentDetails({});
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process payment",
+        variant: "destructive",
+      });
+    },
+  });
 
-  const addTestToInvoice = (testId: string) => {
-    const test = tests.find((t: any) => t.id.toString() === testId);
-    if (test && !selectedTests.find(t => t.id === test.id)) {
-      setSelectedTests([...selectedTests, { ...test, quantity: 1 }]);
+  const resetForm = () => {
+    setSelectedPatient(null);
+    setSelectedTests([]);
+    setDiscountPercentage(0);
+    setReferralProviderId(null);
+  };
+
+  const handleAddTest = (test: Test) => {
+    if (!selectedTests.find(t => t.testId === test.id)) {
+      setSelectedTests([...selectedTests, {
+        testId: test.id,
+        name: test.name,
+        price: parseFloat(test.price)
+      }]);
     }
   };
 
-  const removeTestFromInvoice = (testId: number) => {
-    setSelectedTests(selectedTests.filter(t => t.id !== testId));
+  const handleRemoveTest = (testId: number) => {
+    setSelectedTests(selectedTests.filter(t => t.testId !== testId));
   };
 
-  const updateTestQuantity = (testId: number, quantity: number) => {
-    if (quantity <= 0) {
-      removeTestFromInvoice(testId);
-      return;
+  const calculateInvoiceAmounts = () => {
+    const subtotal = selectedTests.reduce((sum, test) => sum + test.price, 0);
+    const discountAmount = (subtotal * discountPercentage) / 100;
+    const discountedAmount = subtotal - discountAmount;
+    
+    let commissionAmount = 0;
+    if (referralProviderId) {
+      const provider = (referralProviders as any)?.find((p: ReferralProvider) => p.id === referralProviderId);
+      if (provider) {
+        commissionAmount = (discountedAmount * parseFloat(provider.commissionRate)) / 100;
+      }
     }
-    setSelectedTests(selectedTests.map(t => 
-      t.id === testId ? { ...t, quantity } : t
-    ));
-  };
-
-  const calculateSubtotal = () => {
-    return selectedTests.reduce((sum, test) => sum + (test.price * test.quantity), 0);
-  };
-
-  const calculateDiscount = () => {
-    return (calculateSubtotal() * discountPercentage) / 100;
-  };
-
-  const calculateCommission = () => {
-    if (selectedPatientData?.pathway !== "referral" || !selectedPatientData?.referralProviderId) {
-      return 0;
-    }
-    const provider = referralProviders.find((p: any) => p.id === selectedPatientData.referralProviderId);
-    const subtotal = calculateSubtotal();
-    return Math.round(subtotal * (provider?.commissionRate || 0) / 100);
-  };
-
-  const calculateTotal = () => {
-    return calculateSubtotal() - calculateDiscount();
-  };
-
-  const calculateNetAmount = () => {
-    return calculateTotal() - calculateCommission();
+    
+    const netAmount = discountedAmount - commissionAmount;
+    
+    return {
+      subtotal,
+      discountAmount,
+      commissionAmount,
+      totalAmount: discountedAmount,
+      netAmount
+    };
   };
 
   const handleCreateInvoice = () => {
     if (!selectedPatient || selectedTests.length === 0) {
       toast({
-        title: "Missing Information",
-        description: "Please select a patient and at least one test.",
+        title: "Error",
+        description: "Please select a patient and at least one test",
         variant: "destructive",
       });
       return;
     }
 
-    if (paymentMethod !== "cash" && !businessBankAccount) {
-      toast({
-        title: "Missing Information",
-        description: "Please select which business bank account received the payment.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    const amounts = calculateInvoiceAmounts();
+    
     const invoiceData = {
-      patientId: parseInt(selectedPatient),
-      tests: selectedTests.map(test => ({
-        testId: test.id,
-        quantity: test.quantity,
-        unitPrice: test.price,
-        totalPrice: test.price * test.quantity
-      })),
-      subtotal: calculateSubtotal(),
-      discountPercentage,
-      discountAmount: calculateDiscount(),
-      commissionAmount: calculateCommission(),
-      totalAmount: calculateTotal(),
-      netAmount: calculateNetAmount(),
-      paymentMethod,
-      paymentDetails: {
-        transactionReference: transactionReference || null,
-        cardLastFourDigits: cardLastFourDigits || null,
-        bankName: bankName || null,
-        accountNumber: accountNumber || null,
-        businessBankAccount: businessBankAccount || null
-      },
+      patientId: selectedPatient.id,
       tenantId: user?.tenantId,
       branchId: user?.branchId,
-      createdBy: user?.id
+      tests: selectedTests,
+      subtotal: amounts.subtotal,
+      discountPercentage,
+      discountAmount: amounts.discountAmount,
+      commissionAmount: amounts.commissionAmount,
+      totalAmount: amounts.totalAmount,
+      netAmount: amounts.netAmount,
+      referralProviderId,
     };
 
     createInvoiceMutation.mutate(invoiceData);
   };
 
-  const InvoicePreview = () => (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <Receipt className="mr-2 w-5 h-5" />
-          Invoice Preview
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Invoice Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-bold text-medical-blue">Orient Medical Diagnostic Center</h2>
-            <p className="text-slate-gray">
-              {user?.branchId === 1 ? "Victoria Island Branch" : 
-               user?.branchId === 2 ? "Lekki Branch" : 
-               user?.branchId === 3 ? "Ikeja Branch" : "Main Branch"}
-            </p>
-            <p className="text-slate-gray">Lagos, Nigeria</p>
-          </div>
-          <div className="text-right">
-            <h3 className="text-xl font-bold">INVOICE</h3>
-            <p className="text-slate-gray">#{new Date().getFullYear()}-{Math.floor(Math.random() * 10000).toString().padStart(4, '0')}</p>
-            <p className="text-slate-gray">Date: {new Date().toLocaleDateString()}</p>
-          </div>
-        </div>
+  const handleProcessPayment = () => {
+    if (!selectedInvoice || !paymentMethod) {
+      toast({
+        title: "Error",
+        description: "Please select payment method and fill required details",
+        variant: "destructive",
+      });
+      return;
+    }
 
-        <Separator />
+    const paymentData = {
+      paymentMethod,
+      paymentDetails,
+      paidBy: user?.id,
+    };
 
-        {/* Patient Information */}
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-2">Bill To:</h4>
-            <div className="text-sm space-y-1">
-              <p className="font-medium">{selectedPatientData?.firstName} {selectedPatientData?.lastName}</p>
-              <p>Patient ID: {selectedPatientData?.patientId}</p>
-              <p>Phone: {selectedPatientData?.phone}</p>
-              {selectedPatientData?.email && <p>Email: {selectedPatientData?.email}</p>}
-              {selectedPatientData?.address && <p>Address: {selectedPatientData?.address}</p>}
-            </div>
-          </div>
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-2">Payment Method:</h4>
-            <p className="text-sm capitalize">{paymentMethod.replace('_', ' ')}</p>
-            {selectedPatientData?.pathway === "referral" && (
-              <div className="mt-3">
-                <h4 className="font-semibold text-gray-900 mb-1">Referral Information:</h4>
-                <p className="text-sm">
-                  {referralProviders.find((p: any) => p.id === selectedPatientData.referralProviderId)?.name}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+    processPaymentMutation.mutate({
+      invoiceId: selectedInvoice.id,
+      paymentData,
+    });
+  };
 
-        <Separator />
-
-        {/* Test Items */}
-        <div>
-          <h4 className="font-semibold text-gray-900 mb-4">Services</h4>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-slate-gray uppercase">
-                    Description
-                  </th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-slate-gray uppercase">
-                    Qty
-                  </th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-slate-gray uppercase">
-                    Unit Price
-                  </th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-slate-gray uppercase">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {selectedTests.map((test) => (
-                  <tr key={test.id}>
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-medium text-gray-900">{test.name}</p>
-                        <p className="text-sm text-slate-gray">Code: {test.code}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">{test.quantity}</td>
-                    <td className="px-4 py-3 text-right">₦{test.price.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right font-medium">
-                      ₦{(test.price * test.quantity).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Totals */}
-        <div className="flex justify-end">
-          <div className="w-80 space-y-2">
-            <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span>₦{calculateSubtotal().toLocaleString()}</span>
-            </div>
-            {discountPercentage > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>Discount ({discountPercentage}%):</span>
-                <span>-₦{calculateDiscount().toLocaleString()}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-semibold text-lg border-t pt-2">
-              <span>Total Amount:</span>
-              <span>₦{calculateTotal().toLocaleString()}</span>
-            </div>
-            {calculateCommission() > 0 && (
-              <>
-                <div className="flex justify-between text-red-600 text-sm">
-                  <span>Provider Commission:</span>
-                  <span>-₦{calculateCommission().toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg text-medical-green border-t pt-2">
-                  <span>Net Amount:</span>
-                  <span>₦{calculateNetAmount().toLocaleString()}</span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="text-center text-sm text-slate-gray">
-          <p>Thank you for choosing Orient Medical Diagnostic Center</p>
-          <p>For inquiries, please contact: +234-XXX-XXX-XXXX</p>
-        </div>
-      </CardContent>
-    </Card>
+  const filteredPatients = (patients as Patient[] || []).filter(patient =>
+    `${patient.firstName} ${patient.lastName} ${patient.patientId}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const amounts = calculateInvoiceAmounts();
 
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Invoice Management</h1>
-        <p className="text-slate-gray">Create and manage invoices for diagnostic services</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Invoice Management</h1>
+        <p className="text-muted-foreground">Two-stage billing: Create invoices and process payments separately</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Invoice Creation Form */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Calculator className="mr-2 w-5 h-5" />
-                Create Invoice
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Patient Selection */}
-              <div className="space-y-2">
-                <Label>Select Patient *</Label>
-                <Select value={selectedPatient} onValueChange={setSelectedPatient}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a patient" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {patients.map((patient: any) => (
-                      <SelectItem key={patient.id} value={patient.id.toString()}>
-                        {patient.firstName} {patient.lastName} - {patient.patientId}
-                      </SelectItem>
+      {/* Action Buttons */}
+      <div className="flex gap-4 mb-6">
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Invoice
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Invoice</DialogTitle>
+              <DialogDescription>
+                Create an unpaid invoice that can be paid later by the payment cashier
+              </DialogDescription>
+            </DialogHeader>
+            
+            {/* Patient Selection */}
+            <div className="space-y-4">
+              <div>
+                <Label>Search and Select Patient</Label>
+                <Input
+                  placeholder="Search by name or patient ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="mb-2"
+                />
+                {searchTerm && (
+                  <div className="max-h-40 overflow-y-auto border rounded-md">
+                    {filteredPatients.map((patient) => (
+                      <div
+                        key={patient.id}
+                        className={`p-2 cursor-pointer hover:bg-gray-50 ${
+                          selectedPatient?.id === patient.id ? 'bg-blue-50' : ''
+                        }`}
+                        onClick={() => {
+                          setSelectedPatient(patient);
+                          setSearchTerm("");
+                        }}
+                      >
+                        <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                        <div className="text-sm text-gray-500">ID: {patient.patientId}</div>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Test Selection */}
-              <div className="space-y-4">
-                <Label>Add Services</Label>
-                <Select onValueChange={addTestToInvoice}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a diagnostic test" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tests.map((test: any) => (
-                      <SelectItem key={test.id} value={test.id.toString()}>
-                        {test.name} - ₦{test.price?.toLocaleString()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Selected Tests */}
-                {selectedTests.length > 0 && (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-2 font-medium text-gray-900">
-                      Selected Services
-                    </div>
-                    <div className="divide-y">
-                      {selectedTests.map((test) => (
-                        <div key={test.id} className="px-4 py-3 flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{test.name}</p>
-                            <p className="text-sm text-slate-gray">₦{test.price.toLocaleString()} each</p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateTestQuantity(test.id, test.quantity - 1)}
-                            >
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <span className="w-8 text-center">{test.quantity}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateTestQuantity(test.id, test.quantity + 1)}
-                            >
-                              <Plus className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => removeTestFromInvoice(test.id)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  </div>
+                )}
+                {selectedPatient && (
+                  <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                    <div className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</div>
+                    <div className="text-sm text-gray-500">ID: {selectedPatient.patientId}</div>
                   </div>
                 )}
               </div>
 
+              {/* Test Selection */}
+              <div>
+                <Label>Select Tests</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                  {(tests as Test[] || []).map((test) => (
+                    <Button
+                      key={test.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddTest(test)}
+                      disabled={selectedTests.some(t => t.testId === test.id)}
+                    >
+                      {test.name} - ₦{parseFloat(test.price).toLocaleString()}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected Tests */}
+              {selectedTests.length > 0 && (
+                <div>
+                  <Label>Selected Tests</Label>
+                  <div className="space-y-2">
+                    {selectedTests.map((test) => (
+                      <div key={test.testId} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span>{test.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span>₦{test.price.toLocaleString()}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveTest(test.testId)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Referral Provider */}
+              <div>
+                <Label>Referral Provider (Optional)</Label>
+                <Select value={referralProviderId?.toString() || ""} onValueChange={(value) => setReferralProviderId(value ? parseInt(value) : null)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select referral provider..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(referralProviders as ReferralProvider[] || []).map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id.toString()}>
+                        {provider.name} ({provider.commissionRate}% commission)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Discount */}
-              <div className="space-y-2">
+              <div>
                 <Label>Discount Percentage</Label>
                 <Input
                   type="number"
@@ -428,461 +389,216 @@ export default function InvoiceManagement() {
                   max="100"
                   value={discountPercentage}
                   onChange={(e) => setDiscountPercentage(parseFloat(e.target.value) || 0)}
-                  placeholder="0"
                 />
               </div>
 
-              {/* Payment Method */}
-              <div className="space-y-2">
-                <Label>Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash Payment</SelectItem>
-                    <SelectItem value="card">Card Payment</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="insurance">Insurance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Additional Payment Details for Non-Cash Payments */}
-              {paymentMethod !== "cash" && (
-                <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-medium text-blue-900">Payment Details</h4>
-                  
-                  {/* Business Bank Account - Required for all non-cash payments */}
-                  <div className="space-y-2">
-                    <Label>Business Bank Account <span className="text-red-500">*</span></Label>
-                    <Select value={businessBankAccount} onValueChange={setBusinessBankAccount}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select business account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gtb_main">GTBank - Main Account (****2347)</SelectItem>
-                        <SelectItem value="access_operating">Access Bank - Operating Account (****8901)</SelectItem>
-                        <SelectItem value="zenith_savings">Zenith Bank - Savings Account (****5624)</SelectItem>
-                        <SelectItem value="fidelity_current">Fidelity Bank - Current Account (****1203)</SelectItem>
-                        <SelectItem value="ubn_business">UBA - Business Account (****7845)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {paymentMethod === "card" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Card Last 4 Digits</Label>
-                        <Input
-                          value={cardLastFourDigits}
-                          onChange={(e) => setCardLastFourDigits(e.target.value)}
-                          placeholder="1234"
-                          maxLength={4}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Transaction Reference</Label>
-                        <Input
-                          value={transactionReference}
-                          onChange={(e) => setTransactionReference(e.target.value)}
-                          placeholder="POS reference number"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {paymentMethod === "bank_transfer" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Customer's Bank Name</Label>
-                        <Input
-                          value={bankName}
-                          onChange={(e) => setBankName(e.target.value)}
-                          placeholder="Customer's bank"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Customer Account (Last 4 Digits)</Label>
-                        <Input
-                          value={accountNumber}
-                          onChange={(e) => setAccountNumber(e.target.value)}
-                          placeholder="1234"
-                          maxLength={4}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Transfer Reference</Label>
-                        <Input
-                          value={transactionReference}
-                          onChange={(e) => setTransactionReference(e.target.value)}
-                          placeholder="Transfer reference/receipt number"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {paymentMethod === "insurance" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Insurance Provider</Label>
-                        <Input
-                          value={bankName}
-                          onChange={(e) => setBankName(e.target.value)}
-                          placeholder="Insurance company name"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Policy Number</Label>
-                        <Input
-                          value={accountNumber}
-                          onChange={(e) => setAccountNumber(e.target.value)}
-                          placeholder="Patient's policy number"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Authorization Code</Label>
-                        <Input
-                          value={transactionReference}
-                          onChange={(e) => setTransactionReference(e.target.value)}
-                          placeholder="Pre-authorization code"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Invoice Summary */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <DollarSign className="mr-2 w-5 h-5" />
-                Invoice Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedTests.length === 0 ? (
-                <p className="text-slate-gray text-center py-8">
-                  No services selected
-                </p>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
+              {/* Invoice Summary */}
+              {selectedTests.length > 0 && (
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <h3 className="font-medium mb-2">Invoice Summary</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
                       <span>Subtotal:</span>
-                      <span>₦{calculateSubtotal().toLocaleString()}</span>
+                      <span>₦{amounts.subtotal.toLocaleString()}</span>
                     </div>
                     {discountPercentage > 0 && (
-                      <div className="flex justify-between text-sm text-green-600">
+                      <div className="flex justify-between text-red-600">
                         <span>Discount ({discountPercentage}%):</span>
-                        <span>-₦{calculateDiscount().toLocaleString()}</span>
+                        <span>-₦{amounts.discountAmount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {amounts.commissionAmount > 0 && (
+                      <div className="flex justify-between text-orange-600">
+                        <span>Commission:</span>
+                        <span>-₦{amounts.commissionAmount.toLocaleString()}</span>
                       </div>
                     )}
                     <Separator />
-                    <div className="flex justify-between font-semibold">
-                      <span>Total Amount:</span>
-                      <span>₦{calculateTotal().toLocaleString()}</span>
+                    <div className="flex justify-between font-medium">
+                      <span>Net Amount:</span>
+                      <span>₦{amounts.netAmount.toLocaleString()}</span>
                     </div>
-                    {calculateCommission() > 0 && (
-                      <>
-                        <div className="flex justify-between text-sm text-red-600">
-                          <span>Commission:</span>
-                          <span>-₦{calculateCommission().toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-medical-green">
-                          <span>Net Amount:</span>
-                          <span>₦{calculateNetAmount().toLocaleString()}</span>
-                        </div>
-                      </>
-                    )}
                   </div>
-
-                  <div className="space-y-2 pt-4">
-                    <Button
-                      onClick={() => setShowInvoicePreview(!showInvoicePreview)}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      <Eye className="mr-2 w-4 h-4" />
-                      {showInvoicePreview ? "Hide Preview" : "Preview Invoice"}
-                    </Button>
-                    <Button
-                      onClick={handleCreateInvoice}
-                      disabled={createInvoiceMutation.isPending || !selectedPatient || selectedTests.length === 0}
-                      className="w-full bg-medical-blue hover:bg-blue-700"
-                    >
-                      {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
-                    </Button>
-                  </div>
-                </>
+                </div>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Recent Invoices */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Invoices</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {/* Demo invoice entries */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">#2025-0012</p>
-                    <p className="text-sm text-slate-gray">Kemi Adeyemi</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">₦24,000</p>
-                    <Badge className="bg-medical-green">Paid</Badge>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">#2025-0011</p>
-                    <p className="text-sm text-slate-gray">Fatima Bello</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">₦18,500</p>
-                    <Badge variant="outline">Pending</Badge>
-                  </div>
-                </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateInvoice}
+                  disabled={!selectedPatient || selectedTests.length === 0 || createInvoiceMutation.isPending}
+                >
+                  {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Invoice Preview Dialog */}
-      <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {createdInvoice ? `Invoice #${createdInvoice.invoiceNumber}` : "Invoice Preview"}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Invoice Header */}
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-lg font-semibold text-medical-blue">Orient Medical Diagnostic Center</h3>
-                <p className="text-sm text-slate-gray">Multi-Branch Medical Diagnostics</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-slate-gray">Invoice Date</p>
-                <p className="font-medium">{new Date().toLocaleDateString()}</p>
-              </div>
-            </div>
+      {/* Invoice Tabs */}
+      <Tabs value={invoiceFilter} onValueChange={(value) => setInvoiceFilter(value as any)}>
+        <TabsList>
+          <TabsTrigger value="all">All Invoices</TabsTrigger>
+          <TabsTrigger value="unpaid">Unpaid Invoices</TabsTrigger>
+          <TabsTrigger value="paid">Paid Invoices</TabsTrigger>
+        </TabsList>
 
-            {/* Patient Information */}
-            {selectedPatientData && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Patient Information</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-slate-gray">Name</p>
-                    <p className="font-medium">{selectedPatientData.firstName} {selectedPatientData.lastName}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-gray">Patient ID</p>
-                    <p className="font-medium">{selectedPatientData.patientId}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-gray">Phone</p>
-                    <p className="font-medium">{selectedPatientData.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-gray">Age</p>
-                    <p className="font-medium">{selectedPatientData.age} years</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Test Items */}
-            <div>
-              <h4 className="font-medium mb-3">Test Items</h4>
-              <div className="space-y-2">
-                {selectedTests.map((test, index) => (
-                  <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200">
+        <TabsContent value={invoiceFilter} className="mt-6">
+          <div className="grid gap-4">
+            {(invoices as Invoice[] || []).map((invoice) => (
+              <Card key={invoice.id}>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-medium">{test.name}</p>
-                      <p className="text-sm text-slate-gray">{test.code}</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-medium">{invoice.invoiceNumber}</h3>
+                        <Badge variant={invoice.paymentStatus === 'paid' ? 'default' : 'secondary'}>
+                          {invoice.paymentStatus === 'paid' ? 'PAID' : 'UNPAID'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Patient: {invoice.patientName}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Created by: {invoice.createdByName}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Created: {new Date(invoice.createdAt).toLocaleDateString()}
+                      </p>
+                      {invoice.paidAt && (
+                        <p className="text-sm text-muted-foreground">
+                          Paid: {new Date(invoice.paidAt).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">₦{test.price.toLocaleString()}</p>
-                      <p className="text-sm text-slate-gray">Qty: {test.quantity}</p>
+                      <div className="text-lg font-medium">
+                        ₦{parseFloat(invoice.totalAmount).toLocaleString()}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {invoice.paymentStatus === 'unpaid' && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedInvoice(invoice);
+                              setShowPaymentDialog(true);
+                            }}
+                          >
+                            <DollarSign className="w-4 h-4 mr-1" />
+                            Collect Payment
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm">
+                          <Eye className="w-4 h-4 mr-1" />
+                          View
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Invoice Summary */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>₦{calculateSubtotal().toLocaleString()}</span>
-                </div>
-                {discountPercentage > 0 && (
-                  <div className="flex justify-between text-medical-green">
-                    <span>Discount ({discountPercentage}%)</span>
-                    <span>-₦{calculateDiscount().toLocaleString()}</span>
-                  </div>
-                )}
-                {calculateCommission() > 0 && (
-                  <div className="flex justify-between text-blue-600">
-                    <span>Provider Commission</span>
-                    <span>₦{calculateCommission().toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold text-lg border-t pt-2">
-                  <span>Total Amount</span>
-                  <span>₦{calculateTotal().toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Payment Method</span>
-                  <span className="capitalize">{paymentMethod.replace('_', ' ')}</span>
-                </div>
-                
-                {/* Payment Details for Non-Cash Payments */}
-                {paymentMethod !== "cash" && (
-                  <div className="mt-2 p-3 bg-blue-50 rounded border border-blue-200">
-                    <h5 className="font-medium text-blue-900 mb-2">Payment Details</h5>
-                    <div className="space-y-1 text-sm">
-                      {/* Business Bank Account - Always show for non-cash */}
-                      {businessBankAccount && (
-                        <div className="flex justify-between font-medium text-green-700">
-                          <span>Deposited to:</span>
-                          <span>{businessBankAccount.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                        </div>
-                      )}
-                      
-                      {paymentMethod === "card" && (
-                        <>
-                          {cardLastFourDigits && (
-                            <div className="flex justify-between">
-                              <span>Card ending in:</span>
-                              <span>****{cardLastFourDigits}</span>
-                            </div>
-                          )}
-                          {transactionReference && (
-                            <div className="flex justify-between">
-                              <span>POS Reference:</span>
-                              <span>{transactionReference}</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      
-                      {paymentMethod === "bank_transfer" && (
-                        <>
-                          {bankName && (
-                            <div className="flex justify-between">
-                              <span>Customer Bank:</span>
-                              <span>{bankName}</span>
-                            </div>
-                          )}
-                          {accountNumber && (
-                            <div className="flex justify-between">
-                              <span>Customer Account:</span>
-                              <span>****{accountNumber}</span>
-                            </div>
-                          )}
-                          {transactionReference && (
-                            <div className="flex justify-between">
-                              <span>Transfer Reference:</span>
-                              <span>{transactionReference}</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      
-                      {paymentMethod === "insurance" && (
-                        <>
-                          {bankName && (
-                            <div className="flex justify-between">
-                              <span>Insurance Provider:</span>
-                              <span>{bankName}</span>
-                            </div>
-                          )}
-                          {accountNumber && (
-                            <div className="flex justify-between">
-                              <span>Policy Number:</span>
-                              <span>{accountNumber}</span>
-                            </div>
-                          )}
-                          {transactionReference && (
-                            <div className="flex justify-between">
-                              <span>Authorization Code:</span>
-                              <span>{transactionReference}</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {createdInvoice && (
-                  <div className="flex justify-between text-sm">
-                    <span>Status</span>
-                    <Badge className="bg-medical-green">Paid</Badge>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 pt-4">
-              {createdInvoice ? (
-                <>
-                  <Button
-                    onClick={() => {
-                      // Reset form for new invoice
-                      setSelectedPatient("");
-                      setSelectedTests([]);
-                      setDiscountPercentage(0);
-                      setPaymentMethod("cash");
-                      setTransactionReference("");
-                      setCardLastFourDigits("");
-                      setBankName("");
-                      setAccountNumber("");
-                      setBusinessBankAccount("");
-                      setCreatedInvoice(null);
-                      setShowInvoicePreview(false);
-                    }}
-                    className="flex-1"
-                    variant="outline"
-                  >
-                    Create New Invoice
-                  </Button>
-                  <Button
-                    onClick={() => window.print()}
-                    className="flex-1 bg-medical-blue hover:bg-blue-700"
-                  >
-                    <Printer className="mr-2 w-4 h-4" />
-                    Print Invoice
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={() => setShowInvoicePreview(false)}
-                  className="w-full"
-                  variant="outline"
-                >
-                  Close Preview
-                </Button>
-              )}
-            </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Payment Collection Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Collect Payment</DialogTitle>
+            <DialogDescription>
+              Process payment for invoice {selectedInvoice?.invoiceNumber}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedInvoice && (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-md">
+                <div className="flex justify-between">
+                  <span>Patient:</span>
+                  <span>{selectedInvoice.patientName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Amount Due:</span>
+                  <span className="font-medium">₦{parseFloat(selectedInvoice.totalAmount).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <Label>Payment Method</Label>
+                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="cash" id="cash" />
+                    <Label htmlFor="cash" className="flex items-center">
+                      <Banknote className="w-4 h-4 mr-2" />
+                      Cash
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="card" id="card" />
+                    <Label htmlFor="card" className="flex items-center">
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Debit/Credit Card
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="transfer" id="transfer" />
+                    <Label htmlFor="transfer" className="flex items-center">
+                      <Smartphone className="w-4 h-4 mr-2" />
+                      Bank Transfer
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Payment Details */}
+              {paymentMethod === "card" && (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Card last 4 digits"
+                    value={paymentDetails.cardLastFour || ""}
+                    onChange={(e) => setPaymentDetails({...paymentDetails, cardLastFour: e.target.value})}
+                  />
+                  <Input
+                    placeholder="Transaction reference"
+                    value={paymentDetails.transactionRef || ""}
+                    onChange={(e) => setPaymentDetails({...paymentDetails, transactionRef: e.target.value})}
+                  />
+                </div>
+              )}
+
+              {paymentMethod === "transfer" && (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Transfer reference"
+                    value={paymentDetails.transferRef || ""}
+                    onChange={(e) => setPaymentDetails({...paymentDetails, transferRef: e.target.value})}
+                  />
+                  <Input
+                    placeholder="Sending bank"
+                    value={paymentDetails.sendingBank || ""}
+                    onChange={(e) => setPaymentDetails({...paymentDetails, sendingBank: e.target.value})}
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleProcessPayment}
+                  disabled={!paymentMethod || processPaymentMutation.isPending}
+                >
+                  {processPaymentMutation.isPending ? "Processing..." : "Process Payment"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

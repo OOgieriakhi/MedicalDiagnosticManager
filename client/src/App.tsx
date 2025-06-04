@@ -21,7 +21,7 @@ function Router() {
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
       <ProtectedRoute path="/financial-management" component={FinancialManagement} />
-      <ProtectedRoute path="/invoices" component={InvoiceManagement} />
+      <ProtectedRoute path="/invoice-management" component={InvoiceManagement} />
       <ProtectedRoute path="/notifications" component={NotificationCenter} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
