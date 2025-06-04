@@ -18,6 +18,8 @@ import LaboratoryManagement from "@/pages/laboratory-management";
 import RadiologyManagement from "@/pages/radiology-management";
 import PharmacyManagement from "@/pages/pharmacy-management";
 import AdministrativeManagement from "@/pages/administrative-management";
+import UltrasoundUnit from "@/pages/ultrasound-unit";
+import CardiologyUnit from "@/pages/cardiology-unit";
 import CashiersModule from "@/pages/cashiers-module";
 
 function Router() {

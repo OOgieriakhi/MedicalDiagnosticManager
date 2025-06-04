@@ -367,9 +367,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPatientTest(insertPatientTest: InsertPatientTest): Promise<PatientTest> {
+    // Adapt to existing database schema by removing unsupported columns
+    const adaptedPatientTest = {
+      patientId: insertPatientTest.patientId,
+      testId: insertPatientTest.testId,
+      status: insertPatientTest.status || 'scheduled',
+      scheduledAt: insertPatientTest.scheduledAt || new Date(),
+      branchId: insertPatientTest.branchId,
+      tenantId: insertPatientTest.tenantId,
+      createdBy: insertPatientTest.createdBy,
+      referralProviderId: insertPatientTest.referralProviderId,
+      consultantId: insertPatientTest.consultantId,
+      priority: insertPatientTest.priority || 'normal',
+      notes: insertPatientTest.notes
+    };
+
     const [patientTest] = await db
       .insert(patientTests)
-      .values(insertPatientTest)
+      .values(adaptedPatientTest)
       .returning();
     return patientTest;
   }
@@ -399,15 +414,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
-    // Adapt to existing database schema by removing unsupported columns
+    // Use only the columns that exist in the current database
     const adaptedTransaction = {
       type: insertTransaction.type,
       amount: insertTransaction.amount,
       currency: insertTransaction.currency || 'NGN',
       description: insertTransaction.description,
-      patientTestId: insertTransaction.patientTestId,
-      referralProviderId: insertTransaction.referralProviderId,
-      consultantId: insertTransaction.consultantId,
       branchId: insertTransaction.branchId,
       tenantId: insertTransaction.tenantId,
       createdBy: insertTransaction.createdBy
