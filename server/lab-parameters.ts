@@ -112,7 +112,18 @@ export async function seedTestParameters() {
 
 export async function getTestParametersForTest(testId: number) {
   return await db
-    .select()
+    .select({
+      id: testParameters.id,
+      testId: testParameters.testId,
+      parameterName: testParameters.parameterName,
+      parameterCode: testParameters.parameterCode,
+      unit: testParameters.unit,
+      normalRangeMin: testParameters.normalRangeMin,
+      normalRangeMax: testParameters.normalRangeMax,
+      normalRangeText: testParameters.normalRangeText,
+      category: testParameters.category,
+      displayOrder: testParameters.displayOrder
+    })
     .from(testParameters)
     .where(eq(testParameters.testId, testId))
     .orderBy(testParameters.displayOrder);
