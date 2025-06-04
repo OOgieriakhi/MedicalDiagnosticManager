@@ -199,7 +199,8 @@ export default function PatientIntake() {
   const calculateTotal = () => {
     return selectedTests.reduce((total, testId) => {
       const test = (tests as any[]).find((t: any) => t.id === testId);
-      return total + (test?.price || 0);
+      const price = typeof test?.price === 'string' ? parseFloat(test.price) : (test?.price || 0);
+      return total + price;
     }, 0);
   };
 

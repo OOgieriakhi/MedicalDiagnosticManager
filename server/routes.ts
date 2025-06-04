@@ -161,12 +161,23 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const validatedData = insertPatientTestSchema.parse(req.body);
+      console.log("Received patient test data:", req.body);
+      
+      // Transform scheduledAt to proper timestamp format
+      const testData = {
+        ...req.body,
+        scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt) : new Date()
+      };
+
+      console.log("Transformed data:", testData);
+
+      const validatedData = insertPatientTestSchema.parse(testData);
       const patientTest = await storage.createPatientTest(validatedData);
 
       res.status(201).json(patientTest);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       console.error("Error scheduling test:", error);
