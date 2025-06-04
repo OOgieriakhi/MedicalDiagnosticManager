@@ -20,7 +20,10 @@ import {
   type Transaction,
   type InsertTransaction,
   type SystemAlert,
-  type InsertSystemAlert
+  type InsertSystemAlert,
+  type ReferralProvider,
+  type TestCategory,
+  type Test
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, between } from "drizzle-orm";
@@ -69,6 +72,11 @@ export interface IStorage {
   // System alerts
   getSystemAlerts(tenantId: number, limit?: number): Promise<SystemAlert[]>;
   createSystemAlert(alert: InsertSystemAlert): Promise<SystemAlert>;
+  
+  // Additional methods for patient intake workflow
+  getReferralProviders(tenantId: number): Promise<ReferralProvider[]>;
+  getTestCategories(tenantId: number): Promise<TestCategory[]>;
+  getTests(tenantId: number): Promise<Test[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -303,6 +311,30 @@ export class DatabaseStorage implements IStorage {
       .values(insertAlert)
       .returning();
     return alert;
+  }
+
+  async getReferralProviders(tenantId: number): Promise<ReferralProvider[]> {
+    return await db
+      .select()
+      .from(referralProviders)
+      .where(eq(referralProviders.tenantId, tenantId))
+      .orderBy(referralProviders.name);
+  }
+
+  async getTestCategories(tenantId: number): Promise<TestCategory[]> {
+    return await db
+      .select()
+      .from(testCategories)
+      .where(eq(testCategories.tenantId, tenantId))
+      .orderBy(testCategories.name);
+  }
+
+  async getTests(tenantId: number): Promise<Test[]> {
+    return await db
+      .select()
+      .from(tests)
+      .where(eq(tests.tenantId, tenantId))
+      .orderBy(tests.name);
   }
 }
 
