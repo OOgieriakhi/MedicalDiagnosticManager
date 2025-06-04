@@ -585,6 +585,21 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Seed test parameters for laboratory reports
+  app.post("/api/seed-test-parameters", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { seedTestParameters } = await import("./lab-parameters");
+      await seedTestParameters();
+      res.json({ message: "Test parameters seeded successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Update patient test results (for laboratory module)
   app.patch("/api/patient-tests/:id/results", async (req, res) => {
     try {
