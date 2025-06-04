@@ -570,3 +570,436 @@ export type InsertTestResultValue = z.infer<typeof insertTestResultValueSchema>;
 
 export type ReportTemplate = typeof reportTemplates.$inferSelect;
 export type InsertReportTemplate = z.infer<typeof insertReportTemplateSchema>;
+
+// Purchase Orders system
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: serial("id").primaryKey(),
+  poNumber: text("po_number").notNull().unique(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  vendorName: text("vendor_name").notNull(),
+  vendorEmail: text("vendor_email"),
+  vendorPhone: text("vendor_phone"),
+  vendorAddress: text("vendor_address"),
+  requestedBy: integer("requested_by").notNull(),
+  approvedBy: integer("approved_by"),
+  status: text("status").notNull().default("draft"), // draft, pending_approval, approved, rejected, ordered, received, paid
+  priority: text("priority").notNull().default("normal"), // low, normal, high, urgent
+  expectedDeliveryDate: timestamp("expected_delivery_date"),
+  actualDeliveryDate: timestamp("actual_delivery_date"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
+  terms: text("terms"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+});
+
+// Purchase Order Items
+export const purchaseOrderItems = pgTable("purchase_order_items", {
+  id: serial("id").primaryKey(),
+  poId: integer("po_id").notNull(),
+  itemName: text("item_name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  receivedQuantity: integer("received_quantity").default(0),
+  specifications: text("specifications"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Payment Approval Workflow
+export const paymentApprovals = pgTable("payment_approvals", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  paymentType: text("payment_type").notNull(), // po_payment, expense_reimbursement, vendor_payment, petty_cash
+  referenceId: integer("reference_id"), // PO ID, expense ID, etc.
+  referenceNumber: text("reference_number").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  requestedBy: integer("requested_by").notNull(),
+  approverLevel: integer("approver_level").notNull().default(1), // 1, 2, 3 for multi-level approval
+  currentApprover: integer("current_approver"),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, paid
+  priority: text("priority").notNull().default("normal"),
+  justification: text("justification").notNull(),
+  supportingDocuments: jsonb("supporting_documents"), // array of document URLs
+  approvalHistory: jsonb("approval_history"), // array of approval steps
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  paidAt: timestamp("paid_at"),
+});
+
+// Petty Cash Management
+export const pettyCashFunds = pgTable("petty_cash_funds", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  fundName: text("fund_name").notNull(),
+  custodian: integer("custodian").notNull(), // user who manages this fund
+  initialAmount: decimal("initial_amount", { precision: 10, scale: 2 }).notNull(),
+  currentBalance: decimal("current_balance", { precision: 10, scale: 2 }).notNull(),
+  monthlyLimit: decimal("monthly_limit", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default("active"), // active, suspended, closed
+  lastReconciledAt: timestamp("last_reconciled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Petty Cash Transactions
+export const pettyCashTransactions = pgTable("petty_cash_transactions", {
+  id: serial("id").primaryKey(),
+  fundId: integer("fund_id").notNull(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  transactionNumber: text("transaction_number").notNull().unique(),
+  type: text("type").notNull(), // replenishment, expense, return
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  purpose: text("purpose").notNull(),
+  category: text("category").notNull(),
+  requestedBy: integer("requested_by").notNull(),
+  approvedBy: integer("approved_by"),
+  receiptNumber: text("receipt_number"),
+  vendorName: text("vendor_name"),
+  description: text("description").notNull(),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, paid
+  attachments: jsonb("attachments"), // receipt images/documents
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  paidAt: timestamp("paid_at"),
+});
+
+// Audit Trail for Financial Transactions
+export const auditTrail = pgTable("audit_trail", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id"),
+  entityType: text("entity_type").notNull(), // purchase_order, payment_approval, petty_cash, etc.
+  entityId: integer("entity_id").notNull(),
+  action: text("action").notNull(), // created, updated, approved, rejected, paid, etc.
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  performedBy: integer("performed_by").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  notes: text("notes"),
+});
+
+// Vendors
+export const vendors = pgTable("vendors", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  vendorCode: text("vendor_code").notNull().unique(),
+  name: text("name").notNull(),
+  contactPerson: text("contact_person"),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  taxId: text("tax_id"),
+  bankDetails: jsonb("bank_details"),
+  paymentTerms: text("payment_terms").default("Net 30"),
+  category: text("category"), // medical_supplies, equipment, services, utilities
+  status: text("status").notNull().default("active"), // active, inactive, blacklisted
+  rating: integer("rating").default(5), // 1-5 stars
+  totalTransactions: integer("total_transactions").default(0),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
+  lastTransactionAt: timestamp("last_transaction_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Schema validations for new tables
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+});
+
+export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPaymentApprovalSchema = createInsertSchema(paymentApprovals).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+  paidAt: true,
+});
+
+export const insertPettyCashFundSchema = createInsertSchema(pettyCashFunds).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPettyCashTransactionSchema = createInsertSchema(pettyCashTransactions).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+  paidAt: true,
+});
+
+export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
+  id: true,
+  timestamp: true,
+});
+
+export const insertVendorSchema = createInsertSchema(vendors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Type exports for new schemas
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
+export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
+
+export type PaymentApproval = typeof paymentApprovals.$inferSelect;
+export type InsertPaymentApproval = z.infer<typeof insertPaymentApprovalSchema>;
+
+export type PettyCashFund = typeof pettyCashFunds.$inferSelect;
+export type InsertPettyCashFund = z.infer<typeof insertPettyCashFundSchema>;
+
+export type PettyCashTransaction = typeof pettyCashTransactions.$inferSelect;
+export type InsertPettyCashTransaction = z.infer<typeof insertPettyCashTransactionSchema>;
+
+export type AuditTrail = typeof auditTrail.$inferSelect;
+export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
+
+export type Vendor = typeof vendors.$inferSelect;
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+
+// Double Entry Accounting System
+// Chart of Accounts
+export const chartOfAccounts = pgTable("chart_of_accounts", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  accountCode: text("account_code").notNull().unique(),
+  accountName: text("account_name").notNull(),
+  accountType: text("account_type").notNull(), // asset, liability, equity, revenue, expense
+  accountSubtype: text("account_subtype").notNull(), // current_asset, fixed_asset, current_liability, etc.
+  parentAccountId: integer("parent_account_id"), // for hierarchical accounts
+  isActive: boolean("is_active").notNull().default(true),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Journal Entries (Double Entry)
+export const journalEntries = pgTable("journal_entries", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  entryNumber: text("entry_number").notNull().unique(),
+  entryDate: timestamp("entry_date").notNull(),
+  description: text("description").notNull(),
+  referenceType: text("reference_type"), // invoice, purchase_order, petty_cash, expense, etc.
+  referenceId: integer("reference_id"),
+  referenceNumber: text("reference_number"),
+  totalDebit: decimal("total_debit", { precision: 15, scale: 2 }).notNull(),
+  totalCredit: decimal("total_credit", { precision: 15, scale: 2 }).notNull(),
+  status: text("status").notNull().default("draft"), // draft, posted, reversed
+  createdBy: integer("created_by").notNull(),
+  approvedBy: integer("approved_by"),
+  postedAt: timestamp("posted_at"),
+  reversedAt: timestamp("reversed_at"),
+  reversalReason: text("reversal_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Journal Entry Line Items
+export const journalEntryLineItems = pgTable("journal_entry_line_items", {
+  id: serial("id").primaryKey(),
+  journalEntryId: integer("journal_entry_id").notNull(),
+  accountId: integer("account_id").notNull(),
+  description: text("description").notNull(),
+  debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
+  creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Account Balances (Running Balances)
+export const accountBalances = pgTable("account_balances", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  accountId: integer("account_id").notNull(),
+  fiscalYear: integer("fiscal_year").notNull(),
+  fiscalMonth: integer("fiscal_month").notNull(),
+  openingBalance: decimal("opening_balance", { precision: 15, scale: 2 }).default("0"),
+  debitMovements: decimal("debit_movements", { precision: 15, scale: 2 }).default("0"),
+  creditMovements: decimal("credit_movements", { precision: 15, scale: 2 }).default("0"),
+  closingBalance: decimal("closing_balance", { precision: 15, scale: 2 }).default("0"),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+});
+
+// Financial Periods
+export const fiscalPeriods = pgTable("fiscal_periods", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  periodName: text("period_name").notNull(),
+  fiscalYear: integer("fiscal_year").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  status: text("status").notNull().default("open"), // open, closed, locked
+  closedBy: integer("closed_by"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Budget vs Actual Tracking
+export const budgetVsActual = pgTable("budget_vs_actual", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  accountId: integer("account_id").notNull(),
+  fiscalYear: integer("fiscal_year").notNull(),
+  fiscalMonth: integer("fiscal_month"),
+  budgetedAmount: decimal("budgeted_amount", { precision: 15, scale: 2 }).notNull(),
+  actualAmount: decimal("actual_amount", { precision: 15, scale: 2 }).default("0"),
+  variance: decimal("variance", { precision: 15, scale: 2 }).default("0"),
+  variancePercent: decimal("variance_percent", { precision: 5, scale: 2 }).default("0"),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+});
+
+// Enhanced Purchase Order System with Approval Workflow
+export const purchaseOrderApprovals = pgTable("purchase_order_approvals", {
+  id: serial("id").primaryKey(),
+  poId: integer("po_id").notNull(),
+  approverLevel: integer("approver_level").notNull(), // 1, 2, 3 for multi-level approval
+  approverId: integer("approver_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  comments: text("comments"),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Petty Cash Reconciliation
+export const pettyCashReconciliations = pgTable("petty_cash_reconciliations", {
+  id: serial("id").primaryKey(),
+  fundId: integer("fund_id").notNull(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  reconciliationDate: timestamp("reconciliation_date").notNull(),
+  reconciliationNumber: text("reconciliation_number").notNull().unique(),
+  expectedBalance: decimal("expected_balance", { precision: 10, scale: 2 }).notNull(),
+  actualBalance: decimal("actual_balance", { precision: 10, scale: 2 }).notNull(),
+  variance: decimal("variance", { precision: 10, scale: 2 }).notNull(),
+  varianceReason: text("variance_reason"),
+  reconciledBy: integer("reconciled_by").notNull(),
+  approvedBy: integer("approved_by"),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  journalEntryId: integer("journal_entry_id"), // auto-generated journal entry
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+});
+
+// Payment Vouchers
+export const paymentVouchers = pgTable("payment_vouchers", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  voucherNumber: text("voucher_number").notNull().unique(),
+  paymentType: text("payment_type").notNull(), // po_payment, expense, petty_cash, salary
+  referenceId: integer("reference_id"),
+  referenceNumber: text("reference_number"),
+  payeeType: text("payee_type").notNull(), // vendor, employee, petty_cash_custodian
+  payeeName: text("payee_name").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: text("payment_method").notNull(), // cash, cheque, bank_transfer, card
+  bankAccount: text("bank_account"),
+  chequeNumber: text("cheque_number"),
+  description: text("description").notNull(),
+  preparedBy: integer("prepared_by").notNull(),
+  approvedBy: integer("approved_by"),
+  paidBy: integer("paid_by"),
+  journalEntryId: integer("journal_entry_id"),
+  status: text("status").notNull().default("prepared"), // prepared, approved, paid, cancelled
+  preparedAt: timestamp("prepared_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  paidAt: timestamp("paid_at"),
+});
+
+// Schema validations for accounting tables
+export const insertChartOfAccountsSchema = createInsertSchema(chartOfAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  postedAt: true,
+  reversedAt: true,
+});
+
+export const insertJournalEntryLineItemSchema = createInsertSchema(journalEntryLineItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPurchaseOrderApprovalSchema = createInsertSchema(purchaseOrderApprovals).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+});
+
+export const insertPettyCashReconciliationSchema = createInsertSchema(pettyCashReconciliations).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+});
+
+export const insertPaymentVoucherSchema = createInsertSchema(paymentVouchers).omit({
+  id: true,
+  preparedAt: true,
+  approvedAt: true,
+  paidAt: true,
+});
+
+// Type exports for accounting system
+export type ChartOfAccounts = typeof chartOfAccounts.$inferSelect;
+export type InsertChartOfAccounts = z.infer<typeof insertChartOfAccountsSchema>;
+
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+
+export type JournalEntryLineItem = typeof journalEntryLineItems.$inferSelect;
+export type InsertJournalEntryLineItem = z.infer<typeof insertJournalEntryLineItemSchema>;
+
+export type AccountBalance = typeof accountBalances.$inferSelect;
+
+export type FiscalPeriod = typeof fiscalPeriods.$inferSelect;
+
+export type BudgetVsActual = typeof budgetVsActual.$inferSelect;
+
+export type PurchaseOrderApproval = typeof purchaseOrderApprovals.$inferSelect;
+export type InsertPurchaseOrderApproval = z.infer<typeof insertPurchaseOrderApprovalSchema>;
+
+export type PettyCashReconciliation = typeof pettyCashReconciliations.$inferSelect;
+export type InsertPettyCashReconciliation = z.infer<typeof insertPettyCashReconciliationSchema>;
+
+export type PaymentVoucher = typeof paymentVouchers.$inferSelect;
+export type InsertPaymentVoucher = z.infer<typeof insertPaymentVoucherSchema>;
