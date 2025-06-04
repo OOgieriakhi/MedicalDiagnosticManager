@@ -53,11 +53,21 @@ export default function LaboratoryManagement() {
   const [processingTests, setProcessingTests] = useState<Set<number>>(new Set());
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
 
+  // Helper function to get test stage-based background color
+  const getTestStageColor = (test: any) => {
+    if (test.status === "completed") return "bg-green-50 border-green-200";
+    if (test.processingStarted) return "bg-yellow-50 border-yellow-200";
+    if (test.specimenCollected) return "bg-blue-50 border-blue-200";
+    if (test.paymentVerified) return "bg-purple-50 border-purple-200";
+    return "bg-white border-gray-200";
+  };
+
   // Query for laboratory workflow metrics
-  const { data: labMetrics, isLoading: metricsLoading } = useQuery({
+  const { data: labMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ["/api/laboratory/metrics", user?.branchId, startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       const response = await fetch(`/api/laboratory/metrics?${params}`);
@@ -65,6 +75,7 @@ export default function LaboratoryManagement() {
       return response.json();
     },
     enabled: !!user?.branchId,
+    refetchOnWindowFocus: false,
   });
 
   // Query for laboratory tests - only show paid requests
@@ -154,6 +165,7 @@ export default function LaboratoryManagement() {
       
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
+      refetchMetrics();
       toast({
         title: "Payment Verified",
         description: "Payment has been verified successfully.",
@@ -651,14 +663,14 @@ export default function LaboratoryManagement() {
               filteredTests.map((test: any) => (
                 <Card 
                   key={test.id} 
-                  className={`hover:shadow-md transition-all duration-300 ${
+                  className={`hover:shadow-md transition-all duration-300 border ${getTestStageColor(test)} ${
                     processingTests.has(test.id) ? 'ring-2 ring-blue-200 shadow-lg' : ''
                   } ${
                     completedActions.has(`payment-${test.id}`) || 
                     completedActions.has(`specimen-${test.id}`) || 
                     completedActions.has(`processing-${test.id}`) || 
                     completedActions.has(`completed-${test.id}`) 
-                      ? 'ring-2 ring-green-300 shadow-lg bg-green-50' : ''
+                      ? 'ring-2 ring-green-300 shadow-lg' : ''
                   }`}
                 >
                   <CardContent className="pt-6">
