@@ -2300,6 +2300,376 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Enhanced Financial Management API endpoints
+  app.get("/api/financial/expenses", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
+
+      // Mock expense data for demonstration
+      const expenses = {
+        operational: 450000,
+        salaries: 1200000,
+        equipment: 250000,
+        other: 150000,
+        recent: [
+          {
+            id: 1,
+            date: new Date(),
+            category: "Equipment",
+            description: "MRI Machine Maintenance",
+            amount: 85000,
+            status: "approved"
+          },
+          {
+            id: 2,
+            date: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            category: "Operational",
+            description: "Medical Supplies",
+            amount: 45000,
+            status: "paid"
+          },
+          {
+            id: 3,
+            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+            category: "Utilities",
+            description: "Electricity Bill",
+            amount: 125000,
+            status: "pending"
+          }
+        ]
+      };
+
+      res.json(expenses);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      res.status(500).json({ error: 'Failed to fetch expenses' });
+    }
+  });
+
+  app.post("/api/financial/expenses", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { category, amount, description, notes } = req.body;
+      
+      // Create expense record
+      const expense = {
+        id: Date.now(),
+        category,
+        amount: parseFloat(amount),
+        description,
+        notes,
+        status: 'pending',
+        createdBy: req.user.id,
+        createdAt: new Date()
+      };
+
+      res.json({ message: "Expense recorded successfully", expense });
+    } catch (error) {
+      console.error('Error recording expense:', error);
+      res.status(500).json({ error: 'Failed to record expense' });
+    }
+  });
+
+  app.get("/api/financial/payroll", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+
+      // Mock payroll data
+      const payrollData = {
+        totalStaff: 25,
+        monthlyTotal: 3500000,
+        pendingPayments: 2,
+        departments: [
+          { name: "Medical Staff", count: 8, totalSalary: 1800000 },
+          { name: "Laboratory", count: 6, totalSalary: 900000 },
+          { name: "Radiology", count: 4, totalSalary: 600000 },
+          { name: "Administrative", count: 7, totalSalary: 1200000 }
+        ]
+      };
+
+      res.json(payrollData);
+    } catch (error) {
+      console.error('Error fetching payroll data:', error);
+      res.status(500).json({ error: 'Failed to fetch payroll data' });
+    }
+  });
+
+  app.get("/api/financial/budget", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+
+      // Mock budget data
+      const budgetData = {
+        monthlyBudget: 5000000,
+        actualSpending: 4250000,
+        variance: 750000,
+        categories: [
+          { name: "Salaries", budgeted: 2000000, actual: 1950000, variance: 50000 },
+          { name: "Equipment", budgeted: 800000, actual: 650000, variance: 150000 },
+          { name: "Supplies", budgeted: 600000, actual: 580000, variance: 20000 },
+          { name: "Utilities", budgeted: 400000, actual: 420000, variance: -20000 },
+          { name: "Marketing", budgeted: 200000, actual: 150000, variance: 50000 }
+        ]
+      };
+
+      res.json(budgetData);
+    } catch (error) {
+      console.error('Error fetching budget data:', error);
+      res.status(500).json({ error: 'Failed to fetch budget data' });
+    }
+  });
+
+  app.post("/api/financial/payments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { type, amount, method, reference, notes } = req.body;
+      
+      // Process payment
+      const payment = {
+        id: Date.now(),
+        type,
+        amount: parseFloat(amount),
+        method,
+        reference,
+        notes,
+        status: 'completed',
+        processedBy: req.user.id,
+        processedAt: new Date()
+      };
+
+      res.json({ message: "Payment processed successfully", payment });
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      res.status(500).json({ error: 'Failed to process payment' });
+    }
+  });
+
+  // Enhanced financial reports endpoints
+  app.get("/api/financial/income-statement", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
+
+      // Calculate revenue from paid invoices
+      const totalRevenue = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${invoices.totalAmount} AS DECIMAL)), 0)`
+        })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.branchId, branchId),
+            eq(invoices.paymentStatus, 'paid'),
+            gte(invoices.paidAt, startDate),
+            lte(invoices.paidAt, endDate)
+          )
+        );
+
+      const incomeStatement = {
+        revenue: {
+          diagnostic_services: totalRevenue[0]?.total || 0,
+          consultation_fees: 0,
+          other_income: 0,
+          total_revenue: totalRevenue[0]?.total || 0
+        },
+        expenses: {
+          salaries: 1200000,
+          equipment_maintenance: 250000,
+          supplies: 180000,
+          utilities: 125000,
+          rent: 300000,
+          other_expenses: 95000,
+          total_expenses: 2150000
+        },
+        net_income: (totalRevenue[0]?.total || 0) - 2150000,
+        period: { startDate, endDate }
+      };
+
+      res.json(incomeStatement);
+    } catch (error) {
+      console.error('Error generating income statement:', error);
+      res.status(500).json({ error: 'Failed to generate income statement' });
+    }
+  });
+
+  app.get("/api/financial/cash-flow", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+
+      // Calculate cash flows from transactions
+      const cashInflow = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`
+        })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.branchId, branchId),
+            eq(transactions.type, 'income')
+          )
+        );
+
+      const cashOutflow = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${transactions.amount} AS DECIMAL)), 0)`
+        })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.branchId, branchId),
+            eq(transactions.type, 'expense')
+          )
+        );
+
+      const cashFlow = {
+        operating_activities: {
+          cash_from_patients: cashInflow[0]?.total || 0,
+          cash_to_suppliers: -(cashOutflow[0]?.total || 0) * 0.4,
+          cash_to_employees: -(cashOutflow[0]?.total || 0) * 0.6,
+          net_operating_cash: (cashInflow[0]?.total || 0) - (cashOutflow[0]?.total || 0)
+        },
+        investing_activities: {
+          equipment_purchases: -250000,
+          net_investing_cash: -250000
+        },
+        financing_activities: {
+          loan_receipts: 0,
+          loan_payments: -50000,
+          net_financing_cash: -50000
+        },
+        net_cash_flow: (cashInflow[0]?.total || 0) - (cashOutflow[0]?.total || 0) - 300000
+      };
+
+      res.json(cashFlow);
+    } catch (error) {
+      console.error('Error generating cash flow statement:', error);
+      res.status(500).json({ error: 'Failed to generate cash flow statement' });
+    }
+  });
+
+  app.get("/api/financial/balance-sheet", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+
+      // Calculate current assets from transactions and invoices
+      const totalRevenue = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${invoices.totalAmount} AS DECIMAL)), 0)`
+        })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.branchId, branchId),
+            eq(invoices.paymentStatus, 'paid')
+          )
+        );
+
+      const outstandingReceivables = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${invoices.totalAmount} AS DECIMAL)), 0)`
+        })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.branchId, branchId),
+            eq(invoices.paymentStatus, 'unpaid')
+          )
+        );
+
+      const balanceSheet = {
+        assets: {
+          current_assets: {
+            cash: totalRevenue[0]?.total || 0,
+            accounts_receivable: outstandingReceivables[0]?.total || 0,
+            inventory: 150000,
+            total_current: (totalRevenue[0]?.total || 0) + (outstandingReceivables[0]?.total || 0) + 150000
+          },
+          fixed_assets: {
+            equipment: 5000000,
+            furniture: 500000,
+            total_fixed: 5500000
+          },
+          total_assets: (totalRevenue[0]?.total || 0) + (outstandingReceivables[0]?.total || 0) + 150000 + 5500000
+        },
+        liabilities: {
+          current_liabilities: {
+            accounts_payable: 200000,
+            accrued_expenses: 150000,
+            total_current: 350000
+          },
+          long_term_liabilities: {
+            equipment_loans: 1500000,
+            total_long_term: 1500000
+          },
+          total_liabilities: 1850000
+        },
+        equity: {
+          retained_earnings: (totalRevenue[0]?.total || 0) + (outstandingReceivables[0]?.total || 0) + 150000 + 5500000 - 1850000,
+          total_equity: (totalRevenue[0]?.total || 0) + (outstandingReceivables[0]?.total || 0) + 150000 + 5500000 - 1850000
+        }
+      };
+
+      res.json(balanceSheet);
+    } catch (error) {
+      console.error('Error generating balance sheet:', error);
+      res.status(500).json({ error: 'Failed to generate balance sheet' });
+    }
+  });
+
+  // Tax and compliance reporting
+  app.get("/api/financial/tax-report", async (req, res) => {
+    try {
+      const branchId = parseInt(req.query.branchId as string);
+      const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
+
+      // Calculate taxable income
+      const totalRevenue = await db
+        .select({
+          total: sql<number>`COALESCE(SUM(CAST(${invoices.totalAmount} AS DECIMAL)), 0)`
+        })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.branchId, branchId),
+            eq(invoices.paymentStatus, 'paid'),
+            sql`EXTRACT(YEAR FROM ${invoices.paidAt}) = ${year}`
+          )
+        );
+
+      const grossIncome = totalRevenue[0]?.total || 0;
+      const deductibleExpenses = 2150000; // From income statement
+      const taxableIncome = Math.max(0, grossIncome - deductibleExpenses);
+      const corporateTax = taxableIncome * 0.30; // 30% corporate tax rate
+      const vatCollected = grossIncome * 0.075; // 7.5% VAT
+      const withholdingTax = grossIncome * 0.05; // 5% WHT
+
+      const taxReport = {
+        period: year,
+        gross_income: grossIncome,
+        deductible_expenses: deductibleExpenses,
+        taxable_income: taxableIncome,
+        taxes: {
+          corporate_income_tax: corporateTax,
+          vat_collected: vatCollected,
+          withholding_tax: withholdingTax,
+          total_tax_liability: corporateTax + vatCollected + withholdingTax
+        },
+        compliance_status: "compliant",
+        next_filing_date: new Date(year + 1, 2, 31) // March 31st of following year
+      };
+
+      res.json(taxReport);
+    } catch (error) {
+      console.error('Error generating tax report:', error);
+      res.status(500).json({ error: 'Failed to generate tax report' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

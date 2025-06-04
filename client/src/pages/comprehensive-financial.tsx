@@ -45,65 +45,888 @@ export default function ComprehensiveFinancial() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // Financial statements data
-  const { data: incomeStatement, isLoading: incomeLoading } = useQuery({
-    queryKey: ['/api/financial/income-statement', dateRange, startDate, endDate],
+  // Navigation and action handlers
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showNewExpenseDialog, setShowNewExpenseDialog] = useState(false);
+  const [showNewPaymentDialog, setShowNewPaymentDialog] = useState(false);
+
+  // Financial overview data
+  const { data: financialMetrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ["/api/financial/metrics", user?.branchId, startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (dateRange !== 'custom') {
-        params.append('range', dateRange);
-      } else {
-        params.append('startDate', startDate);
-        params.append('endDate', endDate);
-      }
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
       
-      const response = await fetch(`/api/financial/income-statement?${params}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (!response.ok) throw new Error('Failed to fetch income statement');
+      const response = await fetch(`/api/financial/metrics?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch financial metrics");
       return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // Revenue breakdown data
+  const { data: revenueBreakdown, isLoading: revenueLoading } = useQuery({
+    queryKey: ["/api/financial/revenue-breakdown", user?.branchId, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await fetch(`/api/financial/revenue-breakdown?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch revenue breakdown");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // Transaction history data
+  const { data: transactionHistory, isLoading: transactionsLoading } = useQuery({
+    queryKey: ["/api/financial/transactions", user?.branchId, selectedCategory, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (selectedCategory && selectedCategory !== 'all') params.append('category', selectedCategory);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await fetch(`/api/financial/transactions?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch transactions");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // Outstanding invoices data
+  const { data: outstandingInvoices, isLoading: invoicesLoading } = useQuery({
+    queryKey: ["/api/invoices", user?.branchId, "unpaid"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      params.append('status', 'unpaid');
+      
+      const response = await fetch(`/api/invoices?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch outstanding invoices");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // Expense tracking data
+  const { data: expenses, isLoading: expensesLoading } = useQuery({
+    queryKey: ["/api/financial/expenses", user?.branchId, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await fetch(`/api/financial/expenses?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch expenses");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // Payroll data
+  const { data: payrollData, isLoading: payrollLoading } = useQuery({
+    queryKey: ["/api/financial/payroll", user?.branchId, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await fetch(`/api/financial/payroll?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch payroll data");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // Budget tracking data
+  const { data: budgetData, isLoading: budgetLoading } = useQuery({
+    queryKey: ["/api/financial/budget", user?.branchId, startDate, endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (user?.branchId) params.append('branchId', user.branchId.toString());
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await fetch(`/api/financial/budget?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch budget data");
+      return response.json();
+    },
+    enabled: !!user?.branchId
+  });
+
+  // New expense mutation
+  const newExpenseMutation = useMutation({
+    mutationFn: async (expenseData: any) => {
+      const response = await apiRequest('POST', '/api/financial/expenses', expenseData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Expense recorded successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/metrics"] });
+      setShowNewExpenseDialog(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to record expense", description: error.message, variant: "destructive" });
     }
   });
 
-  const { data: balanceSheet, isLoading: balanceLoading } = useQuery({
-    queryKey: ['/api/financial/balance-sheet', dateRange, startDate, endDate],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateRange !== 'custom') {
-        params.append('range', dateRange);
-      } else {
-        params.append('startDate', startDate);
-        params.append('endDate', endDate);
-      }
-      
-      const response = await fetch(`/api/financial/balance-sheet?${params}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (!response.ok) throw new Error('Failed to fetch balance sheet');
+  // Payment processing mutation
+  const processPaymentMutation = useMutation({
+    mutationFn: async (paymentData: any) => {
+      const response = await apiRequest('POST', '/api/financial/payments', paymentData);
       return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payment processed successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setShowNewPaymentDialog(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to process payment", description: error.message, variant: "destructive" });
     }
   });
 
-  // Inventory data
-  const { data: inventoryItems, isLoading: inventoryLoading } = useQuery({
-    queryKey: ['/api/inventory/items', selectedCategory],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (selectedCategory !== 'all') params.append('category', selectedCategory);
-      
-      const response = await fetch(`/api/inventory/items?${params}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (!response.ok) throw new Error('Failed to fetch inventory');
-      return response.json();
-    }
-  });
+  const formatCurrency = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN'
+    }).format(numAmount || 0);
+  };
 
-  // Supply orders data
-  const { data: supplyOrders, isLoading: ordersLoading } = useQuery({
-    queryKey: ['/api/supply/orders'],
-    queryFn: async () => {
-      const response = await fetch('/api/supply/orders', {
+  const getStatusBadge = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'paid': return "bg-green-100 text-green-800";
+      case 'unpaid': case 'pending': return "bg-yellow-100 text-yellow-800";
+      case 'overdue': return "bg-red-100 text-red-800";
+      case 'approved': return "bg-blue-100 text-blue-800";
+      case 'rejected': return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <p className="text-gray-500">Please log in to access financial management.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header with Navigation */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Financial Management</h1>
+            <p className="text-gray-600">Comprehensive financial tracking and reporting system</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" size="sm" onClick={() => setShowNewExpenseDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Expense
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowNewPaymentDialog(true)}>
+            <CreditCard className="w-4 h-4 mr-2" />
+            Process Payment
+          </Button>
+          <Button className="bg-green-600 hover:bg-green-700">
+            <Download className="w-4 h-4 mr-2" />
+            Export Report
+          </Button>
+        </div>
+      </div>
+
+      {/* Date Range Controls */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="dateRange">Period:</Label>
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="quarter">This Quarter</SelectItem>
+                  <SelectItem value="year">This Year</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {dateRange === 'custom' && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="startDate">From:</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="endDate">To:</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Key Financial Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(financialMetrics?.totalRevenue || 0)}
+                </p>
+                <p className="text-xs text-green-600">
+                  +{financialMetrics?.revenueGrowth || 0}% from last period
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {formatCurrency(financialMetrics?.totalExpenses || 0)}
+                </p>
+                <p className="text-xs text-red-600">
+                  {financialMetrics?.expenseGrowth || 0}% from last period
+                </p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-lg">
+                <TrendingDown className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Net Profit</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {formatCurrency(financialMetrics?.netProfit || 0)}
+                </p>
+                <p className="text-xs text-blue-600">
+                  Margin: {financialMetrics?.profitMargin || 0}%
+                </p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Outstanding Amount</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {formatCurrency(financialMetrics?.outstandingAmount || 0)}
+                </p>
+                <p className="text-xs text-orange-600">
+                  {financialMetrics?.outstandingCount || 0} pending invoices
+                </p>
+              </div>
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="payroll">Payroll</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Revenue Breakdown Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="w-5 h-5" />
+                  Revenue by Service Category
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {revenueBreakdown?.topServices?.map((service: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium">{service.category}</p>
+                        <p className="text-sm text-gray-600">{service.testCount} tests</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">{formatCurrency(service.revenue)}</p>
+                        <p className="text-sm text-gray-600">{service.percentage}%</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Transactions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5" />
+                  Recent Transactions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {transactionHistory?.slice(0, 8).map((transaction: any) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${
+                          transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                        }`}>
+                          {transaction.type === 'income' ? 
+                            <TrendingUp className="w-4 h-4 text-green-600" /> : 
+                            <TrendingDown className="w-4 h-4 text-red-600" />
+                          }
+                        </div>
+                        <div>
+                          <p className="font-medium">{transaction.description}</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(transaction.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold ${
+                          transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                        </p>
+                        <Badge className={getStatusBadge(transaction.status)}>
+                          {transaction.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="revenue" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Revenue Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Daily Average</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(revenueBreakdown?.dailyAverage || 0)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Monthly Target</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(revenueBreakdown?.monthlyTarget || 0)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Target Achievement</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {revenueBreakdown?.targetAchievement || 0}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Payment Method Breakdown</h3>
+                {revenueBreakdown?.paymentMethods?.map((method: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <CreditCard className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{method.method}</p>
+                        <p className="text-sm text-gray-600">{method.transactionCount} transactions</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">{formatCurrency(method.amount)}</p>
+                      <p className="text-sm text-gray-600">{method.percentage}%</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="expenses" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingDown className="w-5 h-5" />
+                Expense Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Operational Costs</p>
+                  <p className="text-xl font-bold text-red-600">
+                    {formatCurrency(expenses?.operational || 0)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Staff Salaries</p>
+                  <p className="text-xl font-bold text-orange-600">
+                    {formatCurrency(expenses?.salaries || 0)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Equipment</p>
+                  <p className="text-xl font-bold text-yellow-600">
+                    {formatCurrency(expenses?.equipment || 0)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Other Expenses</p>
+                  <p className="text-xl font-bold text-purple-600">
+                    {formatCurrency(expenses?.other || 0)}
+                  </p>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {expenses?.recent?.map((expense: any) => (
+                    <TableRow key={expense.id}>
+                      <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{expense.category}</TableCell>
+                      <TableCell>{expense.description}</TableCell>
+                      <TableCell>{formatCurrency(expense.amount)}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusBadge(expense.status)}>
+                          {expense.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="invoices" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Invoice Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Paid Invoices</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {outstandingInvoices?.filter((inv: any) => inv.status === 'paid').length || 0}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Pending Payment</p>
+                  <p className="text-xl font-bold text-yellow-600">
+                    {outstandingInvoices?.filter((inv: any) => inv.status === 'unpaid').length || 0}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Overdue</p>
+                  <p className="text-xl font-bold text-red-600">
+                    {outstandingInvoices?.filter((inv: any) => inv.status === 'overdue').length || 0}
+                  </p>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {outstandingInvoices?.slice(0, 10).map((invoice: any) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                      <TableCell>{invoice.patientName}</TableCell>
+                      <TableCell>{new Date(invoice.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatCurrency(invoice.totalAmount)}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusBadge(invoice.paymentStatus)}>
+                          {invoice.paymentStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
+                          {invoice.paymentStatus === 'unpaid' && (
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                              Mark Paid
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payroll" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Payroll Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Staff</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {payrollData?.totalStaff || 0}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Monthly Payroll</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {formatCurrency(payrollData?.monthlyTotal || 0)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Pending Payments</p>
+                  <p className="text-xl font-bold text-purple-600">
+                    {payrollData?.pendingPayments || 0}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-center py-8 text-gray-500">
+                <p>Payroll management functionality will be implemented based on staff records</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Financial Reports
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Income Statement</p>
+                      <p className="text-sm text-gray-600">Revenue vs Expenses</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <BarChart3 className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Cash Flow Statement</p>
+                      <p className="text-sm text-gray-600">Money in and out</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <PieChart className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Balance Sheet</p>
+                      <p className="text-sm text-gray-600">Assets and liabilities</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <TrendingUp className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Performance Report</p>
+                      <p className="text-sm text-gray-600">KPIs and metrics</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <Receipt className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Tax Report</p>
+                      <p className="text-sm text-gray-600">Tax obligations</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <Calendar className="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Budget Analysis</p>
+                      <p className="text-sm text-gray-600">Budget vs actual</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* New Expense Dialog */}
+      <Dialog open={showNewExpenseDialog} onOpenChange={setShowNewExpenseDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Record New Expense</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expenseCategory">Category</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="operational">Operational</SelectItem>
+                    <SelectItem value="equipment">Equipment</SelectItem>
+                    <SelectItem value="utilities">Utilities</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="supplies">Medical Supplies</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expenseAmount">Amount (₦)</Label>
+                <Input
+                  id="expenseAmount"
+                  type="number"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expenseDescription">Description</Label>
+              <Input
+                id="expenseDescription"
+                placeholder="Brief description of the expense"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expenseNotes">Notes (Optional)</Label>
+              <Textarea
+                id="expenseNotes"
+                placeholder="Additional notes or details"
+                rows={3}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNewExpenseDialog(false)}>
+              Cancel
+            </Button>
+            <Button>
+              Record Expense
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Processing Dialog */}
+      <Dialog open={showNewPaymentDialog} onOpenChange={setShowNewPaymentDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Process Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="paymentType">Payment Type</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="invoice">Invoice Payment</SelectItem>
+                  <SelectItem value="expense">Expense Payment</SelectItem>
+                  <SelectItem value="salary">Salary Payment</SelectItem>
+                  <SelectItem value="vendor">Vendor Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="paymentAmount">Amount (₦)</Label>
+                <Input
+                  id="paymentAmount"
+                  type="number"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paymentMethod">Method</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paymentReference">Reference/Invoice Number</Label>
+              <Input
+                id="paymentReference"
+                placeholder="Enter reference number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paymentNotes">Notes</Label>
+              <Textarea
+                id="paymentNotes"
+                placeholder="Payment notes or details"
+                rows={3}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNewPaymentDialog(false)}>
+              Cancel
+            </Button>
+            <Button>
+              Process Payment
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
         headers: { 'Cache-Control': 'no-cache' }
       });
       if (!response.ok) throw new Error('Failed to fetch supply orders');
