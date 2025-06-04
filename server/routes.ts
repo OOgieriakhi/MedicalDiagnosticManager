@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { notificationService } from "./notifications";
+import { notificationService, PDFService } from "./notifications";
 import { z } from "zod";
 import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema } from "@shared/schema";
 
@@ -268,6 +268,41 @@ export function registerRoutes(app: Express): Server {
       res.status(201).json(invoice);
     } catch (error) {
       console.error("Error creating invoice:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Generate receipt PDF
+  app.get("/api/invoices/:id/receipt", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceId = parseInt(req.params.id);
+      const invoice = await storage.getInvoice(invoiceId);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      const patient = await storage.getPatient(invoice.patientId);
+      if (!patient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+
+      // Get test details from invoice
+      const tests = invoice.tests || [];
+      
+      // Generate PDF receipt
+      const pdfBuffer = await PDFService.generatePaymentReceiptPDF(invoice, patient, tests);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="receipt-${invoice.invoiceNumber}.pdf"`);
+      res.send(pdfBuffer);
+
+    } catch (error) {
+      console.error("Error generating receipt:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

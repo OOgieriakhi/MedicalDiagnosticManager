@@ -224,6 +224,9 @@ export default function PatientIntake() {
       setCurrentWorkflowStep("confirmation");
       setCurrentStep(4);
       
+      // Store invoice ID for receipt generation
+      setCompletedInvoiceId(invoice.id);
+      
       toast({
         title: "Success",
         description: paymentMethod === "invoice" ? "Invoice generated and tests scheduled" : "Payment processed and tests scheduled",

@@ -91,6 +91,90 @@ class WhatsAppService {
 
 // PDF Generation Service
 export class PDFService {
+  static generatePaymentReceiptPDF(invoice: any, patient: any, tests: any[]): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      try {
+        // Header
+        doc.fontSize(20).text('Orient Medical Diagnostic Center', { align: 'center' });
+        doc.fontSize(14).text('Payment Receipt', { align: 'center' });
+        doc.moveDown(1);
+
+        // Receipt Details
+        doc.fontSize(12);
+        doc.text(`Receipt No: ${invoice.invoiceNumber}`, 50, doc.y);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 400, doc.y - 15);
+        doc.moveDown(1);
+
+        // Patient Information
+        doc.text('Patient Information:', 50, doc.y);
+        doc.text(`Name: ${patient.firstName} ${patient.lastName}`, 50, doc.y + 5);
+        doc.text(`Patient ID: ${patient.patientId}`, 50, doc.y + 5);
+        doc.text(`Phone: ${patient.phone}`, 50, doc.y + 5);
+        doc.moveDown(1);
+
+        // Services
+        doc.text('Services:', 50, doc.y);
+        let yPosition = doc.y + 20;
+        
+        // Table headers
+        doc.text('Description', 50, yPosition);
+        doc.text('Quantity', 250, yPosition);
+        doc.text('Unit Price', 350, yPosition);
+        doc.text('Total', 450, yPosition);
+        
+        yPosition += 20;
+        doc.moveTo(50, yPosition).lineTo(550, yPosition).stroke();
+        yPosition += 10;
+
+        // Test items
+        tests.forEach((test: any) => {
+          doc.text(test.description || test.name, 50, yPosition);
+          doc.text('1', 250, yPosition);
+          doc.text(`₦${parseFloat(test.unitPrice || test.price).toLocaleString()}`, 350, yPosition);
+          doc.text(`₦${parseFloat(test.total || test.price).toLocaleString()}`, 450, yPosition);
+          yPosition += 20;
+        });
+
+        // Totals
+        yPosition += 10;
+        doc.moveTo(50, yPosition).lineTo(550, yPosition).stroke();
+        yPosition += 15;
+        
+        doc.text(`Subtotal: ₦${parseFloat(invoice.subtotal).toLocaleString()}`, 350, yPosition);
+        yPosition += 15;
+        
+        if (invoice.commissionAmount && parseFloat(invoice.commissionAmount) > 0) {
+          doc.text(`Commission: -₦${parseFloat(invoice.commissionAmount).toLocaleString()}`, 350, yPosition);
+          yPosition += 15;
+        }
+        
+        doc.fontSize(14).text(`Total Paid: ₦${parseFloat(invoice.totalAmount).toLocaleString()}`, 350, yPosition);
+        yPosition += 20;
+
+        // Payment Information
+        doc.fontSize(12);
+        doc.text(`Payment Method: ${invoice.paymentMethod?.toUpperCase() || 'CASH'}`, 50, yPosition);
+        doc.text(`Payment Status: PAID`, 50, yPosition + 15);
+        yPosition += 40;
+
+        // Footer
+        doc.text('Thank you for choosing Orient Medical Diagnostic Center!', { align: 'center' });
+        doc.text('Please keep this receipt for your records.', { align: 'center' });
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
   static generateTestResultPDF(patientTest: any, patient: any, test: any): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument();
