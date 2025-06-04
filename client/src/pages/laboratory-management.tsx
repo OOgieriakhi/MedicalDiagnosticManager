@@ -46,6 +46,8 @@ export default function LaboratoryManagement() {
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [testResults, setTestResults] = useState("");
   const [testNotes, setTestNotes] = useState("");
+  const [resultValues, setResultValues] = useState<Record<number, string>>({});
+  const [showReportPreview, setShowReportPreview] = useState(false);
   const [specimenType, setSpecimenType] = useState("");
   const [expectedHours, setExpectedHours] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -60,6 +62,47 @@ export default function LaboratoryManagement() {
     if (test.specimenCollected) return "bg-blue-50 border-blue-200";
     if (test.paymentVerified) return "bg-purple-50 border-purple-200";
     return "bg-white border-gray-200";
+  };
+
+  // Function to interpret result value
+  const interpretResult = (parameter: any, value: string) => {
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) return { status: "text", flag: "" };
+
+    if (parameter.normalRangeMin !== null && parameter.normalRangeMax !== null) {
+      if (numericValue < parameter.normalRangeMin) {
+        return { status: "low", flag: "L" };
+      } else if (numericValue > parameter.normalRangeMax) {
+        return { status: "high", flag: "H" };
+      } else {
+        return { status: "normal", flag: "N" };
+      }
+    }
+    return { status: "normal", flag: "N" };
+  };
+
+  // Generate automated interpretation
+  const generateInterpretation = (parameters: any[]) => {
+    if (!parameters) return "";
+
+    const abnormalResults = parameters
+      .filter((param: any) => {
+        const value = resultValues[param.id];
+        if (!value) return false;
+        const interpretation = interpretResult(param, value);
+        return interpretation.status === "high" || interpretation.status === "low";
+      })
+      .map((param: any) => {
+        const value = resultValues[param.id];
+        const interpretation = interpretResult(param, value);
+        return `${param.parameterName}: ${value} ${param.unit} (${interpretation.flag})`;
+      });
+
+    if (abnormalResults.length === 0) {
+      return "All parameters are within normal limits.";
+    } else {
+      return `Abnormal findings: ${abnormalResults.join(", ")}. Further clinical correlation is recommended.`;
+    }
   };
 
   // Query for laboratory workflow metrics

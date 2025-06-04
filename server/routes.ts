@@ -547,6 +547,44 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get test parameters for structured reporting
+  app.get("/api/test-parameters/:testId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const testId = parseInt(req.params.testId);
+      const { getTestParametersForTest } = await import("./lab-parameters");
+      const parameters = await getTestParametersForTest(testId);
+      res.json(parameters);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Complete test with structured results
+  app.post("/api/patient-tests/:id/complete-structured", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const testId = parseInt(req.params.id);
+      const { structuredResults, additionalNotes, interpretation } = req.body;
+
+      // Save structured results and complete test
+      await storage.saveStructuredTestResults(testId, structuredResults, additionalNotes, interpretation, req.user.id);
+      
+      res.json({ 
+        message: "Test completed successfully",
+        status: "completed"
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Update patient test results (for laboratory module)
   app.patch("/api/patient-tests/:id/results", async (req, res) => {
     try {
