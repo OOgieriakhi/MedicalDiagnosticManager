@@ -600,15 +600,12 @@ export default function InvoiceManagement() {
                 </div>
                 <div className="flex justify-between">
                   <span>Amount Due:</span>
-                  <span className="font-medium">₦{(
-                    selectedInvoice.totalAmount ? 
-                    parseFloat(selectedInvoice.totalAmount).toLocaleString() : 
-                    selectedInvoice.netAmount ? 
-                    parseFloat(selectedInvoice.netAmount).toLocaleString() :
-                    selectedInvoice.total ?
-                    parseFloat(selectedInvoice.total).toLocaleString() :
-                    '0'
-                  )}</span>
+                  <span className="font-medium">₦{(() => {
+                    console.log('Selected invoice data:', selectedInvoice);
+                    const amount = selectedInvoice.totalAmount || selectedInvoice.netAmount || selectedInvoice.total || '0';
+                    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+                    return isNaN(numAmount) ? '0' : numAmount.toLocaleString();
+                  })()}</span>
                 </div>
               </div>
 
