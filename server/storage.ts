@@ -14,6 +14,17 @@ import {
   staffAchievements,
   performanceMetrics,
   recognitionEvents,
+  purchaseOrders,
+  purchaseOrderItems,
+  paymentApprovals,
+  pettyCashFunds,
+  pettyCashTransactions,
+  pettyCashReconciliations,
+  auditTrail,
+  vendors,
+  chartOfAccounts,
+  journalEntries,
+  journalEntryLineItems,
   type User, 
   type InsertUser,
   type Tenant,
@@ -1272,16 +1283,16 @@ export class DatabaseStorage implements IStorage {
 
   // Purchase Orders Methods
   async getPurchaseOrders(tenantId: number, branchId?: number): Promise<any[]> {
-    const query = db
-      .select()
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.tenantId, tenantId));
+    let conditions = [eq(purchaseOrders.tenantId, tenantId)];
     
     if (branchId) {
-      query.where(eq(purchaseOrders.branchId, branchId));
+      conditions.push(eq(purchaseOrders.branchId, branchId));
     }
     
-    return await query;
+    return await db
+      .select()
+      .from(purchaseOrders)
+      .where(and(...conditions));
   }
 
   async createPurchaseOrder(data: any): Promise<any> {

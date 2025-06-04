@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import { financialStorage } from "./financial-storage";
 import { db } from "./db";
 import { 
   patients, 
@@ -2667,6 +2668,352 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Error generating tax report:', error);
       res.status(500).json({ error: 'Failed to generate tax report' });
+    }
+  });
+
+  // Financial Management Routes
+
+  // Purchase Orders
+  app.get("/api/purchase-orders", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { tenantId, branchId } = req.query;
+      const orders = await financialStorage.getPurchaseOrders(
+        Number(tenantId), 
+        branchId ? Number(branchId) : undefined
+      );
+      
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching purchase orders:", error);
+      res.status(500).json({ message: "Failed to fetch purchase orders" });
+    }
+  });
+
+  app.post("/api/purchase-orders", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const orderData = {
+        ...req.body,
+        createdAt: new Date(),
+        status: "pending"
+      };
+
+      const order = await financialStorage.createPurchaseOrder(orderData);
+      
+      // Create audit trail entry
+      await financialStorage.createAuditEntry({
+        tenantId: req.body.tenantId,
+        branchId: req.body.branchId,
+        userId: req.user.id,
+        action: "create_purchase_order",
+        resourceType: "purchase_order",
+        resourceId: order.id,
+        details: `Created PO ${req.body.poNumber}`
+      });
+
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Error creating purchase order:", error);
+      res.status(500).json({ message: "Failed to create purchase order" });
+    }
+  });
+
+  app.patch("/api/purchase-orders/:id/approve", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { status, comments } = req.body;
+
+      const updatedOrder = await financialStorage.updatePurchaseOrderStatus(
+        Number(id), 
+        status, 
+        req.user.id
+      );
+
+      // Create audit trail entry
+      await financialStorage.createAuditEntry({
+        tenantId: req.body.tenantId,
+        branchId: req.body.branchId,
+        userId: req.user.id,
+        action: `${status}_purchase_order`,
+        resourceType: "purchase_order",
+        resourceId: Number(id),
+        details: `${status} PO with comments: ${comments || 'No comments'}`
+      });
+
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error("Error updating purchase order:", error);
+      res.status(500).json({ message: "Failed to update purchase order" });
+    }
+  });
+
+  // Petty Cash Management
+  app.get("/api/petty-cash/funds", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { tenantId, branchId } = req.query;
+      const funds = await financialStorage.getPettyCashFunds(
+        Number(tenantId), 
+        branchId ? Number(branchId) : undefined
+      );
+      
+      res.json(funds);
+    } catch (error) {
+      console.error("Error fetching petty cash funds:", error);
+      res.status(500).json({ message: "Failed to fetch petty cash funds" });
+    }
+  });
+
+  app.post("/api/petty-cash/funds", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const fundData = {
+        ...req.body,
+        createdAt: new Date(),
+        currentBalance: req.body.initialAmount
+      };
+
+      const fund = await financialStorage.createPettyCashFund(fundData);
+      
+      // Create audit trail entry
+      await financialStorage.createAuditEntry({
+        tenantId: req.body.tenantId,
+        branchId: req.body.branchId,
+        userId: req.user.id,
+        action: "create_petty_cash_fund",
+        resourceType: "petty_cash_fund",
+        resourceId: fund.id,
+        details: `Created petty cash fund with initial amount: ${req.body.initialAmount}`
+      });
+
+      res.status(201).json(fund);
+    } catch (error) {
+      console.error("Error creating petty cash fund:", error);
+      res.status(500).json({ message: "Failed to create petty cash fund" });
+    }
+  });
+
+  app.get("/api/petty-cash/transactions/:fundId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { fundId } = req.params;
+      const transactions = await financialStorage.getPettyCashTransactions(Number(fundId));
+      
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching petty cash transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
+  app.post("/api/petty-cash/transactions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const transactionData = {
+        ...req.body,
+        createdAt: new Date()
+      };
+
+      const transaction = await financialStorage.createPettyCashTransaction(transactionData);
+      
+      // Update fund balance
+      const amount = req.body.type === 'expense' ? -Math.abs(req.body.amount) : Math.abs(req.body.amount);
+      await financialStorage.updatePettyCashFundBalance(req.body.fundId, amount);
+      
+      // Create audit trail entry
+      await financialStorage.createAuditEntry({
+        tenantId: req.body.tenantId,
+        branchId: req.body.branchId,
+        userId: req.user.id,
+        action: "create_petty_cash_transaction",
+        resourceType: "petty_cash_transaction",
+        resourceId: transaction.id,
+        details: `${req.body.type} transaction: ${req.body.description} - Amount: ${req.body.amount}`
+      });
+
+      res.status(201).json(transaction);
+    } catch (error) {
+      console.error("Error creating petty cash transaction:", error);
+      res.status(500).json({ message: "Failed to create transaction" });
+    }
+  });
+
+  app.post("/api/petty-cash/reconciliation", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const reconciliationData = {
+        ...req.body,
+        createdAt: new Date(),
+        status: "pending"
+      };
+
+      const reconciliation = await financialStorage.createPettyCashReconciliation(reconciliationData);
+      
+      // Create audit trail entry
+      await financialStorage.createAuditEntry({
+        tenantId: req.body.tenantId,
+        branchId: req.body.branchId,
+        userId: req.user.id,
+        action: "create_reconciliation",
+        resourceType: "petty_cash_reconciliation",
+        resourceId: reconciliation.id,
+        details: `Reconciliation created with variance: ${req.body.variance}`
+      });
+
+      res.status(201).json(reconciliation);
+    } catch (error) {
+      console.error("Error creating reconciliation:", error);
+      res.status(500).json({ message: "Failed to create reconciliation" });
+    }
+  });
+
+  // Accounting System Routes
+  app.get("/api/accounting/chart-of-accounts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { tenantId } = req.query;
+      const accounts = await financialStorage.getChartOfAccounts(Number(tenantId));
+      
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching chart of accounts:", error);
+      res.status(500).json({ message: "Failed to fetch accounts" });
+    }
+  });
+
+  app.post("/api/accounting/accounts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const accountData = {
+        ...req.body,
+        createdAt: new Date()
+      };
+
+      const account = await financialStorage.createAccount(accountData);
+      
+      res.status(201).json(account);
+    } catch (error) {
+      console.error("Error creating account:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
+  app.get("/api/accounting/journal-entries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { tenantId } = req.query;
+      const entries = await financialStorage.getJournalEntries(Number(tenantId));
+      
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching journal entries:", error);
+      res.status(500).json({ message: "Failed to fetch journal entries" });
+    }
+  });
+
+  app.post("/api/accounting/journal-entries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { lineItems, ...entryData } = req.body;
+
+      // Create journal entry
+      const entryToCreate = {
+        ...entryData,
+        createdAt: new Date(),
+        status: "posted"
+      };
+
+      const entry = await financialStorage.createJournalEntry(entryToCreate);
+      
+      // Create line items
+      if (lineItems && lineItems.length > 0) {
+        const lineItemsWithEntry = lineItems.map((item: any) => ({
+          ...item,
+          journalEntryId: entry.id
+        }));
+        
+        await financialStorage.createJournalEntryLineItems(lineItemsWithEntry);
+      }
+
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating journal entry:", error);
+      res.status(500).json({ message: "Failed to create journal entry" });
+    }
+  });
+
+  // Vendor Management
+  app.get("/api/vendors", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { tenantId } = req.query;
+      const vendors = await financialStorage.getVendors(Number(tenantId));
+      
+      res.json(vendors);
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      res.status(500).json({ message: "Failed to fetch vendors" });
+    }
+  });
+
+  app.post("/api/vendors", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const vendorData = {
+        ...req.body,
+        createdAt: new Date()
+      };
+
+      const vendor = await financialStorage.createVendor(vendorData);
+      
+      res.status(201).json(vendor);
+    } catch (error) {
+      console.error("Error creating vendor:", error);
+      res.status(500).json({ message: "Failed to create vendor" });
     }
   });
 
