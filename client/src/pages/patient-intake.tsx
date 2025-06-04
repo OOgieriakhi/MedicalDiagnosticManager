@@ -64,20 +64,20 @@ export default function PatientIntake() {
 
   // Fetch referral providers
   const { data: referralProviders = [] } = useQuery({
-    queryKey: ["/api/referral-providers", user?.tenantId],
-    enabled: !!user?.tenantId,
+    queryKey: ["/api/referral-providers"],
+    enabled: !!user,
   });
 
   // Fetch test categories
   const { data: testCategories = [] } = useQuery({
-    queryKey: ["/api/test-categories", user?.tenantId],
-    enabled: !!user?.tenantId,
+    queryKey: ["/api/test-categories"],
+    enabled: !!user,
   });
 
   // Fetch tests
   const { data: tests = [] } = useQuery({
-    queryKey: ["/api/tests", user?.tenantId],
-    enabled: !!user?.tenantId,
+    queryKey: ["/api/tests"],
+    enabled: !!user,
   });
 
   // Add patient mutation

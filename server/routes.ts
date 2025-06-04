@@ -202,7 +202,23 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get referral providers
+  // Get referral providers (with tenant ID from user session)
+  app.get("/api/referral-providers", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = req.user.tenantId;
+      const providers = await storage.getReferralProviders(tenantId);
+      res.json(providers);
+    } catch (error) {
+      console.error("Error fetching referral providers:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get referral providers (with tenant ID parameter)
   app.get("/api/referral-providers/:tenantId", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -222,7 +238,23 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get test categories
+  // Get test categories (with tenant ID from user session)
+  app.get("/api/test-categories", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = req.user.tenantId;
+      const categories = await storage.getTestCategories(tenantId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching test categories:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get test categories (with tenant ID parameter)
   app.get("/api/test-categories/:tenantId", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -242,7 +274,23 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get tests
+  // Get tests (with tenant ID from user session)
+  app.get("/api/tests", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = req.user.tenantId;
+      const tests = await storage.getTests(tenantId);
+      res.json(tests);
+    } catch (error) {
+      console.error("Error fetching tests:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get tests (with tenant ID parameter)
   app.get("/api/tests/:tenantId", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
