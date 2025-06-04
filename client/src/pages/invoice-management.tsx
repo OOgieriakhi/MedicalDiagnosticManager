@@ -111,6 +111,30 @@ export default function InvoiceManagement() {
     enabled: !!user?.branchId,
   });
 
+  // Mutation for creating referral providers
+  const createReferralProviderMutation = useMutation({
+    mutationFn: async (providerData: { name: string; tenantId: number; requiresCommissionSetup: boolean }) => {
+      const response = await apiRequest("POST", "/api/referral-providers", providerData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/referral-providers", user?.tenantId] });
+      setShowNewReferralDialog(false);
+      setNewReferralName("");
+      toast({
+        title: "Success",
+        description: "New referral provider created successfully. Manager will set commission rates.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Mutation for creating invoices
   const createInvoiceMutation = useMutation({
     mutationFn: async (invoiceData: any) => {
@@ -161,35 +185,22 @@ export default function InvoiceManagement() {
     },
   });
 
-  // Mutation for creating new referral provider
-  const createReferralMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/referral-providers", {
-        name,
-        tenantId: user?.tenantId,
-        commissionRate: "0", // Default, to be set by manager/accountant
-        requiresCommissionSetup: true // Flag for managers
-      });
-      return res.json();
-    },
-    onSuccess: (newProvider) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/referral-providers"] });
-      setShowNewReferralDialog(false);
-      setNewReferralName("");
-      setReferralProviderId(newProvider.id);
-      toast({
-        title: "Referral provider added",
-        description: "New referral provider created. Manager will be notified to set commission rate.",
-      });
-    },
-    onError: (error: Error) => {
+  const handleCreateReferralProvider = () => {
+    if (!newReferralName.trim()) {
       toast({
         title: "Error",
-        description: error.message,
+        description: "Please enter a referral provider name",
         variant: "destructive",
       });
-    },
-  });
+      return;
+    }
+
+    createReferralProviderMutation.mutate({
+      name: newReferralName.trim(),
+      tenantId: user?.tenantId!,
+      requiresCommissionSetup: true
+    });
+  };
 
   const resetForm = () => {
     setSelectedPatient(null);
@@ -423,12 +434,12 @@ export default function InvoiceManagement() {
               <div>
                 <Label>Referral Provider (Optional)</Label>
                 <div className="flex gap-2">
-                  <Select value={referralProviderId?.toString() || ""} onValueChange={(value) => setReferralProviderId(value ? parseInt(value) : null)}>
+                  <Select value={referralProviderId?.toString() || "none"} onValueChange={(value) => setReferralProviderId(value === "none" ? null : parseInt(value))}>
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Select referral provider..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {(referralProviders as ReferralProvider[] || []).map((provider) => (
                         <SelectItem key={provider.id} value={provider.id.toString()}>
                           {provider.name}
