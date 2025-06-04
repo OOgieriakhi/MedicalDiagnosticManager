@@ -766,8 +766,12 @@ export function registerRoutes(app: Express): Server {
       const { startDate, endDate, branchId } = req.query;
       const userBranchId = branchId ? parseInt(branchId as string) : (req.user?.branchId || 1);
       
+      console.log('Laboratory metrics route - query params:', { startDate, endDate, branchId, userBranchId });
+      
       const start = startDate ? new Date(startDate as string) : undefined;
       const end = endDate ? new Date(endDate as string) : undefined;
+      
+      console.log('Laboratory metrics route - parsed dates:', { start, end });
       
       const metrics = await storage.getLabWorkflowMetrics(userBranchId, start, end);
       res.json(metrics);
