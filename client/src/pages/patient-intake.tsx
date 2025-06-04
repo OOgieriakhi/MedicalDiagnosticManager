@@ -59,6 +59,8 @@ export default function PatientIntake() {
     notes: ""
   });
 
+  const [paymentMethod, setPaymentMethod] = useState("");
+
   // Search existing patients
   const { data: searchResults = [], refetch: searchPatients } = useQuery({
     queryKey: ["/api/patients/search", searchQuery, user?.branchId],
@@ -142,6 +144,100 @@ export default function PatientIntake() {
         ? prev.filter(id => id !== testId)
         : [...prev, testId]
     );
+  };
+
+  const handleProceedToPayment = async () => {
+    if (!appointmentDetails.scheduledAt || !paymentMethod) {
+      toast({
+        title: "Missing Information",
+        description: "Please select appointment time and payment method.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCurrentWorkflowStep("processing");
+
+    try {
+      // 1. Schedule the tests first
+      const testPromises = selectedTests.map(testId => {
+        return apiRequest("POST", "/api/patient-tests", {
+          testId: Number(testId),
+          patientId: Number(selectedPatient?.id),
+          branchId: Number(user?.branchId),
+          tenantId: Number(user?.tenantId),
+          status: "scheduled",
+          scheduledAt: appointmentDetails.scheduledAt,
+          notes: appointmentDetails.notes || ""
+        }).then(response => response.json());
+      });
+
+      const scheduledTests = await Promise.all(testPromises);
+
+      // 2. Create invoice
+      const invoiceData = {
+        patientId: selectedPatient?.id,
+        branchId: user?.branchId,
+        tenantId: user?.tenantId,
+        items: selectedTests.map(testId => {
+          const test = (tests as any[]).find((t: any) => t.id === testId);
+          return {
+            description: test?.name || "Test",
+            quantity: 1,
+            unitPrice: typeof test?.price === 'string' ? parseFloat(test.price) : (test?.price || 0),
+            total: typeof test?.price === 'string' ? parseFloat(test.price) : (test?.price || 0)
+          };
+        }),
+        subtotal: calculateTotal(),
+        commission: calculateCommission(),
+        total: Math.max(0, calculateTotal() - calculateCommission()),
+        status: paymentMethod === "invoice" ? "pending" : "paid",
+        paymentMethod: paymentMethod
+      };
+
+      const invoiceResponse = await apiRequest("POST", "/api/invoices", invoiceData);
+      const invoice = await invoiceResponse.json();
+
+      // 3. If not invoice payment, mark as paid immediately
+      if (paymentMethod !== "invoice") {
+        await apiRequest("POST", `/api/invoices/${invoice.id}/payment`, {
+          paymentMethod: paymentMethod,
+          paymentDetails: {
+            method: paymentMethod,
+            processedAt: new Date().toISOString(),
+            processedBy: user?.id
+          }
+        });
+      }
+
+      // 4. Create transaction record
+      await apiRequest("POST", "/api/transactions", {
+        type: "payment",
+        amount: Math.max(0, calculateTotal() - calculateCommission()),
+        description: `Payment for ${selectedTests.length} diagnostic test(s)`,
+        patientTestId: scheduledTests[0]?.id,
+        branchId: user?.branchId,
+        tenantId: user?.tenantId,
+        createdBy: user?.id
+      });
+
+      setCurrentWorkflowStep("confirmation");
+      setCurrentStep(4);
+      
+      toast({
+        title: "Success",
+        description: paymentMethod === "invoice" ? "Invoice generated and tests scheduled" : "Payment processed and tests scheduled",
+      });
+
+    } catch (error: any) {
+      console.error("Payment processing error:", error);
+      toast({
+        title: "Processing Failed",
+        description: error.message || "Failed to process payment. Please try again.",
+        variant: "destructive",
+      });
+      setCurrentWorkflowStep("scheduling");
+    }
   };
 
   const handleProceedToTests = () => {
@@ -591,12 +687,43 @@ export default function PatientIntake() {
                     />
                   </div>
                   
+                  <div className="space-y-2">
+                    <Label>Payment Method</Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card Payment</SelectItem>
+                        <SelectItem value="transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="pos">POS Terminal</SelectItem>
+                        <SelectItem value="invoice">Generate Invoice (Pay Later)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {paymentMethod === "card" && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-700">Card payment will be processed at the counter with our POS system.</p>
+                    </div>
+                  )}
+
+                  {paymentMethod === "transfer" && (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
+                      <p className="text-sm font-medium text-green-800">Bank Transfer Details:</p>
+                      <p className="text-sm text-green-700">Account: Orient Medical Diagnostic</p>
+                      <p className="text-sm text-green-700">Bank: First Bank of Nigeria</p>
+                      <p className="text-sm text-green-700">Account No: 2025647890</p>
+                    </div>
+                  )}
+
                   <Button 
-                    onClick={handleProceedToTests}
-                    disabled={!appointmentDetails.scheduledAt}
+                    onClick={handleProceedToPayment}
+                    disabled={!appointmentDetails.scheduledAt || !paymentMethod}
                     className="w-full"
                   >
-                    Schedule Tests
+                    {paymentMethod === "invoice" ? "Generate Invoice & Schedule" : "Process Payment & Schedule"}
                   </Button>
                 </CardContent>
               </Card>
