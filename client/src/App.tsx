@@ -26,6 +26,8 @@ import PatientJourney from "@/pages/patient-journey";
 import CashiersModule from "@/pages/cashiers-module";
 import PurchaseOrders from "@/pages/purchase-orders";
 import PettyCash from "@/pages/petty-cash";
+import InventoryManagement from "@/pages/inventory-management";
+import HumanResources from "@/pages/human-resources";
 
 function Router() {
   return (
@@ -49,6 +51,8 @@ function Router() {
       <ProtectedRoute path="/cashiers" component={CashiersModule} />
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrders} />
       <ProtectedRoute path="/petty-cash" component={PettyCash} />
+      <ProtectedRoute path="/inventory-management" component={InventoryManagement} />
+      <ProtectedRoute path="/human-resources" component={HumanResources} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
