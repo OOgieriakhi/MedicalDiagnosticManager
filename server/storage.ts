@@ -262,7 +262,21 @@ export class DatabaseStorage implements IStorage {
         price: tests.price,
         requiresConsultant: tests.requiresConsultant,
         paymentStatus: invoices.paymentStatus,
-        invoiceNumber: invoices.invoiceNumber
+        invoiceNumber: invoices.invoiceNumber,
+        // Workflow tracking fields
+        paymentVerified: patientTests.paymentVerified,
+        paymentVerifiedBy: patientTests.paymentVerifiedBy,
+        paymentVerifiedAt: patientTests.paymentVerifiedAt,
+        specimenCollected: patientTests.specimenCollected,
+        specimenCollectedBy: patientTests.specimenCollectedBy,
+        specimenCollectedAt: patientTests.specimenCollectedAt,
+        specimenType: patientTests.specimenType,
+        processingStarted: patientTests.processingStarted,
+        processingStartedBy: patientTests.processingStartedBy,
+        processingStartedAt: patientTests.processingStartedAt,
+        expectedHours: patientTests.expectedHours,
+        completedBy: patientTests.completedBy,
+        turnaroundHours: patientTests.turnaroundHours
       })
       .from(patientTests)
       .innerJoin(tests, eq(patientTests.testId, tests.id))
