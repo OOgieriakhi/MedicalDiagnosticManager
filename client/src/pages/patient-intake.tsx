@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   UserPlus, 
   FileText, 
@@ -58,7 +60,13 @@ export default function PatientIntake() {
 
   // Search existing patients
   const { data: searchResults = [], refetch: searchPatients } = useQuery({
-    queryKey: ["/api/patients", user?.branchId, searchQuery],
+    queryKey: ["/api/patients/search", searchQuery, user?.branchId],
+    queryFn: async () => {
+      if (!searchQuery.trim()) return [];
+      const response = await fetch(`/api/patients/search?query=${encodeURIComponent(searchQuery)}&branchId=${user?.branchId}`);
+      if (!response.ok) throw new Error('Search failed');
+      return response.json();
+    },
     enabled: false
   });
 
@@ -145,13 +153,46 @@ export default function PatientIntake() {
       return;
     }
 
+    if (!appointmentDetails.scheduledAt) {
+      toast({
+        title: "Appointment Time Required",
+        description: "Please select a date and time for the appointment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCurrentWorkflowStep("scheduling");
-    scheduleTestsMutation.mutate({
-      patientId: selectedPatient?.id,
-      status: "scheduled",
-      scheduledAt: new Date(appointmentDetails.scheduledAt).toISOString(),
-      notes: appointmentDetails.notes
+    
+    // Create patient test records for each selected test
+    const testPromises = selectedTests.map(testId => {
+      return scheduleTestsMutation.mutateAsync({
+        testId: testId,
+        patientId: selectedPatient?.id,
+        branchId: user?.branchId,
+        tenantId: user?.tenantId,
+        status: "scheduled",
+        scheduledAt: new Date(appointmentDetails.scheduledAt).toISOString(),
+        notes: appointmentDetails.notes || ""
+      });
     });
+
+    Promise.all(testPromises)
+      .then(() => {
+        setCurrentWorkflowStep("confirmation");
+        setCurrentStep(4);
+        toast({
+          title: "Tests Scheduled",
+          description: "Patient tests have been scheduled successfully.",
+        });
+      })
+      .catch((error) => {
+        toast({
+          title: "Scheduling Failed",
+          description: error.message || "Failed to schedule tests. Please try again.",
+          variant: "destructive",
+        });
+      });
   };
 
   const calculateTotal = () => {
@@ -255,19 +296,21 @@ export default function PatientIntake() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="firstName">First Name</Label>
+                      <Label htmlFor="firstName">First Name *</Label>
                       <Input
                         id="firstName"
                         value={newPatientData.firstName}
                         onChange={(e) => setNewPatientData({ ...newPatientData, firstName: e.target.value })}
+                        required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="lastName">Last Name</Label>
+                      <Label htmlFor="lastName">Last Name *</Label>
                       <Input
                         id="lastName"
                         value={newPatientData.lastName}
                         onChange={(e) => setNewPatientData({ ...newPatientData, lastName: e.target.value })}
+                        required
                       />
                     </div>
                     <div>
@@ -277,16 +320,53 @@ export default function PatientIntake() {
                         type="email"
                         value={newPatientData.email}
                         onChange={(e) => setNewPatientData({ ...newPatientData, email: e.target.value })}
+                        placeholder="patient@example.com"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="phone">Phone</Label>
+                      <Label htmlFor="phone">Phone *</Label>
                       <Input
                         id="phone"
                         value={newPatientData.phone}
                         onChange={(e) => setNewPatientData({ ...newPatientData, phone: e.target.value })}
+                        placeholder="+234..."
+                        required
                       />
                     </div>
+                    <div>
+                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                      <Input
+                        id="dateOfBirth"
+                        type="date"
+                        value={newPatientData.dateOfBirth}
+                        onChange={(e) => setNewPatientData({ ...newPatientData, dateOfBirth: e.target.value })}
+                        max={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="gender">Gender</Label>
+                      <Select value={newPatientData.gender} onValueChange={(value) => setNewPatientData({ ...newPatientData, gender: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="address">Address</Label>
+                    <Textarea
+                      id="address"
+                      value={newPatientData.address}
+                      onChange={(e) => setNewPatientData({ ...newPatientData, address: e.target.value })}
+                      placeholder="Enter patient's full address"
+                      rows={3}
+                    />
                   </div>
                   
                   <Button 
@@ -436,7 +516,7 @@ export default function PatientIntake() {
                               return test ? (
                                 <div key={test.id} className="flex justify-between text-sm">
                                   <span className="flex-1">{test.name}</span>
-                                  <span className="font-medium">₦{test.price?.toLocaleString() || '0'}</span>
+                                  <span className="font-medium">₦{(test.price || 0).toLocaleString()}</span>
                                 </div>
                               ) : null;
                             })}
@@ -449,7 +529,7 @@ export default function PatientIntake() {
                             </div>
                             
                             {billingInfo.pathway === "referral" && calculateCommission() > 0 && (
-                              <div className="flex justify-between text-sm text-medical-red">
+                              <div className="flex justify-between text-sm text-red-600">
                                 <span>Commission</span>
                                 <span>-₦{calculateCommission().toLocaleString()}</span>
                               </div>
@@ -457,7 +537,7 @@ export default function PatientIntake() {
                             
                             <div className="flex justify-between text-lg font-bold mt-2 pt-2 border-t">
                               <span>Total</span>
-                              <span>₦{(calculateTotal() - calculateCommission()).toLocaleString()}</span>
+                              <span>₦{Math.max(0, calculateTotal() - calculateCommission()).toLocaleString()}</span>
                             </div>
                           </div>
                           

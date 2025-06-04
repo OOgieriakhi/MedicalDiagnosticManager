@@ -40,7 +40,7 @@ import {
   type InsertRecognitionEvent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, between } from "drizzle-orm";
+import { eq, and, or, desc, sql, between } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
