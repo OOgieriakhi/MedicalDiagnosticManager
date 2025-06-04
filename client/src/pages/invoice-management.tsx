@@ -432,17 +432,21 @@ export default function InvoiceManagement() {
                         <span>-₦{amounts.discountAmount.toLocaleString()}</span>
                       </div>
                     )}
+                    <Separator />
+                    <div className="flex justify-between font-medium text-lg">
+                      <span>Patient Pays:</span>
+                      <span>₦{amounts.totalAmount.toLocaleString()}</span>
+                    </div>
                     {amounts.commissionAmount > 0 && (
-                      <div className="flex justify-between text-orange-600">
-                        <span>Commission:</span>
-                        <span>-₦{amounts.commissionAmount.toLocaleString()}</span>
+                      <div className="mt-2 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
+                        <div className="text-xs text-blue-700 font-medium">Commission Tracking (Not deducted from patient)</div>
+                        <div className="flex justify-between text-xs text-blue-600">
+                          <span>Commission ({((amounts.commissionAmount / amounts.totalAmount) * 100).toFixed(1)}%):</span>
+                          <span>₦{amounts.commissionAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="text-xs text-blue-600 mt-1">Paid separately by accounting at month-end</div>
                       </div>
                     )}
-                    <Separator />
-                    <div className="flex justify-between font-medium">
-                      <span>Net Amount:</span>
-                      <span>₦{amounts.netAmount.toLocaleString()}</span>
-                    </div>
                   </div>
                 </div>
               )}
