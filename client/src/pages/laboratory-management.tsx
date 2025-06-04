@@ -131,13 +131,20 @@ export default function LaboratoryManagement() {
     },
     enabled: !!user?.branchId,
     refetchOnWindowFocus: false,
+    staleTime: 0, // Always refetch when query key changes
   });
 
   // Query for laboratory tests - only show paid requests
   const { data: labTests, isLoading: labTestsLoading } = useQuery({
-    queryKey: ["/api/patient-tests", user?.branchId, "paid"],
+    queryKey: ["/api/patient-tests", user?.branchId, "paid", startDate, endDate],
     queryFn: async () => {
-      const response = await fetch(`/api/patient-tests?branchId=${user?.branchId}&paidOnly=true`);
+      const params = new URLSearchParams();
+      params.append('branchId', user?.branchId?.toString() || '');
+      params.append('paidOnly', 'true');
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await fetch(`/api/patient-tests?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab tests");
       const allTests = await response.json();
       // Filter for laboratory-related categories
@@ -151,6 +158,7 @@ export default function LaboratoryManagement() {
       );
     },
     enabled: !!user?.branchId,
+    staleTime: 0, // Always refetch when query key changes
   });
 
   // Query for test categories
