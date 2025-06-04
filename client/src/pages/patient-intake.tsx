@@ -168,12 +168,12 @@ export default function PatientIntake() {
     // Create patient test records for each selected test
     const testPromises = selectedTests.map(testId => {
       return apiRequest("POST", "/api/patient-tests", {
-        testId: testId,
-        patientId: selectedPatient?.id,
-        branchId: user?.branchId,
-        tenantId: user?.tenantId,
+        testId: Number(testId),
+        patientId: Number(selectedPatient?.id),
+        branchId: Number(user?.branchId),
+        tenantId: Number(user?.tenantId),
         status: "scheduled",
-        scheduledAt: new Date(appointmentDetails.scheduledAt).toISOString(),
+        scheduledAt: appointmentDetails.scheduledAt,
         notes: appointmentDetails.notes || ""
       }).then(response => response.json());
     });
