@@ -327,8 +327,9 @@ export default function RadiologyManagement() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="studies" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="studies">Recent Studies</TabsTrigger>
+          <TabsTrigger value="workflow">Imaging Workflow</TabsTrigger>
           <TabsTrigger value="equipment">Equipment Status</TabsTrigger>
           <TabsTrigger value="schedule">Study Schedule</TabsTrigger>
           <TabsTrigger value="reports">Quality Reports</TabsTrigger>
@@ -374,6 +375,129 @@ export default function RadiologyManagement() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="workflow" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Imaging Workflow Management
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Manage paid imaging requests through the workflow process
+              </p>
+            </CardHeader>
+            <CardContent>
+              {recentStudies && recentStudies.length > 0 ? (
+                <div className="space-y-4">
+                  {recentStudies.map((study: any) => (
+                    <div key={study.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <FileImage className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{study.patientName}</p>
+                            <p className="text-sm text-gray-600">{study.testName}</p>
+                            <p className="text-xs text-gray-500">
+                              Patient ID: {study.patientId} • Scheduled: {new Date(study.scheduledAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge 
+                            variant={
+                              study.status === 'completed' ? 'default' :
+                              study.status === 'in_progress' ? 'secondary' : 'outline'
+                            }
+                          >
+                            {study.status?.replace('_', ' ')}
+                          </Badge>
+                          <p className="text-sm text-gray-600 mt-1">
+                            ₦{parseInt(study.price).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Workflow Actions */}
+                      <div className="flex gap-2 flex-wrap">
+                        {study.status === 'scheduled' && (
+                          <Button 
+                            size="sm" 
+                            className="bg-blue-600 hover:bg-blue-700"
+                            onClick={() => {
+                              fetch(`/api/patient-tests/${study.id}/start-processing`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ startedBy: user?.id, expectedHours: 1 })
+                              }).then(() => window.location.reload());
+                            }}
+                          >
+                            <Activity className="w-4 h-4 mr-1" />
+                            Start Imaging
+                          </Button>
+                        )}
+                        
+                        {study.status === 'in_progress' && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="border-green-600 text-green-600 hover:bg-green-50"
+                            onClick={() => {
+                              const results = prompt('Enter imaging results:');
+                              if (results) {
+                                fetch(`/api/patient-tests/${study.id}/complete`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ results })
+                                }).then(() => window.location.reload());
+                              }
+                            }}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Complete Study
+                          </Button>
+                        )}
+
+                        {study.status === 'completed' && (
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline">
+                              <Eye className="w-4 h-4 mr-1" />
+                              View Results
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Download className="w-4 h-4 mr-1" />
+                              Download Report
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Timeline */}
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>Scheduled: {new Date(study.scheduledAt).toLocaleString()}</span>
+                          {study.completedAt && (
+                            <span>Completed: {new Date(study.completedAt).toLocaleString()}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileImage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No paid imaging requests found</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Paid imaging requests will appear here for processing
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
