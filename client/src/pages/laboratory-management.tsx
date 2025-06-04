@@ -209,6 +209,7 @@ export default function LaboratoryManagement() {
       
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
+      refetchMetrics();
       toast({
         title: "Specimen Collected",
         description: "Specimen has been collected successfully.",
@@ -253,6 +254,7 @@ export default function LaboratoryManagement() {
       
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
+      refetchMetrics();
       toast({
         title: "Processing Started",
         description: "Test processing has been started successfully.",
@@ -297,6 +299,7 @@ export default function LaboratoryManagement() {
       
       queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
+      refetchMetrics();
       toast({
         title: "Test Completed",
         description: "Test has been completed successfully.",
