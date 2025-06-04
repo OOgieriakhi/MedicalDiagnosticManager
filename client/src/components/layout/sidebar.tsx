@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { Link, useLocation } from "wouter";
 import { 
   Stethoscope, 
   BarChart3, 
@@ -13,36 +14,39 @@ import {
   Settings, 
   Database,
   LogOut,
-  User
+  User,
+  ClipboardList
 } from "lucide-react";
 
 export default function Sidebar() {
   const { user, logoutMutation } = useAuth();
+  const [location] = useLocation();
 
   const menuItems = [
     {
       section: "Main Modules",
       items: [
-        { icon: BarChart3, label: "Dashboard", active: true },
-        { icon: UserPlus, label: "Patient Management" },
-        { icon: FlaskRound, label: "Diagnostic Tests" },
-        { icon: DollarSign, label: "Financial Management" },
-        { icon: Calculator, label: "Accounting" },
-        { icon: Users, label: "Human Resources" },
+        { icon: BarChart3, label: "Dashboard", path: "/", active: location === "/" },
+        { icon: ClipboardList, label: "Patient Intake", path: "/patient-intake", active: location === "/patient-intake" },
+        { icon: UserPlus, label: "Patient Management", path: "/patient-management", active: location === "/patient-management" },
+        { icon: FlaskRound, label: "Diagnostic Tests", path: "/diagnostic-tests", active: location === "/diagnostic-tests" },
+        { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
+        { icon: Calculator, label: "Accounting", path: "/accounting", active: location === "/accounting" },
+        { icon: Users, label: "Human Resources", path: "/hr", active: location === "/hr" },
       ]
     },
     {
       section: "Reports & Analytics",
       items: [
-        { icon: FileText, label: "Reports" },
-        { icon: Shield, label: "Audit Trail" },
+        { icon: FileText, label: "Reports", path: "/reports", active: location === "/reports" },
+        { icon: Shield, label: "Audit Trail", path: "/audit", active: location === "/audit" },
       ]
     },
     {
       section: "System",
       items: [
-        { icon: Settings, label: "Settings" },
-        { icon: Database, label: "Backup & Recovery" },
+        { icon: Settings, label: "Settings", path: "/settings", active: location === "/settings" },
+        { icon: Database, label: "Backup & Recovery", path: "/backup", active: location === "/backup" },
       ]
     }
   ];
@@ -82,14 +86,16 @@ export default function Sidebar() {
                 const Icon = item.icon;
                 return (
                   <li key={itemIndex}>
-                    <button className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-left ${
-                      item.active 
-                        ? "bg-medical-blue text-white font-medium" 
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}>
-                      <Icon className="w-5 h-5" />
-                      <span>{item.label}</span>
-                    </button>
+                    <Link href={item.path}>
+                      <button className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-left ${
+                        item.active 
+                          ? "bg-medical-blue text-white font-medium" 
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}>
+                        <Icon className="w-5 h-5" />
+                        <span>{item.label}</span>
+                      </button>
+                    </Link>
                   </li>
                 );
               })}

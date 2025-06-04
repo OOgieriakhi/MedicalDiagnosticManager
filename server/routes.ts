@@ -189,6 +189,88 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get referral providers
+  app.get("/api/referral-providers/:tenantId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = parseInt(req.params.tenantId);
+      if (isNaN(tenantId)) {
+        return res.status(400).json({ message: "Invalid tenant ID" });
+      }
+
+      const providers = await storage.getReferralProviders(tenantId);
+      res.json(providers);
+    } catch (error) {
+      console.error("Error fetching referral providers:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get test categories
+  app.get("/api/test-categories/:tenantId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = parseInt(req.params.tenantId);
+      if (isNaN(tenantId)) {
+        return res.status(400).json({ message: "Invalid tenant ID" });
+      }
+
+      const categories = await storage.getTestCategories(tenantId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching test categories:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get tests
+  app.get("/api/tests/:tenantId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = parseInt(req.params.tenantId);
+      if (isNaN(tenantId)) {
+        return res.status(400).json({ message: "Invalid tenant ID" });
+      }
+
+      const tests = await storage.getTests(tenantId);
+      res.json(tests);
+    } catch (error) {
+      console.error("Error fetching tests:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get patients for a branch
+  app.get("/api/patients/:branchId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branchId = parseInt(req.params.branchId);
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      if (isNaN(branchId)) {
+        return res.status(400).json({ message: "Invalid branch ID" });
+      }
+
+      const patients = await storage.getPatientsByBranch(branchId, limit);
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
