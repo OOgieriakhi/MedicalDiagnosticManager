@@ -37,6 +37,18 @@ export default function Sidebar() {
         { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
         { icon: MessageCircle, label: "Notifications", path: "/notifications", active: location === "/notifications" },
         { icon: Award, label: "Staff Recognition", path: "/staff-recognition", active: location === "/staff-recognition" },
+      ]
+    },
+    {
+      section: "Service Units",
+      items: [
+        { icon: FlaskRound, label: "Laboratory Management", path: "/laboratory", active: location === "/laboratory" },
+        { icon: DollarSign, label: "Cashiers Module", path: "/cashiers", active: location === "/cashiers" },
+      ]
+    },
+    {
+      section: "Administration",
+      items: [
         { icon: Calculator, label: "Accounting", path: "/accounting", active: location === "/accounting" },
         { icon: Users, label: "Human Resources", path: "/hr", active: location === "/hr" },
       ]
