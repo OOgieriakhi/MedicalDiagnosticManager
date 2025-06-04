@@ -1354,7 +1354,9 @@ export function registerRoutes(app: Express): Server {
           currency: "NGN",
           tenantId: invoice.tenantId,
           branchId: invoice.branchId,
-          createdBy: req.user.id
+          createdBy: req.user.id,
+          invoiceId: invoice.id,
+          paymentMethod: paymentData.paymentMethod
         });
       }
 
