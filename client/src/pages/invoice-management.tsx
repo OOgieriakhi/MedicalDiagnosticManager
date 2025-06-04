@@ -37,7 +37,6 @@ interface Test {
 interface ReferralProvider {
   id: number;
   name: string;
-  commissionRate: string;
 }
 
 interface InvoiceItem {
@@ -186,20 +185,9 @@ export default function InvoiceManagement() {
     const discountAmount = (subtotal * discountPercentage) / 100;
     const totalAmount = subtotal - discountAmount;
     
-    // Commission is tracked but NOT deducted from patient bill
-    // It's paid separately by accounting at month-end
-    let commissionAmount = 0;
-    if (referralProviderId) {
-      const provider = (referralProviders as any)?.find((p: ReferralProvider) => p.id === referralProviderId);
-      if (provider) {
-        commissionAmount = (totalAmount * parseFloat(provider.commissionRate)) / 100;
-      }
-    }
-    
     return {
       subtotal,
       discountAmount,
-      commissionAmount, // For tracking only
       totalAmount, // Patient pays this amount
       netAmount: totalAmount // Patient pays the full amount after discount
     };
@@ -225,7 +213,6 @@ export default function InvoiceManagement() {
       subtotal: amounts.subtotal,
       discountPercentage,
       discountAmount: amounts.discountAmount,
-      commissionAmount: amounts.commissionAmount,
       totalAmount: amounts.totalAmount,
       netAmount: amounts.netAmount,
       referralProviderId,
