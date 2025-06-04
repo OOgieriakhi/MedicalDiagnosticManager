@@ -254,14 +254,12 @@ export class DatabaseStorage implements IStorage {
         description: tests.description,
         duration: tests.duration,
         price: tests.price,
-        requiresConsultant: tests.requiresConsultant,
-        paymentStatus: invoices.status
+        requiresConsultant: tests.requiresConsultant
       })
       .from(patientTests)
       .innerJoin(tests, eq(patientTests.testId, tests.id))
       .innerJoin(testCategories, eq(tests.categoryId, testCategories.id))
       .innerJoin(patients, eq(patientTests.patientId, patients.id))
-      .leftJoin(invoices, eq(patientTests.invoiceId, invoices.id))
       .where(eq(patientTests.branchId, branchId))
       .orderBy(desc(patientTests.scheduledAt))
       .limit(limit);
