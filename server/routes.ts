@@ -325,7 +325,15 @@ export function registerRoutes(app: Express): Server {
       const start = startDate ? new Date(startDate as string) : undefined;
       const end = endDate ? new Date(endDate as string) : undefined;
       
-      console.log('Date filter debug:', { startDate, endDate, start, end, userBranchId, isPaidOnly });
+      console.log('Date filter debug:', { 
+        startDate, 
+        endDate, 
+        start, 
+        end, 
+        userBranchId, 
+        isPaidOnly,
+        queryParams: req.query 
+      });
       
       let tests = await storage.getPatientTestsByBranch(userBranchId, testLimit, isPaidOnly, start, end);
 
