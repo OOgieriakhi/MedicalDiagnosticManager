@@ -141,6 +141,13 @@ export default function Sidebar() {
         ))}
       </nav>
 
+      {/* Theme Switcher */}
+      <div className="px-4 py-3 border-t border-gray-200">
+        <div className="flex items-center justify-center">
+          <ThemeSwitcher />
+        </div>
+      </div>
+
       {/* User Profile Section */}
       <div className="p-6 border-t border-gray-200">
         <div className="flex items-center space-x-3">
