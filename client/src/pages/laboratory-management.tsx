@@ -45,11 +45,20 @@ export default function LaboratoryManagement() {
 
   // Query for laboratory tests
   const { data: labTests, isLoading: labTestsLoading } = useQuery({
-    queryKey: ["/api/patient-tests", user?.branchId, "laboratory"],
+    queryKey: ["/api/patient-tests", user?.branchId],
     queryFn: async () => {
-      const response = await fetch(`/api/patient-tests?branchId=${user?.branchId}&category=laboratory`);
+      const response = await fetch(`/api/patient-tests?branchId=${user?.branchId}`);
       if (!response.ok) throw new Error("Failed to fetch lab tests");
-      return response.json();
+      const allTests = await response.json();
+      // Filter for laboratory-related categories
+      return allTests.filter((test: any) => 
+        test.category?.toLowerCase().includes('blood') ||
+        test.category?.toLowerCase().includes('laboratory') ||
+        test.category?.toLowerCase().includes('urine') ||
+        test.category?.toLowerCase().includes('chemistry') ||
+        test.category?.toLowerCase().includes('microbiology') ||
+        test.category?.toLowerCase().includes('pathology')
+      );
     },
     enabled: !!user?.branchId,
   });
