@@ -77,6 +77,8 @@ export default function InvoiceManagement() {
   const [testSearchTerm, setTestSearchTerm] = useState("");
   const [showNewReferralDialog, setShowNewReferralDialog] = useState(false);
   const [newReferralName, setNewReferralName] = useState("");
+  const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
+  const [selectedInvoiceForView, setSelectedInvoiceForView] = useState<Invoice | null>(null);
 
   // Query for patients
   const { data: patients } = useQuery({
@@ -652,7 +654,14 @@ export default function InvoiceManagement() {
                             </Button>
                           </>
                         )}
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedInvoiceForView(invoice);
+                            setShowInvoiceDetails(true);
+                          }}
+                        >
                           <Eye className="w-4 h-4 mr-1" />
                           View
                         </Button>
@@ -805,6 +814,88 @@ export default function InvoiceManagement() {
               {createReferralProviderMutation.isPending ? "Creating..." : "Create Provider"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Details Dialog */}
+      <Dialog open={showInvoiceDetails} onOpenChange={setShowInvoiceDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Invoice Details</DialogTitle>
+            <DialogDescription>
+              Complete invoice information and test breakdown
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedInvoiceForView && (
+            <div className="space-y-6">
+              {/* Invoice Header */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Invoice Number</Label>
+                  <p className="text-lg font-bold">{selectedInvoiceForView.invoiceNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <div>
+                    <Badge variant={selectedInvoiceForView.paymentStatus === 'paid' ? 'default' : 'secondary'}>
+                      {selectedInvoiceForView.paymentStatus?.toUpperCase()}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Patient</Label>
+                  <p>{selectedInvoiceForView.patientName}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Amount</Label>
+                  <p className="text-lg font-semibold">₦{parseFloat(selectedInvoiceForView.totalAmount).toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Created</Label>
+                  <p>{new Date(selectedInvoiceForView.createdAt).toLocaleDateString()} by {selectedInvoiceForView.createdByName}</p>
+                </div>
+                {selectedInvoiceForView.paidAt && (
+                  <div>
+                    <Label className="text-sm font-medium">Paid</Label>
+                    <p>{new Date(selectedInvoiceForView.paidAt).toLocaleDateString()}</p>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Tests/Services */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Tests/Services</Label>
+                {selectedInvoiceForView.tests && selectedInvoiceForView.tests.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedInvoiceForView.tests.map((test: any, index: number) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <div>
+                          <p className="font-medium">{test.name || `Test ${index + 1}`}</p>
+                          {test.testId && <p className="text-sm text-gray-500">Test ID: {test.testId}</p>}
+                        </div>
+                        <p className="font-semibold">₦{(typeof test.price === 'string' ? parseFloat(test.price) : test.price || 0).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">No test details available</p>
+                )}
+              </div>
+
+              {selectedInvoiceForView.paymentMethod && (
+                <>
+                  <Separator />
+                  <div>
+                    <Label className="text-sm font-medium">Payment Method</Label>
+                    <p className="capitalize">{selectedInvoiceForView.paymentMethod}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

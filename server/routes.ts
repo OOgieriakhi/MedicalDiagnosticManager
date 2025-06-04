@@ -52,14 +52,15 @@ function generateThermalReceipt(invoice: any, patient: any, tests: any[], branch
   receipt += 'SERVICES:\n';
   let total = 0;
   tests.forEach((test, index) => {
-    const price = typeof test.price === 'string' ? parseFloat(test.price) : test.price;
+    const price = typeof test.price === 'string' ? parseFloat(test.price) : (test.price || 0);
     total += price;
     
-    // Test name (may wrap to next line if too long)
-    if (test.name.length > 32) {
-      receipt += test.name.substring(0, 29) + '...\n';
+    // Test name (handle undefined/null names)
+    const testName = test.name || `Test ${index + 1}`;
+    if (testName.length > 32) {
+      receipt += testName.substring(0, 29) + '...\n';
     } else {
-      receipt += test.name + '\n';
+      receipt += testName + '\n';
     }
     receipt += formatLine('', `₦${price.toLocaleString()}`) + '\n';
   });
