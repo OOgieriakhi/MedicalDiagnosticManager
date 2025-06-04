@@ -125,6 +125,9 @@ export default function LaboratoryManagement() {
       if (user?.branchId) params.append('branchId', user.branchId.toString());
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      
+      console.log('Frontend metrics query:', { branchId: user?.branchId, startDate, endDate, url: `/api/laboratory/metrics?${params}` });
+      
       const response = await fetch(`/api/laboratory/metrics?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab metrics");
       return response.json();
@@ -143,6 +146,8 @@ export default function LaboratoryManagement() {
       params.append('paidOnly', 'true');
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      
+      console.log('Frontend tests query:', { branchId: user?.branchId, startDate, endDate, url: `/api/patient-tests?${params}` });
       
       const response = await fetch(`/api/patient-tests?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab tests");
