@@ -274,9 +274,7 @@ export class DatabaseStorage implements IStorage {
         processingStarted: patientTests.processingStarted,
         processingStartedBy: patientTests.processingStartedBy,
         processingStartedAt: patientTests.processingStartedAt,
-        expectedHours: patientTests.expectedHours,
-        completedBy: patientTests.completedBy,
-        turnaroundHours: patientTests.turnaroundHours
+        expectedTurnaroundHours: patientTests.expectedTurnaroundHours
       })
       .from(patientTests)
       .innerJoin(tests, eq(patientTests.testId, tests.id))
