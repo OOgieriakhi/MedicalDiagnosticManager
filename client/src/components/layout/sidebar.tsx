@@ -17,7 +17,8 @@ import {
   User,
   ClipboardList,
   MessageCircle,
-  Receipt
+  Receipt,
+  Award
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -35,6 +36,7 @@ export default function Sidebar() {
         { icon: Receipt, label: "Invoices & Billing", path: "/invoice-management", active: location === "/invoice-management" },
         { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
         { icon: MessageCircle, label: "Notifications", path: "/notifications", active: location === "/notifications" },
+        { icon: Award, label: "Staff Recognition", path: "/staff-recognition", active: location === "/staff-recognition" },
         { icon: Calculator, label: "Accounting", path: "/accounting", active: location === "/accounting" },
         { icon: Users, label: "Human Resources", path: "/hr", active: location === "/hr" },
       ]

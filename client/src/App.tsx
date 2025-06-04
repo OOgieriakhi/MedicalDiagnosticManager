@@ -24,6 +24,7 @@ function Router() {
       <ProtectedRoute path="/financial-management" component={FinancialManagement} />
       <ProtectedRoute path="/invoice-management" component={InvoiceManagement} />
       <ProtectedRoute path="/notifications" component={NotificationCenter} />
+      <ProtectedRoute path="/staff-recognition" component={StaffRecognition} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
