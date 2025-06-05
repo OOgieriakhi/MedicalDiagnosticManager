@@ -214,6 +214,7 @@ export default function InventoryManagement() {
           </p>
         </div>
         <div className="flex gap-2">
+          <MessageNotification />
           <Dialog>
             <DialogTrigger asChild>
               <Button>

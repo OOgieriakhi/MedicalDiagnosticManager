@@ -233,6 +233,7 @@ export default function HumanResources() {
           </div>
         </div>
         <div className="flex gap-2">
+          <MessageNotification />
           <Dialog>
             <DialogTrigger asChild>
               <Button>

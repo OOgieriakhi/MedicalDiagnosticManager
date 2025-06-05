@@ -221,6 +221,7 @@ export default function ComprehensiveFinancial() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <MessageNotification />
           <Button variant="outline" size="sm" onClick={() => setShowNewExpenseDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Expense

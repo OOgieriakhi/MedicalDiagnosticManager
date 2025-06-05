@@ -255,6 +255,7 @@ export default function RadiologyManagement() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <MessageNotification />
           <Button 
             variant="outline" 
             size="sm"
