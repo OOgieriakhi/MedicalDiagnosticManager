@@ -246,12 +246,7 @@ export default function TestConsumptionManagement() {
                           <SelectContent>
                             {inventoryItems.map((item) => (
                               <SelectItem key={item.id} value={item.id.toString()}>
-                                <div>
-                                  <div className="font-medium">{item.name}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {item.itemCode} • {item.categoryName} • {item.unitOfMeasure}
-                                  </div>
-                                </div>
+                                {item.name} - {item.itemCode} ({item.categoryName})
                               </SelectItem>
                             ))}
                           </SelectContent>
