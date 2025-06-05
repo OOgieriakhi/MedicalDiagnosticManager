@@ -434,6 +434,564 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Serve laboratory module
+  app.get('/laboratory', (req, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.redirect('/');
+    }
+    
+    const laboratoryPath = path.join(process.cwd(), 'client/src/pages/laboratory-module.html');
+    if (fs.existsSync(laboratoryPath)) {
+      res.sendFile(laboratoryPath);
+    } else {
+      // Create a simple HTML wrapper for the React component
+      const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratory Management - Orient Medical</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1rem; }
+        .btn { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; }
+        .btn:hover { background: #2563eb; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+        .badge-pending { background: #fef3c7; color: #92400e; }
+        .badge-progress { background: #dbeafe; color: #1e40af; }
+        .badge-completed { background: #d1fae5; color: #065f46; }
+        .tab-nav { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem; }
+        .tab-btn { padding: 0.75rem 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .test-queue { display: grid; gap: 1rem; }
+        .test-item { display: flex; justify-content: between; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 6px; }
+        .test-info h3 { margin: 0 0 0.5rem 0; font-weight: 600; }
+        .test-info p { margin: 0; color: #6b7280; font-size: 0.875rem; }
+        .test-meta { display: flex; gap: 0.5rem; align-items: center; }
+        .back-btn { background: #6b7280; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
+        .back-btn:hover { background: #4b5563; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <div>
+                <h1 style="font-size: 2rem; font-weight: bold; margin: 0 0 0.5rem 0;">Laboratory Management</h1>
+                <p style="color: #6b7280; margin: 0;">Manage test orders, processing, and results</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+                <button class="btn">+ New Test Order</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #f59e0b;">12</div>
+                <p>Pending Tests</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #3b82f6;">8</div>
+                <p>In Progress</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #10b981;">24</div>
+                <p>Completed Today</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #ef4444;">3</div>
+                <p>Urgent Tests</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="showTab('queue')">Test Queue</button>
+                <button class="tab-btn" onclick="showTab('results')">Results</button>
+                <button class="tab-btn" onclick="showTab('parameters')">Parameters</button>
+                <button class="tab-btn" onclick="showTab('quality')">Quality Control</button>
+            </div>
+
+            <div id="queue-tab" class="tab-content">
+                <div class="test-queue">
+                    <div class="test-item">
+                        <div class="test-info">
+                            <h3>John Doe</h3>
+                            <p>Complete Blood Count</p>
+                            <p style="font-size: 0.75rem;">Ordered: Today, 10:30 AM</p>
+                        </div>
+                        <div class="test-meta">
+                            <span class="badge badge-pending">pending</span>
+                            <span class="badge" style="background: #f3f4f6; color: #374151;">normal</span>
+                        </div>
+                    </div>
+                    
+                    <div class="test-item">
+                        <div class="test-info">
+                            <h3>Jane Smith</h3>
+                            <p>Liver Function Test</p>
+                            <p style="font-size: 0.75rem;">Ordered: Today, 9:15 AM</p>
+                        </div>
+                        <div class="test-meta">
+                            <span class="badge badge-progress">in-progress</span>
+                            <span class="badge" style="background: #fee2e2; color: #991b1b;">urgent</span>
+                        </div>
+                    </div>
+                    
+                    <div class="test-item">
+                        <div class="test-info">
+                            <h3>Mike Johnson</h3>
+                            <p>Lipid Profile</p>
+                            <p style="font-size: 0.75rem;">Completed: Today, 2:30 PM</p>
+                        </div>
+                        <div class="test-meta">
+                            <span class="badge badge-completed">completed</span>
+                            <span class="badge" style="background: #f3f4f6; color: #374151;">normal</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results-tab" class="tab-content" style="display: none;">
+                <div class="card">
+                    <h3>Test Results - Complete Blood Count</h3>
+                    <p><strong>Patient:</strong> John Doe</p>
+                    <div style="margin-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid #e5e7eb;">
+                            <span>Hemoglobin</span>
+                            <span style="color: #10b981;">14.2 g/dL (Normal)</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 0.5rem; border-bottom: 1px solid #e5e7eb;">
+                            <span>White Blood Cell Count</span>
+                            <span style="color: #10b981;">8.5 ×10³/μL (Normal)</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 0.5rem;">
+                            <span>Platelet Count</span>
+                            <span style="color: #ef4444;">450 ×10³/μL (High)</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <button class="btn" style="background: #10b981;">Approve Results</button>
+                        <button class="btn" style="background: #6b7280; margin-left: 0.5rem;">Request Retest</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="parameters-tab" class="tab-content" style="display: none;">
+                <div style="margin-bottom: 1rem;">
+                    <button class="btn">+ Add New Parameter</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                    <div class="card">
+                        <h4>Hemoglobin</h4>
+                        <p><strong>Unit:</strong> g/dL</p>
+                        <p><strong>Normal Range:</strong> 12.0-15.5</p>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn" style="background: #6b7280; font-size: 0.875rem;">Edit</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h4>White Blood Cell Count</h4>
+                        <p><strong>Unit:</strong> ×10³/μL</p>
+                        <p><strong>Normal Range:</strong> 4.0-11.0</p>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn" style="background: #6b7280; font-size: 0.875rem;">Edit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="quality-tab" class="tab-content" style="display: none;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                    <div class="card" style="text-align: center;">
+                        <h4 style="color: #10b981;">Passed QC</h4>
+                        <div class="stat-number" style="color: #10b981;">95%</div>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <h4 style="color: #f59e0b;">Pending Review</h4>
+                        <div class="stat-number" style="color: #f59e0b;">3%</div>
+                    </div>
+                    <div class="card" style="text-align: center;">
+                        <h4 style="color: #ef4444;">Failed QC</h4>
+                        <div class="stat-number" style="color: #ef4444;">2%</div>
+                    </div>
+                </div>
+                <button class="btn">Run QC Check</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.style.display = 'none');
+            
+            // Remove active class from all buttons
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        // Check authentication
+        fetch('/api/user', { credentials: 'include' })
+            .then(response => {
+                if (!response.ok) {
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => {
+                window.location.href = '/';
+            });
+    </script>
+</body>
+</html>`;
+      res.send(html);
+    }
+  });
+
+  // Serve HR Management module
+  app.get('/hr', (req, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.redirect('/');
+    }
+    
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Resources - Orient Medical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1rem; }
+        .btn { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; }
+        .btn:hover { background: #2563eb; }
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        .btn-warning { background: #f59e0b; }
+        .btn-warning:hover { background: #d97706; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+        .badge-active { background: #d1fae5; color: #065f46; }
+        .badge-inactive { background: #fee2e2; color: #991b1b; }
+        .badge-pending { background: #fef3c7; color: #92400e; }
+        .tab-nav { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem; }
+        .tab-btn { padding: 0.75rem 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .employee-grid { display: grid; gap: 1rem; }
+        .employee-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 6px; }
+        .employee-info h3 { margin: 0 0 0.5rem 0; font-weight: 600; }
+        .employee-info p { margin: 0; color: #6b7280; font-size: 0.875rem; }
+        .employee-meta { display: flex; gap: 0.5rem; align-items: center; }
+        .back-btn { background: #6b7280; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
+        .back-btn:hover { background: #4b5563; }
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
+        .form-select { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <div>
+                <h1 style="font-size: 2rem; font-weight: bold; margin: 0 0 0.5rem 0;">Human Resources Management</h1>
+                <p style="color: #6b7280; margin: 0;">Employee records, payroll, attendance, and performance management</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+                <button class="btn">+ Add Employee</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #10b981;">45</div>
+                <p>Total Employees</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #3b82f6;">42</div>
+                <p>Active Staff</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #f59e0b;">5</div>
+                <p>On Leave</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #ef4444;">2</div>
+                <p>Pending Reviews</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="showTab('employees')">Employees</button>
+                <button class="tab-btn" onclick="showTab('payroll')">Payroll</button>
+                <button class="tab-btn" onclick="showTab('attendance')">Attendance</button>
+                <button class="tab-btn" onclick="showTab('performance')">Performance</button>
+                <button class="tab-btn" onclick="showTab('leave')">Leave Management</button>
+            </div>
+
+            <div id="employees-tab" class="tab-content">
+                <div class="employee-grid">
+                    <div class="employee-item">
+                        <div class="employee-info">
+                            <h3>Dr. Sarah Johnson</h3>
+                            <p>Medical Director - Laboratory</p>
+                            <p style="font-size: 0.75rem;">Employee ID: EMP001 | Joined: Jan 2020</p>
+                        </div>
+                        <div class="employee-meta">
+                            <span class="badge badge-active">Active</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="employee-item">
+                        <div class="employee-info">
+                            <h3>John Smith</h3>
+                            <p>Laboratory Technician</p>
+                            <p style="font-size: 0.75rem;">Employee ID: EMP002 | Joined: Mar 2021</p>
+                        </div>
+                        <div class="employee-meta">
+                            <span class="badge badge-active">Active</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="employee-item">
+                        <div class="employee-info">
+                            <h3>Mary Okafor</h3>
+                            <p>Receptionist</p>
+                            <p style="font-size: 0.75rem;">Employee ID: EMP003 | Joined: Sep 2022</p>
+                        </div>
+                        <div class="employee-meta">
+                            <span class="badge badge-pending">On Leave</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="employee-item">
+                        <div class="employee-info">
+                            <h3>Ahmed Hassan</h3>
+                            <p>Phlebotomist</p>
+                            <p style="font-size: 0.75rem;">Employee ID: EMP004 | Joined: Jun 2023</p>
+                        </div>
+                        <div class="employee-meta">
+                            <span class="badge badge-active">Active</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="payroll-tab" class="tab-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Monthly Payroll - June 2025</h3>
+                    <div>
+                        <button class="btn btn-success">Process Payroll</button>
+                        <button class="btn" style="margin-left: 0.5rem;">Generate Reports</button>
+                    </div>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f9fafb;">
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Employee</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Basic Salary</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Allowances</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Deductions</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Net Pay</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">Dr. Sarah Johnson</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦450,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦50,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦75,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦425,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;"><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">John Smith</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦180,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦20,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦30,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦170,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;"><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">Ahmed Hassan</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦120,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦15,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦20,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">₦115,000</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;"><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="attendance-tab" class="tab-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Daily Attendance - Today</h3>
+                    <button class="btn">Mark Attendance</button>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                    <div class="card">
+                        <h4>Dr. Sarah Johnson</h4>
+                        <p><strong>Check In:</strong> 8:00 AM</p>
+                        <p><strong>Status:</strong> <span style="color: #10b981;">Present</span></p>
+                        <p><strong>Hours Worked:</strong> 6.5 hrs</p>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>John Smith</h4>
+                        <p><strong>Check In:</strong> 8:15 AM</p>
+                        <p><strong>Status:</strong> <span style="color: #10b981;">Present</span></p>
+                        <p><strong>Hours Worked:</strong> 6.25 hrs</p>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>Mary Okafor</h4>
+                        <p><strong>Check In:</strong> --</p>
+                        <p><strong>Status:</strong> <span style="color: #f59e0b;">On Leave</span></p>
+                        <p><strong>Hours Worked:</strong> 0 hrs</p>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>Ahmed Hassan</h4>
+                        <p><strong>Check In:</strong> 7:45 AM</p>
+                        <p><strong>Status:</strong> <span style="color: #10b981;">Present</span></p>
+                        <p><strong>Hours Worked:</strong> 6.75 hrs</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="performance-tab" class="tab-content" style="display: none;">
+                <div style="margin-bottom: 1rem;">
+                    <h3>Performance Reviews</h3>
+                    <button class="btn">Schedule Review</button>
+                </div>
+                
+                <div style="display: grid; gap: 1rem;">
+                    <div class="card" style="border-left: 4px solid #10b981;">
+                        <h4>Dr. Sarah Johnson - Annual Review</h4>
+                        <p><strong>Review Period:</strong> Jan 2025 - Dec 2025</p>
+                        <p><strong>Overall Rating:</strong> Excellent (4.8/5)</p>
+                        <p><strong>Next Review:</strong> January 2026</p>
+                        <button class="btn" style="font-size: 0.875rem;">View Details</button>
+                    </div>
+                    
+                    <div class="card" style="border-left: 4px solid #f59e0b;">
+                        <h4>John Smith - Mid-Year Review</h4>
+                        <p><strong>Review Period:</strong> Jan 2025 - Jun 2025</p>
+                        <p><strong>Overall Rating:</strong> Good (4.2/5)</p>
+                        <p><strong>Next Review:</strong> December 2025</p>
+                        <button class="btn btn-warning" style="font-size: 0.875rem;">Schedule</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="leave-tab" class="tab-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Leave Management</h3>
+                    <button class="btn">New Leave Request</button>
+                </div>
+                
+                <div style="display: grid; gap: 1rem;">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4>Mary Okafor - Maternity Leave</h4>
+                                <p><strong>Duration:</strong> May 15, 2025 - Aug 15, 2025</p>
+                                <p><strong>Remaining Days:</strong> 45 days</p>
+                                <p><strong>Applied:</strong> April 20, 2025</p>
+                            </div>
+                            <div>
+                                <span class="badge badge-active">Approved</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4>Ahmed Hassan - Annual Leave</h4>
+                                <p><strong>Duration:</strong> July 1, 2025 - July 7, 2025</p>
+                                <p><strong>Days Requested:</strong> 7 days</p>
+                                <p><strong>Applied:</strong> June 1, 2025</p>
+                            </div>
+                            <div>
+                                <span class="badge badge-pending">Pending</span>
+                                <div style="margin-top: 0.5rem;">
+                                    <button class="btn btn-success" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Approve</button>
+                                    <button class="btn" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: #ef4444;">Reject</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.style.display = 'none');
+            
+            // Remove active class from all buttons
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        // Check authentication
+        fetch('/api/user', { credentials: 'include' })
+            .then(response => {
+                if (!response.ok) {
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => {
+                window.location.href = '/';
+            });
+    </script>
+</body>
+</html>`;
+    res.send(html);
+  });
+
   // Dashboard metrics endpoint
   app.get("/api/dashboard/metrics/:branchId", async (req, res) => {
     try {

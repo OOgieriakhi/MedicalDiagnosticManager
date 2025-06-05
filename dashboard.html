@@ -578,8 +578,48 @@
 
         function openModule(moduleId) {
             console.log('Opening module:', moduleId);
-            // Module navigation will be implemented here
-            alert(`Opening ${moduleId.replace('-', ' ')} module. This will be fully implemented in the next phase.`);
+            
+            // Route to appropriate module interface
+            switch(moduleId) {
+                case 'laboratory':
+                    window.location.href = '/laboratory';
+                    break;
+                case 'patient-management':
+                    window.location.href = '/patients';
+                    break;
+                case 'financial':
+                    window.location.href = '/financial';
+                    break;
+                case 'inventory':
+                    window.location.href = '/inventory';
+                    break;
+                case 'hr-management':
+                    window.location.href = '/hr';
+                    break;
+                case 'reports':
+                    window.location.href = '/reports';
+                    break;
+                case 'communications':
+                    window.location.href = '/communications';
+                    break;
+                case 'marketing':
+                    window.location.href = '/marketing';
+                    break;
+                case 'quality':
+                    window.location.href = '/quality';
+                    break;
+                case 'training':
+                    window.location.href = '/training';
+                    break;
+                case 'branding':
+                    window.location.href = '/branding';
+                    break;
+                case 'settings':
+                    window.location.href = '/settings';
+                    break;
+                default:
+                    alert(`Module ${moduleId} is being developed. Please check back soon.`);
+            }
         }
 
         function quickAction(actionId) {
