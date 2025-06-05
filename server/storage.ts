@@ -2527,6 +2527,134 @@ export class DatabaseStorage implements IStorage {
       expiredDocuments: 2
     };
   }
+
+  // Update patient test results
+  async updatePatientTestResults(testId: number, updateData: any): Promise<void> {
+    await db
+      .update(patientTests)
+      .set({
+        results: updateData.results,
+        notes: updateData.notes,
+        status: updateData.status,
+        completedAt: updateData.status === "completed" ? new Date() : null,
+        updatedAt: new Date()
+      })
+      .where(eq(patientTests.id, testId));
+  }
+
+  // Get patient tests with results for consolidated reporting
+  async getPatientTestsWithResults(patientId: number, statusFilter?: string): Promise<any[]> {
+    try {
+      let whereConditions = [eq(patientTests.patientId, patientId)];
+      
+      if (statusFilter) {
+        whereConditions.push(eq(patientTests.status, statusFilter));
+      }
+
+      const results = await db
+        .select({
+          id: patientTests.id,
+          testName: tests.name,
+          testCode: tests.code,
+          results: patientTests.results,
+          notes: patientTests.notes,
+          status: patientTests.status,
+          completedAt: patientTests.completedAt,
+          resultsSavedAt: patientTests.updatedAt,
+          category: testCategories.name
+        })
+        .from(patientTests)
+        .innerJoin(tests, eq(patientTests.testId, tests.id))
+        .leftJoin(testCategories, eq(tests.categoryId, testCategories.id))
+        .where(and(...whereConditions))
+        .orderBy(patientTests.createdAt);
+
+      return results;
+    } catch (error) {
+      console.error('Error fetching patient tests with results:', error);
+      return [];
+    }
+  }
+
+  // Get test parameters for structured reporting
+  async getTestParameters(testId: number): Promise<any[]> {
+    try {
+      // Try to get parameters from the test_parameters table if it exists
+      const parameters = await db.execute(sql`
+        SELECT id, test_id, parameter_name, unit, normal_range_min, normal_range_max, 
+               reference_range, critical_values, methodology, created_at, updated_at
+        FROM test_parameters 
+        WHERE test_id = ${testId}
+      `);
+      
+      return parameters.rows || [];
+    } catch (error) {
+      console.error('Error fetching test parameters:', error);
+      return [];
+    }
+  }
+
+  // Mark results as processed (after printing, WhatsApp, email)
+  async markResultsAsProcessed(patientId: number, deliveryMethod: string, processedBy: number): Promise<void> {
+    await db
+      .update(patientTests)
+      .set({
+        status: 'completed',
+        reportReleasedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(
+        and(
+          eq(patientTests.patientId, patientId),
+          eq(patientTests.status, 'results_saved')
+        )
+      );
+  }
+
+  // Get individual patient test for detailed access
+  async getPatientTest(testId: number): Promise<any> {
+    try {
+      const result = await db
+        .select({
+          id: patientTests.id,
+          testId: patientTests.testId,
+          patientId: patientTests.patientId,
+          testName: tests.name,
+          testCode: tests.code,
+          results: patientTests.results,
+          notes: patientTests.notes,
+          status: patientTests.status,
+          completedAt: patientTests.completedAt,
+          category: testCategories.name
+        })
+        .from(patientTests)
+        .innerJoin(tests, eq(patientTests.testId, tests.id))
+        .leftJoin(testCategories, eq(tests.categoryId, testCategories.id))
+        .where(eq(patientTests.id, testId))
+        .limit(1);
+
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching patient test:', error);
+      return null;
+    }
+  }
+
+  // Get referral provider information
+  async getReferralProvider(providerId: number): Promise<any> {
+    try {
+      const result = await db
+        .select()
+        .from(referralProviders)
+        .where(eq(referralProviders.id, providerId))
+        .limit(1);
+
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error fetching referral provider:', error);
+      return null;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
