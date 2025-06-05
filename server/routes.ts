@@ -1615,7 +1615,6 @@ export function registerRoutes(app: Express): Server {
         .update(patientTests)
         .set({
           reportReleasedAt: new Date(),
-          reportReleasedBy: req.user.id,
           status: 'completed'
         })
         .where(eq(patientTests.id, parseInt(id)));
@@ -3344,7 +3343,7 @@ export function registerRoutes(app: Express): Server {
         userId: req.user.id,
         action: "create_petty_cash_fund",
         resourceType: "petty_cash_fund",
-        resourceId: fund.id,
+        resourceId: Array.isArray(fund) ? fund[0]?.id : fund.id,
         details: `Created petty cash fund with initial amount: ${req.body.initialAmount}`
       });
 
