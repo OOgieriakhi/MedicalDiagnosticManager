@@ -68,7 +68,7 @@ export interface CashFlowData {
 }
 
 export class AccountingEngine {
-
+  
   async getFinancialSummary(tenantId: number, branchId?: number, period?: string) {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
@@ -213,12 +213,11 @@ export class AccountingEngine {
         totalDebit: journalEntries.totalDebit,
         totalCredit: journalEntries.totalCredit,
         status: journalEntries.status,
+        createdBy: journalEntries.createdBy,
         referenceType: journalEntries.referenceType,
-        referenceNumber: journalEntries.referenceNumber,
-        createdBy: sql<string>`users.username`
+        referenceNumber: journalEntries.referenceNumber
       })
       .from(journalEntries)
-      .leftJoin(sql`users`, eq(journalEntries.createdBy, sql`users.id`))
       .where(and(...whereConditions))
       .orderBy(desc(journalEntries.entryDate))
       .limit(limit);
@@ -226,12 +225,12 @@ export class AccountingEngine {
     return entries.map(entry => ({
       id: entry.id,
       entryNumber: entry.entryNumber,
-      entryDate: entry.entryDate.toISOString(),
+      entryDate: entry.entryDate ? entry.entryDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       description: entry.description,
-      totalDebit: Number(entry.totalDebit),
-      totalCredit: Number(entry.totalCredit),
+      totalDebit: Number(entry.totalDebit || 0),
+      totalCredit: Number(entry.totalCredit || 0),
       status: entry.status,
-      createdBy: entry.createdBy || 'Unknown',
+      createdBy: String(entry.createdBy),
       referenceType: entry.referenceType || '',
       referenceNumber: entry.referenceNumber || ''
     }));
@@ -239,28 +238,12 @@ export class AccountingEngine {
 
   async getJournalEntryDetails(entryId: number, tenantId: number) {
     const entry = await db
-      .select({
-        id: journalEntries.id,
-        entryNumber: journalEntries.entryNumber,
-        entryDate: journalEntries.entryDate,
-        description: journalEntries.description,
-        totalDebit: journalEntries.totalDebit,
-        totalCredit: journalEntries.totalCredit,
-        status: journalEntries.status,
-        referenceType: journalEntries.referenceType,
-        referenceNumber: journalEntries.referenceNumber,
-        createdBy: sql<string>`users.username`
-      })
+      .select()
       .from(journalEntries)
-      .leftJoin(sql`users`, eq(journalEntries.createdBy, sql`users.id`))
-      .where(
-        and(
-          eq(journalEntries.id, entryId),
-          eq(journalEntries.tenantId, tenantId)
-        )
-      );
+      .where(and(eq(journalEntries.id, entryId), eq(journalEntries.tenantId, tenantId)))
+      .limit(1);
 
-    if (entry.length === 0) {
+    if (!entry[0]) {
       throw new Error('Journal entry not found');
     }
 
@@ -276,21 +259,13 @@ export class AccountingEngine {
       })
       .from(journalEntryLineItems)
       .innerJoin(chartOfAccounts, eq(journalEntryLineItems.accountId, chartOfAccounts.id))
-      .where(eq(journalEntryLineItems.journalEntryId, entryId))
-      .orderBy(journalEntryLineItems.id);
+      .where(eq(journalEntryLineItems.journalEntryId, entryId));
 
-    const entryData = entry[0];
     return {
-      id: entryData.id,
-      entryNumber: entryData.entryNumber,
-      entryDate: entryData.entryDate.toISOString(),
-      description: entryData.description,
-      totalDebit: Number(entryData.totalDebit),
-      totalCredit: Number(entryData.totalCredit),
-      status: entryData.status,
-      createdBy: entryData.createdBy || 'Unknown',
-      referenceType: entryData.referenceType || '',
-      referenceNumber: entryData.referenceNumber || '',
+      ...entry[0],
+      entryDate: entry[0].entryDate ? entry[0].entryDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      totalDebit: Number(entry[0].totalDebit || 0),
+      totalCredit: Number(entry[0].totalCredit || 0),
       lineItems: lineItems.map(item => ({
         id: item.id,
         accountId: item.accountId,
@@ -325,214 +300,6 @@ export class AccountingEngine {
     }
 
     return monthlyData;
-  }
-
-  async createJournalEntry(tenantId: number, branchId: number, entryData: {
-    description: string;
-    referenceType?: string;
-    referenceId?: number;
-    referenceNumber?: string;
-    lineItems: Array<{
-      accountId: number;
-      description: string;
-      debitAmount?: number;
-      creditAmount?: number;
-    }>;
-    createdBy: number;
-  }) {
-    // Validate line items balance
-    const totalDebits = entryData.lineItems.reduce((sum, item) => sum + (item.debitAmount || 0), 0);
-    const totalCredits = entryData.lineItems.reduce((sum, item) => sum + (item.creditAmount || 0), 0);
-
-    if (Math.abs(totalDebits - totalCredits) > 0.01) {
-      throw new Error('Journal entry is not balanced. Debits must equal credits.');
-    }
-
-    // Generate entry number
-    const entryCount = await db
-      .select({ count: count() })
-      .from(journalEntries)
-      .where(eq(journalEntries.tenantId, tenantId));
-
-    const entryNumber = `JE-${new Date().getFullYear()}-${String(entryCount[0].count + 1).padStart(6, '0')}`;
-
-    // Create journal entry
-    const [journalEntry] = await db
-      .insert(journalEntries)
-      .values({
-        tenantId,
-        branchId,
-        entryNumber,
-        entryDate: new Date(),
-        description: entryData.description,
-        referenceType: entryData.referenceType,
-        referenceId: entryData.referenceId,
-        referenceNumber: entryData.referenceNumber,
-        totalDebit: totalDebits.toString(),
-        totalCredit: totalCredits.toString(),
-        status: 'draft',
-        createdBy: entryData.createdBy
-      })
-      .returning();
-
-    // Create line items
-    for (const lineItem of entryData.lineItems) {
-      await db.insert(journalEntryLineItems).values({
-        journalEntryId: journalEntry.id,
-        accountId: lineItem.accountId,
-        description: lineItem.description,
-        debitAmount: lineItem.debitAmount?.toString() || "0",
-        creditAmount: lineItem.creditAmount?.toString() || "0"
-      });
-    }
-
-    return journalEntry;
-  }
-
-  async postJournalEntry(entryId: number, tenantId: number, userId: number) {
-    // Update journal entry status
-    await db
-      .update(journalEntries)
-      .set({
-        status: 'posted',
-        approvedBy: userId,
-        postedAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(
-        and(
-          eq(journalEntries.id, entryId),
-          eq(journalEntries.tenantId, tenantId)
-        )
-      );
-
-    // Update account balances
-    await this.updateAccountBalances(entryId, tenantId);
-
-    return { success: true };
-  }
-
-  async updateAccountBalances(entryId: number, tenantId: number) {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-
-    // Get line items for the journal entry
-    const lineItems = await db
-      .select({
-        accountId: journalEntryLineItems.accountId,
-        debitAmount: journalEntryLineItems.debitAmount,
-        creditAmount: journalEntryLineItems.creditAmount
-      })
-      .from(journalEntryLineItems)
-      .where(eq(journalEntryLineItems.journalEntryId, entryId));
-
-    // Update balances for each affected account
-    for (const item of lineItems) {
-      const debitAmount = Number(item.debitAmount || 0);
-      const creditAmount = Number(item.creditAmount || 0);
-
-      // Check if balance record exists
-      const existingBalance = await db
-        .select()
-        .from(accountBalances)
-        .where(
-          and(
-            eq(accountBalances.tenantId, tenantId),
-            eq(accountBalances.accountId, item.accountId),
-            eq(accountBalances.fiscalYear, currentYear),
-            eq(accountBalances.fiscalMonth, currentMonth)
-          )
-        );
-
-      if (existingBalance.length > 0) {
-        // Update existing balance
-        await db
-          .update(accountBalances)
-          .set({
-            debitMovements: sql`${accountBalances.debitMovements} + ${debitAmount}`,
-            creditMovements: sql`${accountBalances.creditMovements} + ${creditAmount}`,
-            closingBalance: sql`${accountBalances.openingBalance} + ${accountBalances.debitMovements} - ${accountBalances.creditMovements}`,
-            lastUpdated: new Date()
-          })
-          .where(eq(accountBalances.id, existingBalance[0].id));
-      } else {
-        // Create new balance record
-        await db.insert(accountBalances).values({
-          tenantId,
-          branchId: 1, // Default branch - should be dynamic
-          accountId: item.accountId,
-          fiscalYear: currentYear,
-          fiscalMonth: currentMonth,
-          openingBalance: "0",
-          debitMovements: debitAmount.toString(),
-          creditMovements: creditAmount.toString(),
-          closingBalance: (debitAmount - creditAmount).toString()
-        });
-      }
-    }
-  }
-
-  async initializeChartOfAccounts(tenantId: number) {
-    const defaultAccounts = [
-      // Assets
-      { code: '1000', name: 'Cash and Cash Equivalents', type: 'asset', subtype: 'current_asset' },
-      { code: '1100', name: 'Accounts Receivable', type: 'asset', subtype: 'current_asset' },
-      { code: '1200', name: 'Inventory - Medical Supplies', type: 'asset', subtype: 'current_asset' },
-      { code: '1300', name: 'Prepaid Expenses', type: 'asset', subtype: 'current_asset' },
-      { code: '1500', name: 'Medical Equipment', type: 'asset', subtype: 'fixed_asset' },
-      { code: '1600', name: 'Accumulated Depreciation - Equipment', type: 'asset', subtype: 'fixed_asset' },
-      { code: '1700', name: 'Building and Improvements', type: 'asset', subtype: 'fixed_asset' },
-
-      // Liabilities
-      { code: '2000', name: 'Accounts Payable', type: 'liability', subtype: 'current_liability' },
-      { code: '2100', name: 'Accrued Expenses', type: 'liability', subtype: 'current_liability' },
-      { code: '2200', name: 'Short-term Loans', type: 'liability', subtype: 'current_liability' },
-      { code: '2500', name: 'Long-term Debt', type: 'liability', subtype: 'long_term_liability' },
-
-      // Equity
-      { code: '3000', name: 'Owner\'s Equity', type: 'equity', subtype: 'equity' },
-      { code: '3100', name: 'Retained Earnings', type: 'equity', subtype: 'equity' },
-
-      // Revenue
-      { code: '4000', name: 'Patient Service Revenue', type: 'revenue', subtype: 'operating_revenue' },
-      { code: '4100', name: 'Laboratory Revenue', type: 'revenue', subtype: 'operating_revenue' },
-      { code: '4200', name: 'Pharmacy Revenue', type: 'revenue', subtype: 'operating_revenue' },
-      { code: '4300', name: 'Insurance Reimbursements', type: 'revenue', subtype: 'operating_revenue' },
-
-      // Expenses
-      { code: '5000', name: 'Salaries and Wages', type: 'expense', subtype: 'operating_expense' },
-      { code: '5100', name: 'Medical Supplies Expense', type: 'expense', subtype: 'operating_expense' },
-      { code: '5200', name: 'Rent Expense', type: 'expense', subtype: 'operating_expense' },
-      { code: '5300', name: 'Utilities Expense', type: 'expense', subtype: 'operating_expense' },
-      { code: '5400', name: 'Insurance Expense', type: 'expense', subtype: 'operating_expense' },
-      { code: '5500', name: 'Depreciation Expense', type: 'expense', subtype: 'operating_expense' },
-      { code: '5600', name: 'Professional Services', type: 'expense', subtype: 'operating_expense' },
-      { code: '5700', name: 'Marketing and Advertising', type: 'expense', subtype: 'operating_expense' }
-    ];
-
-    for (const account of defaultAccounts) {
-      const existing = await db
-        .select()
-        .from(chartOfAccounts)
-        .where(
-          and(
-            eq(chartOfAccounts.tenantId, tenantId),
-            eq(chartOfAccounts.accountCode, account.code)
-          )
-        );
-
-      if (existing.length === 0) {
-        await db.insert(chartOfAccounts).values({
-          tenantId,
-          accountCode: account.code,
-          accountName: account.name,
-          accountType: account.type,
-          accountSubtype: account.subtype,
-          description: `Default ${account.name} account`
-        });
-      }
-    }
   }
 }
 
