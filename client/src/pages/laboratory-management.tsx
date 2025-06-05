@@ -1363,13 +1363,37 @@ export default function LaboratoryManagement() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => {
-                                setSelectedTest(test);
-                                setShowResultDialog(true);
-                                // Pre-populate fields for viewing/editing
-                                if (test.results) setTestResults(test.results);
-                                if (test.notes) setTestNotes(test.notes);
-                                if (test.scientistSignature) setScientistSignature(test.scientistSignature);
+                              onClick={async () => {
+                                if (test.status === "reported_and_saved") {
+                                  // For saved reports, fetch and display saved data
+                                  try {
+                                    const testResultsResponse = await apiRequest("GET", `/api/patient-tests/${test.id}/results`);
+                                    if (testResultsResponse.ok) {
+                                      const savedData = await testResultsResponse.json();
+                                      setSelectedTest(test);
+                                      setTestResults(savedData.results || "");
+                                      setTestNotes(savedData.notes || "");
+                                      setScientistSignature(savedData.scientistSignature || "");
+                                      
+                                      // Load parameter results if available
+                                      if (savedData.parameterResults) {
+                                        setResultValues(savedData.parameterResults);
+                                      }
+                                      
+                                      setShowResultDialog(true);
+                                      setShowReportPreview(true); // Show in preview mode
+                                    }
+                                  } catch (error) {
+                                    console.warn("Could not fetch saved results:", error);
+                                  }
+                                } else {
+                                  // For other statuses, show normal edit mode
+                                  setSelectedTest(test);
+                                  setShowResultDialog(true);
+                                  if (test.results) setTestResults(test.results);
+                                  if (test.notes) setTestNotes(test.notes);
+                                  if (test.scientistSignature) setScientistSignature(test.scientistSignature);
+                                }
                               }}
                             >
                               <FileText className="w-4 h-4 mr-1" />

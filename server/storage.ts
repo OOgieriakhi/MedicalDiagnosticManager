@@ -2600,6 +2600,8 @@ export class DatabaseStorage implements IStorage {
       .set({
         results: updateData.results,
         notes: updateData.notes,
+        parameterResults: updateData.parameterResults,
+        scientistSignature: updateData.scientistSignature,
         status: updateData.status,
         completedAt: updateData.status === "completed" ? new Date() : null,
         updatedAt: new Date()

@@ -1715,6 +1715,8 @@ export function registerRoutes(app: Express): Server {
       await storage.updatePatientTestResults(testId, {
         results: finalResults,
         notes: notes || null,
+        parameterResults: parameterResults ? JSON.stringify(parameterResults) : null,
+        scientistSignature: scientistSignature || req.user.username,
         status: saveForLater ? "reported_and_saved" : "completed",
         resultsSavedAt: new Date(),
         resultsSavedBy: req.user.id
