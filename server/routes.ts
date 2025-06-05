@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import path from "path";
+import fs from "fs";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { rbacStorage } from "./rbac-storage";
@@ -424,8 +426,6 @@ export function registerRoutes(app: Express): Server {
     }
     
     console.log('User authenticated, serving dashboard');
-    const path = require('path');
-    const fs = require('fs');
     const dashboardPath = path.join(process.cwd(), 'dashboard.html');
     if (fs.existsSync(dashboardPath)) {
       res.sendFile(dashboardPath);
