@@ -176,6 +176,154 @@
             font-weight: 500;
         }
         
+        .departments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .department-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .department-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+        }
+
+        .department-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .department-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+        }
+
+        .department-icon.radiology {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+
+        .department-icon.ultrasound {
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+        }
+
+        .department-icon.cardiology {
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+        }
+
+        .department-icon.laboratory {
+            background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%);
+        }
+
+        .department-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .department-description {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .department-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 12px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            display: block;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .department-features {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .department-features li {
+            padding: 0.5rem 0;
+            color: #666;
+            font-size: 0.9rem;
+            position: relative;
+            padding-left: 1.5rem;
+        }
+
+        .department-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-subtitle {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+        }
+
         .modules-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -382,6 +530,108 @@
             </div>
         </div>
 
+        <!-- Medical Departments Section -->
+        <div class="section-header">
+            <h2 class="section-title">Medical Departments</h2>
+            <p class="section-subtitle">Specialized diagnostic and treatment services</p>
+        </div>
+        
+        <div class="departments-grid">
+            <div class="department-card" onclick="openDepartment('radiology')">
+                <div class="department-icon radiology">🩻</div>
+                <h3 class="department-title">Radiology Department</h3>
+                <p class="department-description">Advanced imaging services with digital radiography, CT scans, and comprehensive diagnostic imaging solutions.</p>
+                <div class="department-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">45</span>
+                        <span class="stat-label">Today's Scans</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">12</span>
+                        <span class="stat-label">Pending Reports</span>
+                    </div>
+                </div>
+                <ul class="department-features">
+                    <li>Digital X-Ray imaging</li>
+                    <li>CT scan services</li>
+                    <li>PACS integration</li>
+                    <li>Radiologist reporting</li>
+                </ul>
+            </div>
+
+            <div class="department-card" onclick="openDepartment('ultrasound')">
+                <div class="department-icon ultrasound">🔊</div>
+                <h3 class="department-title">Ultrasound Department</h3>
+                <p class="department-description">Comprehensive ultrasound services including obstetric, abdominal, cardiac, and vascular imaging with real-time reporting.</p>
+                <div class="department-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">28</span>
+                        <span class="stat-label">Today's Scans</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">5</span>
+                        <span class="stat-label">Emergency Cases</span>
+                    </div>
+                </div>
+                <ul class="department-features">
+                    <li>Obstetric & gynecological scans</li>
+                    <li>Abdominal ultrasound</li>
+                    <li>Doppler studies</li>
+                    <li>3D/4D imaging</li>
+                </ul>
+            </div>
+
+            <div class="department-card" onclick="openDepartment('cardiology')">
+                <div class="department-icon cardiology">❤️</div>
+                <h3 class="department-title">Cardiology Department</h3>
+                <p class="department-description">Comprehensive cardiac care with ECG, echocardiography, stress testing, and cardiac monitoring services.</p>
+                <div class="department-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">32</span>
+                        <span class="stat-label">ECG Tests</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">8</span>
+                        <span class="stat-label">Echo Studies</span>
+                    </div>
+                </div>
+                <ul class="department-features">
+                    <li>12-lead ECG</li>
+                    <li>Echocardiography</li>
+                    <li>Stress testing</li>
+                    <li>Holter monitoring</li>
+                </ul>
+            </div>
+
+            <div class="department-card" onclick="openDepartment('laboratory')">
+                <div class="department-icon laboratory">🔬</div>
+                <h3 class="department-title">Laboratory Department</h3>
+                <p class="department-description">State-of-the-art clinical laboratory with automated analyzers, quality control, and rapid result delivery.</p>
+                <div class="department-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">156</span>
+                        <span class="stat-label">Tests Today</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">23</span>
+                        <span class="stat-label">Urgent Results</span>
+                    </div>
+                </div>
+                <ul class="department-features">
+                    <li>Clinical chemistry</li>
+                    <li>Hematology</li>
+                    <li>Microbiology</li>
+                    <li>Immunology</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Core ERP Modules Section -->
+        <div class="section-header">
+            <h2 class="section-title">Core ERP Modules</h2>
+            <p class="section-subtitle">Comprehensive business management systems</p>
+        </div>
+
         <div class="modules-grid">
             <div class="module-card" onclick="openModule('patient-management')">
                 <div class="module-icon patient-management">👥</div>
@@ -392,18 +642,6 @@
                     <li>Appointment scheduling with SMS notifications</li>
                     <li>Medical history and test tracking</li>
                     <li>Insurance and payment processing</li>
-                </ul>
-            </div>
-
-            <div class="module-card" onclick="openModule('laboratory')">
-                <div class="module-icon laboratory">🔬</div>
-                <h3 class="module-title">Laboratory Management</h3>
-                <p class="module-description">Advanced laboratory operations with test processing, quality control, result management, and automated reporting systems.</p>
-                <ul class="module-features">
-                    <li>Test catalog and parameter management</li>
-                    <li>Sample tracking and processing</li>
-                    <li>Quality control and validation</li>
-                    <li>Automated result reporting</li>
                 </ul>
             </div>
 
