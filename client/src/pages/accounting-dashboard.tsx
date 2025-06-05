@@ -35,7 +35,8 @@ import {
   Clock,
   Filter,
   Search,
-  Home
+  Home,
+  X
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -91,6 +92,7 @@ export default function AccountingDashboard() {
   const [selectedAccountType, setSelectedAccountType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [showJournalEntryForm, setShowJournalEntryForm] = useState(false);
+  const [showAddAccountForm, setShowAddAccountForm] = useState(false);
 
   // Financial Summary
   const { data: financialSummary, isLoading: summaryLoading } = useQuery({
@@ -463,7 +465,7 @@ export default function AccountingDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button>
+                <Button onClick={() => setShowAddAccountForm(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Account
                 </Button>
@@ -722,6 +724,152 @@ export default function AccountingDashboard() {
           }}
         />
       )}
+
+      {/* Add Account Form Modal */}
+      {showAddAccountForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Add New Account</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowAddAccountForm(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <AddAccountForm 
+                onClose={() => setShowAddAccountForm(false)} 
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ['/api/accounting/balances'] });
+                  setShowAddAccountForm(false);
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
+  );
+}
+
+// Add Account Form Component
+function AddAccountForm({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
+  const { toast } = useToast();
+  const [accountCode, setAccountCode] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [accountType, setAccountType] = useState('');
+  const [accountSubtype, setAccountSubtype] = useState('');
+  const [description, setDescription] = useState('');
+
+  const createAccountMutation = useMutation({
+    mutationFn: async (accountData: any) => {
+      return apiRequest('/api/accounting/accounts', 'POST', accountData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Account created successfully",
+      });
+      onSuccess();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accountCode || !accountName || !accountType) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createAccountMutation.mutate({
+      accountCode,
+      accountName,
+      accountType,
+      accountSubtype: accountSubtype || 'general',
+      description,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="accountCode">Account Code *</Label>
+        <Input
+          id="accountCode"
+          value={accountCode}
+          onChange={(e) => setAccountCode(e.target.value)}
+          placeholder="e.g., 1050"
+          required
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="accountName">Account Name *</Label>
+        <Input
+          id="accountName"
+          value={accountName}
+          onChange={(e) => setAccountName(e.target.value)}
+          placeholder="e.g., Medical Supplies"
+          required
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="accountType">Account Type *</Label>
+        <Select value={accountType} onValueChange={setAccountType}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select account type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="asset">Asset</SelectItem>
+            <SelectItem value="liability">Liability</SelectItem>
+            <SelectItem value="equity">Equity</SelectItem>
+            <SelectItem value="revenue">Revenue</SelectItem>
+            <SelectItem value="expense">Expense</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div>
+        <Label htmlFor="accountSubtype">Account Subtype</Label>
+        <Input
+          id="accountSubtype"
+          value={accountSubtype}
+          onChange={(e) => setAccountSubtype(e.target.value)}
+          placeholder="e.g., current_asset, fixed_asset"
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Account description (optional)"
+        />
+      </div>
+      
+      <div className="flex gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={createAccountMutation.isPending} className="flex-1">
+          {createAccountMutation.isPending ? 'Creating...' : 'Create Account'}
+        </Button>
+      </div>
+    </form>
   );
 }
