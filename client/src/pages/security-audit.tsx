@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, AlertTriangle, CheckCircle, Eye, Activity, Users, Clock } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, Eye, Activity, Users, Clock, Home } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

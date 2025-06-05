@@ -30,7 +30,8 @@ import {
   Download,
   RefreshCw,
   BarChart3,
-  FileText
+  FileText,
+  Home
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -240,19 +241,95 @@ export default function RadiologyManagement() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Radiology Management</h1>
-          <p className="text-gray-600">Manage imaging studies and workflow processes</p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Home
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Radiology Management</h1>
+            <p className="text-gray-600">Manage imaging studies and workflow processes</p>
+          </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/radiology/metrics"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/radiology/studies"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/radiology/equipment"] });
+              toast({ title: "Data refreshed successfully", variant: "default" });
+            }}
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Camera className="w-4 h-4 mr-2" />
-            New Study
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Camera className="w-4 h-4 mr-2" />
+                New Study
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Schedule New Radiology Study</DialogTitle>
+                <DialogDescription>
+                  Create a new radiology study request for a patient.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="patientSearch">Patient</Label>
+                  <Input
+                    id="patientSearch"
+                    placeholder="Search for patient by name or ID..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="studyType">Study Type</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select study type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="xray">X-Ray</SelectItem>
+                      <SelectItem value="ct">CT Scan</SelectItem>
+                      <SelectItem value="mri">MRI</SelectItem>
+                      <SelectItem value="ultrasound">Ultrasound</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="routine">Routine</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="stat">STAT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="notes">Clinical Notes</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Enter clinical indication and notes..."
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline">Cancel</Button>
+                <Button>Schedule Study</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
