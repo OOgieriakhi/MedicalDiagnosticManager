@@ -87,26 +87,42 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    console.log('Serializing user:', user.id);
+    done(null, user.id);
+  });
+  
   passport.deserializeUser(async (id: number, done) => {
+    console.log('Deserializing user ID:', id);
+    // For hardcoded admin user, return directly
+    if (id === 1) {
+      const adminUser = {
+        id: 1,
+        username: 'admin',
+        email: 'admin@orient-medical.com',
+        firstName: 'System',
+        lastName: 'Administrator',
+        role: 'admin',
+        tenantId: 1,
+        branchId: 1,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      return done(null, adminUser);
+    }
+    
     try {
       const user = await storage.getUser(id);
       if (user) {
         done(null, user);
       } else {
-        // Try fallback storage
         const fallbackUser = await fallbackStorage.getUser(id);
         done(null, fallbackUser);
       }
     } catch (error) {
-      console.warn('User deserialization failed, trying fallback:', error.message);
-      try {
-        const fallbackUser = await fallbackStorage.getUser(id);
-        done(null, fallbackUser);
-      } catch (fallbackError) {
-        console.error('Fallback deserialization also failed:', fallbackError.message);
-        done(null, null);
-      }
+      console.warn('User deserialization failed:', error);
+      done(null, null);
     }
   });
 
