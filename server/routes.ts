@@ -1290,7 +1290,7 @@ export function registerRoutes(app: Express): Server {
         .where(
           and(
             eq(invoices.branchId, userBranchId),
-            eq(invoices.status, 'paid'),
+            sql`${invoices.status} = 'paid'`,
             isNotNull(invoices.paidAt)
           )
         )
@@ -1356,14 +1356,14 @@ export function registerRoutes(app: Express): Server {
             and(
               eq(patientTests.branchId, userBranchId),
               or(
-                ilike(tests.name, '%x-ray%'),
-                ilike(tests.name, '%ct%'),
-                ilike(tests.name, '%mri%'),
-                ilike(tests.name, '%ultrasound%'),
-                ilike(tests.name, '%scan%'),
-                ilike(tests.name, '%imaging%'),
-                ilike(tests.name, '%echo%'),
-                ilike(tests.name, '%doppler%')
+                sql`${tests.name} ILIKE '%x-ray%'`,
+                sql`${tests.name} ILIKE '%ct%'`,
+                sql`${tests.name} ILIKE '%mri%'`,
+                sql`${tests.name} ILIKE '%ultrasound%'`,
+                sql`${tests.name} ILIKE '%scan%'`,
+                sql`${tests.name} ILIKE '%imaging%'`,
+                sql`${tests.name} ILIKE '%echo%'`,
+                sql`${tests.name} ILIKE '%doppler%'`
               )
             )
           )
