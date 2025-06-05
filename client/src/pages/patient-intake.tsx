@@ -255,7 +255,7 @@ export default function PatientIntake() {
         subtotal: calculateTotal(),
         commission: calculateCommission(),
         total: Math.max(0, calculateTotal() - calculateCommission()),
-        status: paymentMethod === "invoice" ? "unpaid" : "paid",
+        status: "unpaid", // All invoices start as unpaid by default
         paymentMethod: paymentMethod
       };
 
