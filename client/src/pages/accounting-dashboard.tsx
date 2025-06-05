@@ -710,6 +710,17 @@ export default function AccountingDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Journal Entry Form Modal */}
+      {showJournalEntryForm && (
+        <JournalEntryForm
+          onClose={() => setShowJournalEntryForm(false)}
+          onSuccess={() => {
+            // Refresh journal entries after successful creation
+            queryClient.invalidateQueries({ queryKey: ['/api/accounting/journal-entries'] });
+          }}
+        />
+      )}
     </div>
   );
 }
