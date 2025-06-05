@@ -692,22 +692,19 @@ export class DatabaseStorage implements IStorage {
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     
-    // Get count of invoices created today for this tenant
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    
+    // Get count of all invoices for this tenant (not just today) to ensure uniqueness
     const result = await db
       .select({ count: sql`count(*)` })
       .from(invoices)
-      .where(and(
-        eq(invoices.tenantId, tenantId),
-        between(invoices.createdAt, startOfDay, endOfDay)
-      ));
+      .where(eq(invoices.tenantId, tenantId));
     
     const count = Number(result[0]?.count || 0) + 1;
     const sequence = String(count).padStart(4, '0');
     
-    return `INV-${year}${month}-${sequence}`;
+    // Add timestamp to ensure uniqueness in case of concurrent requests
+    const timestamp = Date.now().toString().slice(-3);
+    
+    return `INV-${year}${month}-${sequence}${timestamp}`;
   }
 
   // Simplified badge system implementation
