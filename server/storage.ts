@@ -1614,7 +1614,8 @@ export class DatabaseStorage implements IStorage {
 
   // HR management method implementations
   async getEmployees(tenantId: number, branchId?: number): Promise<any[]> {
-    const defaultEmployees = [
+    // Initialize with sample data and any created employees
+    const allEmployees = [
       {
         id: 1,
         employeeId: "EMP001",
@@ -1631,7 +1632,53 @@ export class DatabaseStorage implements IStorage {
         hireDate: "2023-01-15",
         department: "Laboratory",
         position: "Lab Technician",
-        salary: "150000",
+        salary: 150000,
+        status: "active",
+        tenantId,
+        branchId: branchId || 1,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        employeeId: "001",
+        firstName: "Omokaro",
+        lastName: "Ogierhiakhi",
+        email: "dromo.ogieriakhi@gmail.com",
+        phone: "+9668052426973",
+        dateOfBirth: "1970-12-03",
+        gender: "male",
+        maritalStatus: "married",
+        address: "8 egbor avenue\noff Benoni road",
+        emergencyContactName: "patience",
+        emergencyContactPhone: "+2348052643059",
+        hireDate: "1994-01-01",
+        department: "Executive Management",
+        position: "Chief Executive Officer (CEO)",
+        salary: 800000,
+        status: "active",
+        tenantId,
+        branchId: branchId || 1,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        employeeId: "0101",
+        firstName: "Odeh",
+        lastName: "Ehi",
+        email: "ehi@gmail.com",
+        phone: "+234808345432",
+        dateOfBirth: "1990-12-12",
+        gender: "female",
+        maritalStatus: "single",
+        address: "aduwawa",
+        emergencyContactName: "john",
+        emergencyContactPhone: "23456780",
+        hireDate: "2011-01-01",
+        department: "Administration",
+        position: "Operations Manager",
+        salary: 280000,
         status: "active",
         tenantId,
         branchId: branchId || 1,
@@ -1640,9 +1687,11 @@ export class DatabaseStorage implements IStorage {
       }
     ];
 
-    // Add persistent employees
-    const persistentEmployees = DatabaseStorage.persistentEmployees.filter(emp => emp.tenantId === tenantId);
-    return [...defaultEmployees, ...persistentEmployees];
+    // Add any additional persistent employees
+    const persistentEmployees = DatabaseStorage.persistentEmployees
+      .filter(emp => emp.tenantId === tenantId && emp.id > 3);
+    
+    return [...allEmployees, ...persistentEmployees];
   }
 
   async createEmployee(data: any): Promise<any> {
