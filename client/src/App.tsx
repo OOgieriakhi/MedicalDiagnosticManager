@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./hooks/use-auth";
 import { ThemeProvider } from "./hooks/use-theme";
+import { BrandingProvider } from "./lib/branding-context";
 import { ProtectedRoute } from "./lib/protected-route";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
@@ -36,6 +37,7 @@ import SecurityAudit from "@/pages/security-audit";
 import CEODashboard from "@/pages/ceo-dashboard";
 import GEDDashboard from "@/pages/ged-dashboard";
 import MarketingManagement from "@/pages/marketing-management";
+import BrandingManagement from "@/pages/branding-management";
 
 function Router() {
   return (
@@ -77,14 +79,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <BrandingProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </BrandingProvider>
     </QueryClientProvider>
   );
 }
