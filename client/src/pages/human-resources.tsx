@@ -52,6 +52,9 @@ const employeeSchema = z.object({
   taxId: z.string().optional(),
   pensionId: z.string().optional(),
   hireDate: z.date(),
+  department: z.string().min(1, "Department is required"),
+  position: z.string().min(1, "Position is required"),
+  salary: z.number().min(0, "Salary must be positive"),
   employmentStatus: z.enum(["active", "terminated", "suspended"]).default("active"),
 });
 
@@ -122,6 +125,8 @@ export default function HumanResources() {
       apiRequest("POST", "/api/hr/employees", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hr/employees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hr/metrics"] });
+      employeeForm.reset();
       toast({ title: "Employee created successfully" });
     },
     onError: () => {
@@ -182,6 +187,9 @@ export default function HumanResources() {
       address: "",
       emergencyContactName: "",
       emergencyContactPhone: "",
+      department: "",
+      position: "",
+      salary: 0,
       employmentStatus: "active",
     },
   });
@@ -484,18 +492,26 @@ export default function HumanResources() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="Lab Technician">Lab Technician</SelectItem>
-                              <SelectItem value="Senior Lab Technician">Senior Lab Technician</SelectItem>
-                              <SelectItem value="Radiologist">Radiologist</SelectItem>
-                              <SelectItem value="Radiographer">Radiographer</SelectItem>
-                              <SelectItem value="Administrative Assistant">Administrative Assistant</SelectItem>
-                              <SelectItem value="Manager">Manager</SelectItem>
-                              <SelectItem value="Accountant">Accountant</SelectItem>
-                              <SelectItem value="HR Officer">HR Officer</SelectItem>
-                              <SelectItem value="IT Specialist">IT Specialist</SelectItem>
-                              <SelectItem value="Customer Service Representative">Customer Service Representative</SelectItem>
-                              <SelectItem value="Medical Director">Medical Director</SelectItem>
-                              <SelectItem value="Operations Manager">Operations Manager</SelectItem>
+                              {positions?.map((pos: any) => (
+                                <SelectItem key={pos.id} value={pos.title}>
+                                  {pos.title}
+                                </SelectItem>
+                              )) || (
+                                <>
+                                  <SelectItem value="Lab Technician">Lab Technician</SelectItem>
+                                  <SelectItem value="Senior Lab Technician">Senior Lab Technician</SelectItem>
+                                  <SelectItem value="Radiologist">Radiologist</SelectItem>
+                                  <SelectItem value="Radiographer">Radiographer</SelectItem>
+                                  <SelectItem value="Administrative Assistant">Administrative Assistant</SelectItem>
+                                  <SelectItem value="Manager">Manager</SelectItem>
+                                  <SelectItem value="Accountant">Accountant</SelectItem>
+                                  <SelectItem value="HR Officer">HR Officer</SelectItem>
+                                  <SelectItem value="IT Specialist">IT Specialist</SelectItem>
+                                  <SelectItem value="Customer Service Representative">Customer Service Representative</SelectItem>
+                                  <SelectItem value="Medical Director">Medical Director</SelectItem>
+                                  <SelectItem value="Operations Manager">Operations Manager</SelectItem>
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
