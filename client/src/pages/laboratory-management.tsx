@@ -495,6 +495,304 @@ export default function LaboratoryManagement() {
     return "text-green-600";
   };
 
+  const handlePrintReport = async (test: any) => {
+    try {
+      // Create a new window for printing the report
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        toast({
+          title: "Print blocked",
+          description: "Please allow popups to print reports.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get test parameters if needed
+      let testParameters = [];
+      if (test.testId) {
+        try {
+          const paramsResponse = await apiRequest("GET", `/api/test-parameters/${test.testId}`);
+          if (paramsResponse.ok) {
+            testParameters = await paramsResponse.json();
+          }
+        } catch (error) {
+          console.warn("Could not fetch test parameters:", error);
+        }
+      }
+
+      // Create the HTML content for the report
+      const reportHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Laboratory Report - ${test.patientName}</title>
+          <style>
+            @media print {
+              @page { margin: 1in; }
+              body { margin: 0; }
+            }
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #0066cc;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .logo {
+              font-size: 24px;
+              font-weight: bold;
+              color: #0066cc;
+              margin-bottom: 5px;
+            }
+            .subtitle {
+              color: #666;
+              font-size: 14px;
+            }
+            .report-title {
+              font-size: 20px;
+              font-weight: bold;
+              margin: 20px 0;
+              text-align: center;
+              text-decoration: underline;
+            }
+            .section {
+              margin: 20px 0;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              padding: 15px;
+            }
+            .section-title {
+              font-weight: bold;
+              font-size: 16px;
+              color: #0066cc;
+              margin-bottom: 10px;
+              border-bottom: 1px solid #eee;
+              padding-bottom: 5px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+            }
+            .info-item {
+              display: flex;
+              margin-bottom: 8px;
+            }
+            .info-label {
+              font-weight: bold;
+              min-width: 120px;
+              color: #555;
+            }
+            .info-value {
+              flex: 1;
+            }
+            .results-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            .results-table th,
+            .results-table td {
+              border: 1px solid #ddd;
+              padding: 8px;
+              text-align: left;
+            }
+            .results-table th {
+              background-color: #f8f9fa;
+              font-weight: bold;
+            }
+            .status-badge {
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 12px;
+              font-weight: bold;
+            }
+            .status-completed {
+              background-color: #d4edda;
+              color: #155724;
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              text-align: center;
+              font-size: 12px;
+              color: #666;
+            }
+            .signature-section {
+              margin-top: 40px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 40px;
+            }
+            .signature-box {
+              text-align: center;
+              border-top: 1px solid #333;
+              padding-top: 10px;
+              margin-top: 60px;
+            }
+            @media print {
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">Orient Medical Diagnostic Centre</div>
+            <div class="subtitle">Advanced Medical Laboratory Services</div>
+            <div class="subtitle">Phone: +234-XXX-XXXX | Email: info@orientmedical.ng</div>
+          </div>
+
+          <div class="report-title">LABORATORY REPORT</div>
+
+          <div class="section">
+            <div class="section-title">Patient Information</div>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Patient Name:</span>
+                <span class="info-value">${test.patientName || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Patient ID:</span>
+                <span class="info-value">${test.patientIdCode || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Test Date:</span>
+                <span class="info-value">${test.scheduledAt ? new Date(test.scheduledAt).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Report Date:</span>
+                <span class="info-value">${new Date().toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Test Information</div>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Test Name:</span>
+                <span class="info-value">${test.testName || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Test Code:</span>
+                <span class="info-value">${test.testCode || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Category:</span>
+                <span class="info-value">${test.category || 'N/A'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Status:</span>
+                <span class="info-value">
+                  <span class="status-badge status-completed">${test.status === 'reported_and_saved' ? 'Completed' : test.status}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          ${test.results ? `
+          <div class="section">
+            <div class="section-title">Test Results</div>
+            <div style="white-space: pre-wrap; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+              ${test.results}
+            </div>
+          </div>
+          ` : ''}
+
+          ${testParameters && testParameters.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Test Parameters</div>
+            <table class="results-table">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Result</th>
+                  <th>Reference Range</th>
+                  <th>Unit</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${testParameters.map(param => `
+                  <tr>
+                    <td>${param.parameterName}</td>
+                    <td>${param.resultValue || '-'}</td>
+                    <td>${param.referenceRange || '-'}</td>
+                    <td>${param.unit || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          ${test.notes ? `
+          <div class="section">
+            <div class="section-title">Clinical Notes</div>
+            <div style="white-space: pre-wrap; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+              ${test.notes}
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="signature-section">
+            <div>
+              <div class="signature-box">
+                <div>Laboratory Technician</div>
+              </div>
+            </div>
+            <div>
+              <div class="signature-box">
+                <div>Medical Consultant</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>This report is computer-generated and does not require a signature.</p>
+            <p>Report generated on ${new Date().toLocaleString()}</p>
+            <p>Orient Medical Diagnostic Centre - Advanced Medical Laboratory Services</p>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() {
+                window.close();
+              };
+            }
+          </script>
+        </body>
+        </html>
+      `;
+
+      // Write the content to the new window and trigger print
+      printWindow.document.write(reportHTML);
+      printWindow.document.close();
+
+      toast({
+        title: "Report Ready",
+        description: "Print dialog opened for the test report.",
+      });
+
+    } catch (error) {
+      console.error("Print error:", error);
+      toast({
+        title: "Print Error",
+        description: "Unable to generate print preview.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredTests = (labTests || []).filter((test: any) => {
     const matchesSearch = test.testName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          test.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1066,7 +1364,7 @@ export default function LaboratoryManagement() {
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => window.print()}
+                                  onClick={() => handlePrintReport(test)}
                                   className="text-blue-600 border-blue-300"
                                 >
                                   <Printer className="w-4 h-4" />
