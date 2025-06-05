@@ -28,6 +28,7 @@ import {
   chartOfAccounts,
   journalEntries,
   journalEntryLineItems,
+  reportTemplates,
   type User, 
   type InsertUser,
   type Tenant,
