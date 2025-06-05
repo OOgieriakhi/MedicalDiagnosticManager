@@ -2608,6 +2608,67 @@ export class DatabaseStorage implements IStorage {
       .where(eq(patientTests.id, testId));
   }
 
+  // ========== REPORT TEMPLATE MANAGEMENT ==========
+
+  // Get all report templates for a tenant
+  async getReportTemplates(tenantId: number): Promise<any[]> {
+    const templates = await db
+      .select()
+      .from(reportTemplates)
+      .where(and(
+        eq(reportTemplates.tenantId, tenantId),
+        eq(reportTemplates.isActive, true)
+      ))
+      .orderBy(desc(reportTemplates.createdAt));
+    
+    return templates;
+  }
+
+  // Create new report template
+  async createReportTemplate(templateData: any): Promise<any> {
+    const [template] = await db
+      .insert(reportTemplates)
+      .values({
+        tenantId: templateData.tenantId,
+        name: templateData.name,
+        description: templateData.description,
+        category: templateData.category,
+        components: templateData.components || [],
+        isDefault: templateData.isDefault || false,
+        createdBy: templateData.createdBy
+      })
+      .returning();
+    
+    return template;
+  }
+
+  // Update report template
+  async updateReportTemplate(templateId: number, updateData: any): Promise<any> {
+    const [template] = await db
+      .update(reportTemplates)
+      .set({
+        name: updateData.name,
+        description: updateData.description,
+        category: updateData.category,
+        components: updateData.components,
+        isDefault: updateData.isDefault,
+        updatedBy: updateData.updatedBy,
+        updatedAt: new Date()
+      })
+      .where(eq(reportTemplates.id, templateId))
+      .returning();
+    
+    return template;
+  }
+
+  // Delete report template
+  async deleteReportTemplate(templateId: number): Promise<void> {
+    await db
+      .update(reportTemplates)
+      .set({ isActive: false })
+      .where(eq(reportTemplates.id, templateId));
+  }
+
   // Get patient tests with results for consolidated reporting
   async getPatientTestsWithResults(patientId: number, statusFilter?: string): Promise<any[]> {
     try {

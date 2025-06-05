@@ -5427,6 +5427,82 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ========== REPORT TEMPLATE MANAGEMENT ENDPOINTS ==========
+  
+  // Get all report templates
+  app.get("/api/report-templates", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const templates = await storage.getReportTemplates(req.user!.tenantId);
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching report templates:", error);
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  // Create new report template
+  app.post("/api/report-templates", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const templateData = {
+        ...req.body,
+        tenantId: req.user!.tenantId,
+        createdBy: req.user!.id
+      };
+
+      const template = await storage.createReportTemplate(templateData);
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error creating report template:", error);
+      res.status(500).json({ message: "Failed to create template" });
+    }
+  });
+
+  // Update report template
+  app.put("/api/report-templates/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const templateId = parseInt(req.params.id);
+      const updateData = {
+        ...req.body,
+        updatedBy: req.user!.id,
+        updatedAt: new Date()
+      };
+
+      const template = await storage.updateReportTemplate(templateId, updateData);
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error updating report template:", error);
+      res.status(500).json({ message: "Failed to update template" });
+    }
+  });
+
+  // Delete report template
+  app.delete("/api/report-templates/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const templateId = parseInt(req.params.id);
+      await storage.deleteReportTemplate(templateId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting report template:", error);
+      res.status(500).json({ message: "Failed to delete template" });
+    }
+  });
+
   // ========== BRANDING MANAGEMENT ENDPOINTS ==========
   
   // Get organization branding
