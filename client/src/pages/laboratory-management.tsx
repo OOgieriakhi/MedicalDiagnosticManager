@@ -721,14 +721,21 @@ export default function LaboratoryManagement() {
                 </tr>
               </thead>
               <tbody>
-                ${testParameters.map((param: any) => `
+                ${testParameters.map((param: any) => {
+                  const resultValue = test.parameterResults ? 
+                    (JSON.parse(test.parameterResults)[param.id] || '-') : '-';
+                  const referenceRange = param.normalRangeMin !== null && param.normalRangeMax !== null ? 
+                    `${param.normalRangeMin}-${param.normalRangeMax}` : 
+                    (param.normalRangeText || '-');
+                  return `
                   <tr>
                     <td>${param.parameterName}</td>
-                    <td>${param.resultValue || '-'}</td>
-                    <td>${param.referenceRange || '-'}</td>
+                    <td>${resultValue}</td>
+                    <td>${referenceRange}</td>
                     <td>${param.unit || '-'}</td>
                   </tr>
-                `).join('')}
+                  `;
+                }).join('')}
               </tbody>
             </table>
           </div>
