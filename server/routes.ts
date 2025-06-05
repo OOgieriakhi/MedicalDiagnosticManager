@@ -3833,16 +3833,11 @@ export function registerRoutes(app: Express): Server {
         .from(patients)
         .where(eq(patients.tenantId, user.tenantId || 1));
 
-      // Get pending approvals count
-      const pendingApprovals = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(purchaseOrders)
-        .where(
-          and(
-            eq(purchaseOrders.tenantId, user.tenantId || 1),
-            eq(purchaseOrders.status, 'pending_approval')
-          )
-        );
+      // Get pending approvals count - using correct table import
+      const pendingApprovalsResult = await db.execute(
+        sql`SELECT COUNT(*) as count FROM purchase_orders WHERE tenant_id = ${user.tenantId || 1} AND status = 'pending'`
+      );
+      const pendingApprovals = { count: Number(pendingApprovalsResult.rows[0]?.count || 0) };
 
       // Revenue by service calculation
       const serviceRevenue = await db
@@ -3872,8 +3867,8 @@ export function registerRoutes(app: Express): Server {
       res.json({
         totalRevenue: revenue.totalRevenue,
         monthlyGrowth: 15.2, // Calculate based on historical data
-        activePatients: activePatients[0].count,
-        pendingApprovals: pendingApprovals[0].count,
+        activePatients: activePatients[0]?.count || 0,
+        pendingApprovals: pendingApprovals.count,
         criticalAlerts: 2,
         branchPerformance: [
           { name: 'Main Branch', revenue: revenue.totalRevenue, growth: 15.2 }
@@ -3901,29 +3896,35 @@ export function registerRoutes(app: Express): Server {
 
       const user = req.user!;
 
-      // Get pending purchase orders
-      const pendingPOs = await db
-        .select({
-          id: purchaseOrders.id,
-          type: sql<string>`'Purchase Order'`,
-          description: purchaseOrders.description,
-          amount: purchaseOrders.totalAmount,
-          requestedBy: sql<string>`'Staff Member'`,
-          urgency: sql<string>`CASE 
-            WHEN total_amount::decimal > 100000 THEN 'high'
-            WHEN total_amount::decimal > 50000 THEN 'medium'
+      // Get pending purchase orders using direct SQL
+      const pendingPOsResult = await db.execute(
+        sql`SELECT 
+          id,
+          'Purchase Order' as type,
+          vendor_name || ' - ' || COALESCE(notes, 'Purchase Order') as description,
+          total_amount as amount,
+          'Staff Member' as requestedBy,
+          CASE 
+            WHEN total_amount::decimal > 1000000 THEN 'high'
+            WHEN total_amount::decimal > 500000 THEN 'medium'
             ELSE 'low'
-          END`,
-          daysWaiting: sql<number>`EXTRACT(DAY FROM NOW() - created_at)::int`
-        })
-        .from(purchaseOrders)
-        .where(
-          and(
-            eq(purchaseOrders.tenantId, user.tenantId || 1),
-            eq(purchaseOrders.status, 'pending_approval')
-          )
-        )
-        .limit(10);
+          END as urgency,
+          EXTRACT(DAY FROM NOW() - created_at)::int as daysWaiting
+        FROM purchase_orders 
+        WHERE tenant_id = ${user.tenantId || 1} AND status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 10`
+      );
+      
+      const pendingPOs = pendingPOsResult.rows.map((row: any) => ({
+        id: row.id,
+        type: row.type,
+        description: row.description,
+        amount: row.amount,
+        requestedBy: row.requestedby,
+        urgency: row.urgency,
+        daysWaiting: row.dayswaiting
+      }));
 
       res.json(pendingPOs);
     } catch (error: any) {
