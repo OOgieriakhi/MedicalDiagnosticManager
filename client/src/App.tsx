@@ -40,6 +40,7 @@ import MarketingManagement from "@/pages/marketing-management";
 import BrandingManagement from "@/pages/branding-management";
 import QualityAssurance from "@/pages/quality-assurance";
 import ReferenceRanges from "@/pages/reference-ranges";
+import ReportDesigner from "@/pages/report-designer";
 
 function Router() {
   return (
@@ -75,6 +76,7 @@ function Router() {
       <ProtectedRoute path="/branding-management" component={BrandingManagement} />
       <ProtectedRoute path="/quality-assurance" component={QualityAssurance} />
       <ProtectedRoute path="/reference-ranges" component={ReferenceRanges} />
+      <ProtectedRoute path="/report-designer" component={ReportDesigner} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

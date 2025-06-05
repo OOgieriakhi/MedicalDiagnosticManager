@@ -494,16 +494,20 @@ export const testResultValues = pgTable("test_result_values", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Report templates for different test types
+// Report templates for customizable drag-and-drop reports
 export const reportTemplates = pgTable("report_templates", {
   id: serial("id").primaryKey(),
-  testId: integer("test_id").notNull().references(() => tests.id),
-  templateName: text("template_name").notNull(),
-  headerTemplate: text("header_template"),
-  footerTemplate: text("footer_template"),
-  interpretationRules: json("interpretation_rules"),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  tenantId: integer("tenant_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // ultrasound, radiology, laboratory, general
+  components: jsonb("components").notNull().default('[]'), // Array of report components
+  isDefault: boolean("is_default").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: integer("created_by").notNull(),
+  updatedBy: integer("updated_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const insertTestParameterSchema = createInsertSchema(testParameters).omit({
@@ -895,6 +899,17 @@ export const purchaseOrderApprovals = pgTable("purchase_order_approvals", {
   comments: text("comments"),
   approvedAt: timestamp("approved_at"),
   rejectedAt: timestamp("rejected_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Report Template Sharing and Permissions
+export const reportTemplateShares = pgTable("report_template_shares", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull(),
+  sharedWithUserId: integer("shared_with_user_id"),
+  sharedWithRoleId: integer("shared_with_role_id"),
+  permissions: jsonb("permissions").notNull().default('{"read": true, "edit": false, "delete": false}'),
+  sharedBy: integer("shared_by").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
