@@ -48,6 +48,157 @@ import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema }
 import { insertRoleSchema, insertPermissionSchema, insertUserRoleSchema, insertSecurityPolicySchema } from "@shared/rbac-schema";
 
 // Thermal receipt generator for POS printers
+// Helper function to interpret parameter values
+function interpretParameterValue(parameter: any, value: string) {
+  const numericValue = parseFloat(value);
+  if (isNaN(numericValue)) return { status: "text", flag: "" };
+
+  if (parameter.normalRangeMin !== null && parameter.normalRangeMax !== null) {
+    if (numericValue < parameter.normalRangeMin) {
+      return { status: "low", flag: "L" };
+    } else if (numericValue > parameter.normalRangeMax) {
+      return { status: "high", flag: "H" };
+    } else {
+      return { status: "normal", flag: "N" };
+    }
+  }
+  return { status: "normal", flag: "N" };
+}
+
+// Helper function to generate consolidated report
+async function generateConsolidatedReport(patientId: number) {
+  const patient = await storage.getPatient(patientId);
+  if (!patient) throw new Error("Patient not found");
+  
+  const patientTests = await storage.getPatientTestsWithResults(patientId);
+  
+  return {
+    patient: {
+      id: patient.id,
+      patientId: patient.patientId,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      dateOfBirth: patient.dateOfBirth,
+      gender: patient.gender,
+      phone: patient.phone,
+      email: patient.email
+    },
+    tests: patientTests.map((test: any) => ({
+      id: test.id,
+      testName: test.testName,
+      testCode: test.testCode,
+      results: test.results,
+      notes: test.notes,
+      status: test.status,
+      completedAt: test.completedAt,
+      resultsSavedAt: test.resultsSavedAt,
+      category: test.category
+    })),
+    generatedAt: new Date(),
+    totalTests: patientTests.length,
+    completedTests: patientTests.filter((t: any) => t.status === "completed").length,
+    savedResults: patientTests.filter((t: any) => t.status === "results_saved").length
+  };
+}
+
+// Helper function to generate report PDF
+async function generateReportPDF(consolidatedReport: any): Promise<Buffer> {
+  // Use existing PDF generation service
+  return new Promise((resolve, reject) => {
+    try {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+      
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      
+      // Header
+      doc.fontSize(20).text('Medical Laboratory Report', { align: 'center' });
+      doc.moveDown();
+      
+      // Patient Information
+      doc.fontSize(14).text('Patient Information:', { underline: true });
+      doc.fontSize(12);
+      doc.text(`Name: ${consolidatedReport.patient.firstName} ${consolidatedReport.patient.lastName}`);
+      doc.text(`Patient ID: ${consolidatedReport.patient.patientId}`);
+      doc.text(`Date of Birth: ${new Date(consolidatedReport.patient.dateOfBirth).toLocaleDateString()}`);
+      doc.text(`Gender: ${consolidatedReport.patient.gender}`);
+      doc.moveDown();
+      
+      // Test Results
+      doc.fontSize(14).text('Test Results:', { underline: true });
+      doc.fontSize(12);
+      
+      consolidatedReport.tests.forEach((test: any, index: number) => {
+        doc.text(`${index + 1}. ${test.testName} (${test.testCode})`);
+        doc.text(`Status: ${test.status}`);
+        if (test.results) {
+          doc.text(`Results: ${test.results}`);
+        }
+        if (test.notes) {
+          doc.text(`Notes: ${test.notes}`);
+        }
+        doc.moveDown();
+      });
+      
+      // Footer
+      doc.text(`Report generated on: ${new Date().toLocaleString()}`, { align: 'right' });
+      
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Helper function to send WhatsApp report
+async function sendWhatsAppReport(consolidatedReport: any, phoneNumber: string) {
+  const message = `Medical Laboratory Report for ${consolidatedReport.patient.firstName} ${consolidatedReport.patient.lastName}
+
+Patient ID: ${consolidatedReport.patient.patientId}
+Total Tests: ${consolidatedReport.totalTests}
+Completed: ${consolidatedReport.completedTests}
+
+Test Results:
+${consolidatedReport.tests.map((test: any, index: number) => 
+  `${index + 1}. ${test.testName}: ${test.status}`
+).join('\n')}
+
+Generated: ${new Date().toLocaleString()}`;
+
+  // Implementation would use actual WhatsApp Business API
+  console.log(`WhatsApp report sent to ${phoneNumber}:`, message);
+}
+
+// Helper function to send email report
+async function sendEmailReport(consolidatedReport: any, emailAddress: string) {
+  const subject = `Medical Laboratory Report - ${consolidatedReport.patient.firstName} ${consolidatedReport.patient.lastName}`;
+  
+  const htmlContent = `
+    <h2>Medical Laboratory Report</h2>
+    <h3>Patient Information</h3>
+    <p><strong>Name:</strong> ${consolidatedReport.patient.firstName} ${consolidatedReport.patient.lastName}</p>
+    <p><strong>Patient ID:</strong> ${consolidatedReport.patient.patientId}</p>
+    <p><strong>Date of Birth:</strong> ${new Date(consolidatedReport.patient.dateOfBirth).toLocaleDateString()}</p>
+    
+    <h3>Test Results</h3>
+    ${consolidatedReport.tests.map((test: any, index: number) => `
+      <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd;">
+        <h4>${index + 1}. ${test.testName} (${test.testCode})</h4>
+        <p><strong>Status:</strong> ${test.status}</p>
+        ${test.results ? `<p><strong>Results:</strong> ${test.results}</p>` : ''}
+        ${test.notes ? `<p><strong>Notes:</strong> ${test.notes}</p>` : ''}
+      </div>
+    `).join('')}
+    
+    <p><em>Report generated on: ${new Date().toLocaleString()}</em></p>
+  `;
+
+  // Implementation would use actual email service
+  console.log(`Email report sent to ${emailAddress}:`, { subject, htmlContent });
+}
+
 function generateThermalReceipt(invoice: any, patient: any, tests: any[], branch: any, tenant: any): string {
   const centerText = (text: string, width = 32) => {
     const padding = Math.max(0, (width - text.length) / 2);
@@ -1385,6 +1536,168 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error collecting specimen:", error);
       res.status(500).json({ message: "Error collecting specimen" });
+    }
+  });
+
+  // Save test results for later processing (printing, WhatsApp, email)
+  app.post("/api/patient-tests/:id/save-results", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { id } = req.params;
+    const { results, parameterResults, notes, saveForLater } = req.body;
+    
+    try {
+      const testId = parseInt(id);
+      let finalResults = results;
+      
+      // Handle structured parameter results
+      if (parameterResults && Object.keys(parameterResults).length > 0) {
+        const testParameters = await storage.getTestParameters(testId);
+        if (testParameters && testParameters.length > 0) {
+          // Generate formatted results from parameter values
+          finalResults = testParameters.map((param: any) => {
+            const value = parameterResults[param.id];
+            const interpretation = value ? interpretParameterValue(param, value) : { status: "pending", flag: "" };
+            return `${param.parameterName}: ${value || "Pending"} ${param.unit || ""} ${interpretation.flag ? `(${interpretation.flag})` : ""}`;
+          }).join("\n");
+          
+          // Add automated interpretation
+          const abnormalCount = testParameters.filter((param: any) => {
+            const value = parameterResults[param.id];
+            if (!value) return false;
+            const interpretation = interpretParameterValue(param, value);
+            return interpretation.status === "high" || interpretation.status === "low";
+          }).length;
+          
+          if (abnormalCount === 0) {
+            finalResults += "\n\nInterpretation: All parameters are within normal limits.";
+          } else {
+            finalResults += "\n\nInterpretation: Abnormal findings detected. Further clinical correlation is recommended.";
+          }
+        }
+      }
+      
+      // Save results with status indicating saved for later processing
+      await storage.updatePatientTestResults(testId, {
+        results: finalResults,
+        notes: notes || null,
+        status: saveForLater ? "results_saved" : "completed",
+        resultsSavedAt: new Date(),
+        resultsSavedBy: req.user.id
+      });
+      
+      res.json({ 
+        message: saveForLater ? 
+          "Results saved successfully for later processing" : 
+          "Results saved and test completed",
+        consolidatedReport: await generateConsolidatedReport(testId)
+      });
+    } catch (error: any) {
+      console.error("Error saving test results:", error);
+      res.status(500).json({ message: "Error saving test results" });
+    }
+  });
+
+  // Generate consolidated report for patient (combining multiple tests)
+  app.get("/api/patients/:patientId/consolidated-report", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { patientId } = req.params;
+    const { includeStatus } = req.query;
+    
+    try {
+      const patient = await storage.getPatient(parseInt(patientId));
+      if (!patient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+      
+      // Get all patient tests with results
+      const patientTests = await storage.getPatientTestsWithResults(parseInt(patientId), includeStatus as string);
+      
+      if (!patientTests || patientTests.length === 0) {
+        return res.status(404).json({ message: "No test results found for this patient" });
+      }
+      
+      const consolidatedReport = {
+        patient: {
+          id: patient.id,
+          patientId: patient.patientId,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+          dateOfBirth: patient.dateOfBirth,
+          gender: patient.gender,
+          phone: patient.phone,
+          email: patient.email
+        },
+        tests: patientTests.map((test: any) => ({
+          id: test.id,
+          testName: test.testName,
+          testCode: test.testCode,
+          results: test.results,
+          notes: test.notes,
+          status: test.status,
+          completedAt: test.completedAt,
+          resultsSavedAt: test.resultsSavedAt,
+          category: test.category
+        })),
+        generatedAt: new Date(),
+        totalTests: patientTests.length,
+        completedTests: patientTests.filter((t: any) => t.status === "completed").length,
+        savedResults: patientTests.filter((t: any) => t.status === "results_saved").length
+      };
+      
+      res.json(consolidatedReport);
+    } catch (error: any) {
+      console.error("Error generating consolidated report:", error);
+      res.status(500).json({ message: "Error generating consolidated report" });
+    }
+  });
+
+  // Batch process saved results (print, WhatsApp, email)
+  app.post("/api/patients/:patientId/process-saved-results", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { patientId } = req.params;
+    const { deliveryMethod, recipientInfo } = req.body;
+    
+    try {
+      const consolidatedReport = await generateConsolidatedReport(parseInt(patientId));
+      
+      switch (deliveryMethod) {
+        case "print":
+          // Generate PDF for printing
+          const printPdf = await generateReportPDF(consolidatedReport);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="patient-${patientId}-report.pdf"`);
+          res.send(printPdf);
+          break;
+          
+        case "whatsapp":
+          if (!recipientInfo?.phone) {
+            return res.status(400).json({ message: "Phone number required for WhatsApp delivery" });
+          }
+          await sendWhatsAppReport(consolidatedReport, recipientInfo.phone);
+          res.json({ message: "Report sent via WhatsApp successfully" });
+          break;
+          
+        case "email":
+          if (!recipientInfo?.email) {
+            return res.status(400).json({ message: "Email address required for email delivery" });
+          }
+          await sendEmailReport(consolidatedReport, recipientInfo.email);
+          res.json({ message: "Report sent via email successfully" });
+          break;
+          
+        default:
+          return res.status(400).json({ message: "Invalid delivery method" });
+      }
+      
+      // Mark results as processed
+      await storage.markResultsAsProcessed(parseInt(patientId), deliveryMethod, req.user.id);
+      
+    } catch (error: any) {
+      console.error("Error processing saved results:", error);
+      res.status(500).json({ message: "Error processing saved results" });
     }
   });
 

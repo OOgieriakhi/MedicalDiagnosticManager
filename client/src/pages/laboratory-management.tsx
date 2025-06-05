@@ -209,6 +209,35 @@ export default function LaboratoryManagement() {
     },
   });
 
+  // Save test results for later processing (printing, WhatsApp, email)
+  const saveTestResultsMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", `/api/patient-tests/${data.testId}/save-results`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patient-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/laboratory/metrics"] });
+      refetchMetrics();
+      setShowResultDialog(false);
+      setTestResults("");
+      setTestNotes("");
+      setResultValues({});
+      setSelectedTest(null);
+      toast({
+        title: "Results Saved",
+        description: "Test results have been saved for later processing (printing, WhatsApp, or email).",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Save Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Workflow management mutations
   const verifyPaymentMutation = useMutation({
     mutationFn: async (testId: number) => {
@@ -1262,7 +1291,7 @@ export default function LaboratoryManagement() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-between gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -1277,33 +1306,66 @@ export default function LaboratoryManagement() {
                   Cancel
                 </Button>
                 
-                {testParameters && testParameters.length > 0 ? (
+                <div className="flex gap-2">
+                  {/* Save Results Button for later processing */}
                   <Button
-                    onClick={() => completeStructuredTestMutation.mutate()}
-                    disabled={
-                      completeStructuredTestMutation.isPending || 
-                      Object.keys(resultValues).length === 0 ||
-                      testParameters.some((param: any) => !resultValues[param.id]?.trim())
-                    }
-                  >
-                    {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
-                  </Button>
-                ) : (
-                  <Button
+                    variant="secondary"
                     onClick={() => {
-                      if (selectedTest && testResults.trim()) {
-                        completeTestMutation.mutate({
-                          testId: selectedTest.id,
+                      if (testParameters && testParameters.length > 0) {
+                        saveTestResultsMutation.mutate({
+                          testId: selectedTest?.id,
+                          parameterResults: resultValues,
+                          notes: testNotes,
+                          saveForLater: true
+                        });
+                      } else {
+                        saveTestResultsMutation.mutate({
+                          testId: selectedTest?.id,
                           results: testResults,
-                          notes: testNotes
+                          notes: testNotes,
+                          saveForLater: true
                         });
                       }
                     }}
-                    disabled={completeTestMutation.isPending || !testResults.trim()}
+                    disabled={
+                      saveTestResultsMutation.isPending || 
+                      (testParameters && testParameters.length > 0 ? 
+                        Object.keys(resultValues).length === 0 ||
+                        testParameters.some((param: any) => !resultValues[param.id]?.trim()) :
+                        !testResults.trim())
+                    }
                   >
-                    {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
+                    {saveTestResultsMutation.isPending ? "Saving..." : "Save Results"}
                   </Button>
-                )}
+
+                  {testParameters && testParameters.length > 0 ? (
+                    <Button
+                      onClick={() => completeStructuredTestMutation.mutate()}
+                      disabled={
+                        completeStructuredTestMutation.isPending || 
+                        Object.keys(resultValues).length === 0 ||
+                        testParameters.some((param: any) => !resultValues[param.id]?.trim())
+                      }
+                    >
+                      {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        if (selectedTest && testResults.trim()) {
+                          completeTestMutation.mutate({
+                            testId: selectedTest.id,
+                            results: testResults,
+                            notes: testNotes
+                          });
+                        }
+                      }}
+                      disabled={completeTestMutation.isPending || !testResults.trim()}
+                    >
+                      {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}
