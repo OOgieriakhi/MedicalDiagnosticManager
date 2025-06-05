@@ -3802,5 +3802,155 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ==================== TRAINING SIMULATION API ROUTES ====================
+
+  // Get training modules by department
+  app.get("/api/training/modules", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { department, difficulty } = req.query;
+      const modules = await trainingStorage.getTrainingModules({
+        department: department as string,
+        difficulty: difficulty as string,
+      });
+
+      // Enrich with user progress if available
+      const enrichedModules = await Promise.all(
+        modules.map(async (module) => {
+          const progress = await trainingStorage.getUserTrainingProgress(req.user!.id, module.id);
+          const userProgress = progress[0];
+          
+          return {
+            ...module,
+            progressPercentage: userProgress?.progressPercentage || 0,
+            certificateEarned: userProgress?.certificateEarned || false,
+          };
+        })
+      );
+
+      res.json(enrichedModules);
+    } catch (error: any) {
+      console.error("Error fetching training modules:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get training scenarios for a module
+  app.get("/api/training/scenarios/:moduleId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const moduleId = parseInt(req.params.moduleId);
+      if (isNaN(moduleId)) {
+        return res.status(400).json({ message: "Invalid module ID" });
+      }
+
+      const scenarios = await trainingStorage.getTrainingScenarios(moduleId);
+      res.json(scenarios);
+    } catch (error: any) {
+      console.error("Error fetching training scenarios:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get user's training progress
+  app.get("/api/training/progress", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const progress = await trainingStorage.getUserTrainingProgress(req.user!.id);
+      res.json(progress);
+    } catch (error: any) {
+      console.error("Error fetching training progress:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Start a new training session
+  app.post("/api/training/sessions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { scenarioId, sessionMode } = req.body;
+
+      // Validate scenario exists
+      const scenario = await trainingStorage.getTrainingScenario(scenarioId);
+      if (!scenario) {
+        return res.status(404).json({ message: "Scenario not found" });
+      }
+
+      // Calculate max score based on required actions
+      const maxScore = scenario.requiredActions.reduce((sum, action) => sum + action.points, 0);
+
+      const session = await trainingStorage.createTrainingSession({
+        userId: req.user!.id,
+        scenarioId,
+        sessionMode: sessionMode || 'guided',
+        status: 'active',
+        score: 0,
+        maxScore,
+        timeSpent: 0,
+        actionsPerformed: [],
+        mistakesMade: [],
+        hintsUsed: 0,
+      });
+
+      res.status(201).json(session);
+    } catch (error: any) {
+      console.error("Error creating training session:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update training session (for progress tracking)
+  app.put("/api/training/sessions/:sessionId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const sessionId = parseInt(req.params.sessionId);
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+
+      const updates = req.body;
+      const session = await trainingStorage.updateTrainingSession(sessionId, updates);
+
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error updating training session:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get user's certificates
+  app.get("/api/training/certificates", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const certificates = await trainingStorage.getUserCertificates(req.user!.id);
+      res.json(certificates);
+    } catch (error: any) {
+      console.error("Error fetching certificates:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }
