@@ -42,6 +42,7 @@ import QualityAssurance from "@/pages/quality-assurance";
 import ReferenceRanges from "@/pages/reference-ranges";
 import ReportDesigner from "@/pages/report-designer";
 import PredictiveRecommendations from "@/pages/predictive-recommendations";
+import WaitingRoomQueue from "@/pages/waiting-room-queue";
 
 function Router() {
   return (
@@ -79,6 +80,7 @@ function Router() {
       <ProtectedRoute path="/reference-ranges" component={ReferenceRanges} />
       <ProtectedRoute path="/report-designer" component={ReportDesigner} />
       <ProtectedRoute path="/predictive-recommendations" component={PredictiveRecommendations} />
+      <ProtectedRoute path="/waiting-room-queue" component={WaitingRoomQueue} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
