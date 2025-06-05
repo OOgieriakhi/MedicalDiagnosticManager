@@ -500,19 +500,35 @@ export default function LaboratoryManagement() {
                          test.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          test.testCode?.toLowerCase().includes(searchTerm.toLowerCase());
     
+    // Debug: Log test data structure for the first test
+    if (labTests && labTests.length > 0 && test === labTests[0]) {
+      console.log('Test data structure:', {
+        id: test.id,
+        status: test.status,
+        paymentStatus: test.paymentStatus,
+        paymentVerified: test.paymentVerified,
+        specimenCollected: test.specimenCollected,
+        processingStarted: test.processingStarted,
+        allFields: Object.keys(test)
+      });
+    }
+    
     // Handle actual test statuses used in the system
     let matchesStatus = false;
     if (statusFilter === "all") {
       matchesStatus = true;
     } else if (statusFilter === "payment_verification") {
       // Tests that need payment verification - paid but not yet verified by lab staff
-      matchesStatus = test.paymentStatus === "paid" && !test.paymentVerified;
+      matchesStatus = test.paymentStatus === "paid" && test.paymentVerified !== true;
     } else if (statusFilter === "specimen_collection") {
       // Tests with verified payment but no specimen collected yet
-      matchesStatus = test.paymentVerified === true && !test.specimenCollected;
+      matchesStatus = test.paymentVerified === true && test.specimenCollected !== true;
     } else if (statusFilter === "in_progress") {
-      // Tests that are actively being processed
-      matchesStatus = (test.status === "processing" || test.status === "in_progress") && test.processingStarted === true;
+      // Tests that are actively being processed - check multiple conditions
+      matchesStatus = test.processingStarted === true || 
+                     test.status === "processing" || 
+                     test.status === "in_progress" ||
+                     (test.specimenCollected === true && test.status !== "completed" && test.status !== "reported_and_saved");
     } else if (statusFilter === "completed") {
       // Tests that are completed or reported
       matchesStatus = test.status === "completed" || test.status === "reported_and_saved";
