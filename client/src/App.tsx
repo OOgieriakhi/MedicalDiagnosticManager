@@ -70,6 +70,7 @@ function Router() {
       <ProtectedRoute path="/ceo-dashboard" component={CEODashboard} />
       <ProtectedRoute path="/ged-dashboard" component={GEDDashboard} />
       <ProtectedRoute path="/marketing" component={MarketingManagement} />
+      <ProtectedRoute path="/branding-management" component={BrandingManagement} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

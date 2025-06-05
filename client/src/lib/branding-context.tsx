@@ -7,12 +7,15 @@ type BrandingTheme = {
   organizationSlogan?: string;
   logoUrl?: string;
   primaryEmail?: string;
+  supportEmail?: string;
   primaryPhone?: string;
+  secondaryPhone?: string;
   website?: string;
   streetAddress?: string;
   city?: string;
   state?: string;
   country?: string;
+  postalCode?: string;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
