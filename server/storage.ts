@@ -162,6 +162,7 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   sessionStore: session.SessionStore;
   private static persistentDepartments: any[] = [];
+  private static persistentEmployees: any[] = [];
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -1613,7 +1614,7 @@ export class DatabaseStorage implements IStorage {
 
   // HR management method implementations
   async getEmployees(tenantId: number, branchId?: number): Promise<any[]> {
-    return [
+    const defaultEmployees = [
       {
         id: 1,
         employeeId: "EMP001",
@@ -1638,10 +1639,14 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       }
     ];
+
+    // Add persistent employees
+    const persistentEmployees = DatabaseStorage.persistentEmployees.filter(emp => emp.tenantId === tenantId);
+    return [...defaultEmployees, ...persistentEmployees];
   }
 
   async createEmployee(data: any): Promise<any> {
-    // In real implementation, this would insert into an employees table
+    // Create employee object for persistent storage
     const employee = {
       id: Date.now(),
       employeeId: data.employeeId,
@@ -1665,6 +1670,9 @@ export class DatabaseStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+
+    // Store in persistent static storage
+    DatabaseStorage.persistentEmployees.push(employee);
     
     console.log("Created employee:", employee);
     return employee;
@@ -1858,13 +1866,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getHRMetrics(tenantId: number): Promise<any> {
+    // Get actual employee data for real metrics
+    const employees = await this.getEmployees(tenantId);
+    const departments = await this.getDepartments(tenantId);
+    
+    // Calculate real metrics
+    const totalEmployees = employees.length;
+    const activeEmployees = employees.filter(emp => emp.status === 'active').length;
+    
+    // Calculate new hires this month
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const newHiresThisMonth = employees.filter(emp => {
+      const hireDate = new Date(emp.hireDate);
+      return hireDate.getMonth() === currentMonth && hireDate.getFullYear() === currentYear;
+    }).length;
+    
+    // Calculate average salary
+    const activeEmployeeSalaries = employees
+      .filter(emp => emp.status === 'active' && emp.salary)
+      .map(emp => parseFloat(emp.salary?.toString() || '0'));
+    
+    const averageSalary = activeEmployeeSalaries.length > 0 
+      ? Math.round(activeEmployeeSalaries.reduce((sum, salary) => sum + salary, 0) / activeEmployeeSalaries.length).toString()
+      : "0";
+    
+    // Calculate total payroll
+    const totalPayroll = activeEmployeeSalaries.reduce((sum, salary) => sum + salary, 0).toString();
+    
     return {
-      totalEmployees: 35,
-      activeEmployees: 33,
-      newHiresThisMonth: 2,
-      departmentCount: 5,
-      averageSalary: "150000",
-      totalPayroll: "5250000",
+      totalEmployees,
+      activeEmployees,
+      newHiresThisMonth,
+      departmentCount: departments.length,
+      averageSalary,
+      totalPayroll,
       employeeTurnoverRate: "5.7%",
       attendanceRate: "95.2%",
       topPerformingDepartment: "Laboratory",
