@@ -16,7 +16,8 @@ import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Award, Star, Trophy, Users, TrendingUp, Medal, Target, CheckCircle } from "lucide-react";
+import { Award, Star, Trophy, Users, TrendingUp, Medal, Target, CheckCircle, Home } from "lucide-react";
+import { Link } from "wouter";
 
 // Form schemas
 const badgeDefinitionSchema = z.object({
@@ -159,11 +160,19 @@ export default function StaffRecognition() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Staff Recognition</h2>
-          <p className="text-muted-foreground">
-            Track achievements, recognize excellence, and boost team morale
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Staff Recognition</h2>
+            <p className="text-muted-foreground">
+              Track achievements, recognize excellence, and boost team morale
+            </p>
+          </div>
         </div>
       </div>
 
