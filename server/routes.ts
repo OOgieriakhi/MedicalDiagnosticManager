@@ -621,7 +621,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { branchId, paidOnly, startDate, endDate, limit } = req.query;
+      const { branchId, paidOnly, startDate, endDate, limit, patientId, today } = req.query;
       const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
       const testLimit = limit ? parseInt(limit as string) : 50;
       const isPaidOnly = paidOnly === 'true';
@@ -632,6 +632,18 @@ export function registerRoutes(app: Express): Server {
 
       const start = startDate ? new Date(startDate as string) : undefined;
       const end = endDate ? new Date(endDate as string) : undefined;
+
+      // Handle duplicate test prevention check
+      if (patientId && today === 'true') {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+        
+        let tests = await storage.getPatientTestsByBranch(userBranchId, 200, false, todayStart, todayEnd);
+        const patientTests = tests.filter((test: any) => test.patientId === parseInt(patientId as string));
+        return res.json(patientTests);
+      }
       
       console.log('Date filter debug:', { 
         startDate, 
@@ -5178,20 +5190,26 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Get test details with patient info
-      const tests = await storage.getPatientTestsWithResults();
+      const tests = await storage.getPatientTestsByBranch(req.user!.branchId, 200);
       const test = tests.find(t => t.id === parseInt(testId));
       if (!test) {
         return res.status(404).json({ message: "Test not found" });
       }
 
-      // Get test parameters if available
+      // Get patient details
+      const patient = await storage.getPatient(test.patientId);
+
+      // Get test category details
+      const testCategories = await storage.getTestCategories(req.user!.tenantId);
+      const testDetails = testCategories.find(tc => tc.id === test.testId);
+
+      // Get test parameters if available from lab parameters file
+      const { getTestParametersForTest } = await import('./lab-parameters');
       const testParameters = await getTestParametersForTest(test.testId);
       
       // Get branch and tenant information
-      const branches = await storage.getBranches(test.tenantId);
-      const branch = branches.find(b => b.id === test.branchId);
-      const tenants = await storage.getTenants();
-      const tenant = tenants.find(t => t.id === test.tenantId);
+      const branch = await storage.getBranch(test.branchId);
+      const tenant = await storage.getTenant(test.tenantId);
 
       // Generate PDF
       const pdfBuffer = await generateLaboratoryReportPDF({

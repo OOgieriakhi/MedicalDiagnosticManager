@@ -153,7 +153,45 @@ export default function PatientIntake() {
     }
   };
 
-  const handleTestSelection = (testId: number) => {
+  // Query to check for existing tests for the selected patient
+  const { data: existingTests = [] } = useQuery({
+    queryKey: ["/api/patient-tests", selectedPatient?.id],
+    queryFn: async () => {
+      if (!selectedPatient?.id) return [];
+      const response = await fetch(`/api/patient-tests?patientId=${selectedPatient.id}&today=true`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!selectedPatient?.id
+  });
+
+  const handleTestSelection = async (testId: number) => {
+    if (!selectedPatient) {
+      toast({
+        title: "Select Patient First",
+        description: "Please select a patient before choosing tests.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for duplicate test on same day
+    const duplicateTest = existingTests.find((test: any) => 
+      test.testId === testId && 
+      (test.status === 'requested' || test.status === 'paid' || test.status === 'specimen_collected' || test.status === 'in_progress')
+    );
+
+    if (duplicateTest && !selectedTests.includes(testId)) {
+      const testName = (tests as any[]).find((t: any) => t.id === testId)?.name || 'Test';
+      const confirmDuplicate = window.confirm(
+        `Patient ${selectedPatient.firstName} ${selectedPatient.lastName} already has "${testName}" requested today (Status: ${duplicateTest.status}). Do you want to continue with adding this test again?`
+      );
+      
+      if (!confirmDuplicate) {
+        return;
+      }
+    }
+
     setSelectedTests(prev => 
       prev.includes(testId) 
         ? prev.filter(id => id !== testId)
