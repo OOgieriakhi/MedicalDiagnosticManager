@@ -817,7 +817,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get tests (with tenant ID from user session)
+  // Get tests (with tenant ID from user session and optional service unit filtering)
   app.get("/api/tests", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -825,8 +825,50 @@ export function registerRoutes(app: Express): Server {
       }
 
       const tenantId = req.user.tenantId;
-      const tests = await storage.getTests(tenantId);
-      res.json(tests);
+      const serviceUnit = req.query.serviceUnit as string;
+      
+      // Role-based access control preparation
+      // TODO: Implement full RBAC - only admin/finance/CEO/directors should see all units
+      const userRole = req.user.role || 'staff'; // Default to staff if no role
+      const hasFullAccess = ['admin', 'finance', 'ceo', 'director'].includes(userRole.toLowerCase());
+
+      let tests;
+      
+      if (serviceUnit && !hasFullAccess) {
+        // Filter tests by service unit for regular staff
+        tests = await db.execute(sql`
+          SELECT t.*, tc.name as category_name 
+          FROM tests t 
+          JOIN test_categories tc ON t.category_id = tc.id 
+          WHERE t.tenant_id = ${tenantId}
+          AND (
+            LOWER(tc.name) LIKE LOWER(${`%${serviceUnit}%`}) 
+            OR LOWER(t.department) = LOWER(${serviceUnit})
+            OR LOWER(t.service_unit) = LOWER(${serviceUnit})
+          )
+          ORDER BY tc.name, t.name
+        `);
+        res.json(tests.rows);
+      } else if (serviceUnit && hasFullAccess) {
+        // Admin/Finance/CEO/Directors can filter but see all if they want
+        tests = await db.execute(sql`
+          SELECT t.*, tc.name as category_name 
+          FROM tests t 
+          JOIN test_categories tc ON t.category_id = tc.id 
+          WHERE t.tenant_id = ${tenantId}
+          AND (
+            LOWER(tc.name) LIKE LOWER(${`%${serviceUnit}%`}) 
+            OR LOWER(t.department) = LOWER(${serviceUnit})
+            OR LOWER(t.service_unit) = LOWER(${serviceUnit})
+          )
+          ORDER BY tc.name, t.name
+        `);
+        res.json(tests.rows);
+      } else {
+        // Return all tests (for admin roles or when no filter specified)
+        tests = await storage.getTests(tenantId);
+        res.json(tests);
+      }
     } catch (error) {
       console.error("Error fetching tests:", error);
       res.status(500).json({ message: "Internal server error" });

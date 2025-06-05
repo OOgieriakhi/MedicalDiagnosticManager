@@ -48,13 +48,18 @@ interface InventoryItem {
 
 export default function TestConsumptionManagement() {
   const { toast } = useToast();
+  const [selectedServiceUnit, setSelectedServiceUnit] = useState<string>("laboratory");
   const [selectedTest, setSelectedTest] = useState<number | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<TestConsumptionTemplate | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Fetch tests
+  // Fetch tests filtered by service unit
   const { data: tests = [] } = useQuery<Test[]>({
-    queryKey: ["/api/tests"],
+    queryKey: ["/api/tests", selectedServiceUnit],
+    queryFn: async () => {
+      const response = await fetch(`/api/tests?serviceUnit=${selectedServiceUnit}`);
+      return response.json();
+    },
   });
 
   // Fetch inventory items
@@ -186,12 +191,36 @@ export default function TestConsumptionManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="service-unit-select">Service Unit</Label>
+              <Select value={selectedServiceUnit} onValueChange={(value) => {
+                setSelectedServiceUnit(value);
+                setSelectedTest(null); // Reset test selection when service unit changes
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select service unit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="laboratory">Laboratory</SelectItem>
+                  <SelectItem value="radiology">Radiology</SelectItem>
+                  <SelectItem value="ultrasound">Ultrasound</SelectItem>
+                  <SelectItem value="cardiology">Cardiology</SelectItem>
+                  <SelectItem value="pharmacy">Pharmacy</SelectItem>
+                  <SelectItem value="nursing">Nursing</SelectItem>
+                  <SelectItem value="physiotherapy">Physiotherapy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="test-select">Select Test/Procedure</Label>
-              <Select value={selectedTest?.toString() || ""} onValueChange={(value) => setSelectedTest(parseInt(value))}>
+              <Select 
+                value={selectedTest?.toString() || ""} 
+                onValueChange={(value) => setSelectedTest(parseInt(value))}
+                disabled={!selectedServiceUnit}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a diagnostic test or procedure" />
+                  <SelectValue placeholder={selectedServiceUnit ? "Choose a test/procedure" : "Select service unit first"} />
                 </SelectTrigger>
                 <SelectContent>
                   {tests.map((test) => (
