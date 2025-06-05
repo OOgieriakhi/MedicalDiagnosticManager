@@ -59,6 +59,7 @@ export default function LaboratoryManagement() {
 
   // Helper function to get test stage-based background color
   const getTestStageColor = (test: any) => {
+    if (test.status === "reported_and_saved") return "bg-emerald-50 border-emerald-200";
     if (test.status === "completed") return "bg-green-50 border-green-200";
     if (test.processingStarted) return "bg-yellow-50 border-yellow-200";
     if (test.specimenCollected) return "bg-blue-50 border-blue-200";
