@@ -212,13 +212,32 @@ async function generateLaboratoryReportPDF(reportData: any): Promise<Buffer> {
         doc.text('Parameter                    Result         Reference Range    Unit');
         doc.text('─'.repeat(80));
         
+        // Parse saved parameter results
+        let savedResults = {};
+        try {
+          if (test.parameterResults) {
+            savedResults = JSON.parse(test.parameterResults);
+          }
+        } catch (e) {
+          console.error('Error parsing parameter results:', e);
+        }
+        
         testParameters.forEach((param: any) => {
-          const result = test.parameterResults ? JSON.parse(test.parameterResults)[param.id] : 'N/A';
+          // Try to get result using parameter ID as both string and number
+          const result = savedResults[param.id.toString()] || savedResults[param.id] || '-';
           const paramName = param.parameterName.length > 25 ? param.parameterName.substring(0, 22) + '...' : param.parameterName;
-          const resultText = result.length > 12 ? result.substring(0, 9) + '...' : result;
-          const refRange = param.referenceRange && param.referenceRange.length > 15 ? param.referenceRange.substring(0, 12) + '...' : (param.referenceRange || 'N/A');
+          const resultText = result.toString().length > 12 ? result.toString().substring(0, 9) + '...' : result.toString();
           
-          doc.text(`${paramName.padEnd(25)} ${resultText.padEnd(14)} ${refRange.padEnd(16)} ${param.unit || ''}`);
+          // Use normalRangeText if available, otherwise construct from min/max
+          let refRange = param.normalRangeText || param.referenceRange;
+          if (!refRange && param.normalRangeMin !== null && param.normalRangeMax !== null) {
+            refRange = `${param.normalRangeMin}-${param.normalRangeMax}`;
+          }
+          refRange = refRange || 'N/A';
+          
+          const refRangeText = refRange.length > 15 ? refRange.substring(0, 12) + '...' : refRange;
+          
+          doc.text(`${paramName.padEnd(25)} ${resultText.padEnd(14)} ${refRangeText.padEnd(16)} ${param.unit || ''}`);
         });
       } else {
         // Free text results
