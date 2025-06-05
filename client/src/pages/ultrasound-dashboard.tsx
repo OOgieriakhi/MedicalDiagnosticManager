@@ -484,8 +484,7 @@ export default function UltrasoundDashboard() {
                       </Button>
                     </div>
                   </div>
-                );
-                })}
+                )})}
               </div>
             </CardContent>
           </Card>
