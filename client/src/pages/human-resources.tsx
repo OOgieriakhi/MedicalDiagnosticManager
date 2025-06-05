@@ -134,6 +134,7 @@ export default function HumanResources() {
       apiRequest("POST", "/api/hr/departments", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hr/departments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hr/metrics"] });
       toast({ title: "Department created successfully" });
     },
     onError: () => {
@@ -449,13 +450,21 @@ export default function HumanResources() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="Laboratory">Laboratory</SelectItem>
-                              <SelectItem value="Radiology">Radiology</SelectItem>
-                              <SelectItem value="Administration">Administration</SelectItem>
-                              <SelectItem value="Finance">Finance</SelectItem>
-                              <SelectItem value="Human Resources">Human Resources</SelectItem>
-                              <SelectItem value="IT Support">IT Support</SelectItem>
-                              <SelectItem value="Customer Service">Customer Service</SelectItem>
+                              {departments?.map((dept: any) => (
+                                <SelectItem key={dept.id} value={dept.name}>
+                                  {dept.name}
+                                </SelectItem>
+                              )) || (
+                                <>
+                                  <SelectItem value="Laboratory">Laboratory</SelectItem>
+                                  <SelectItem value="Radiology">Radiology</SelectItem>
+                                  <SelectItem value="Administration">Administration</SelectItem>
+                                  <SelectItem value="Finance">Finance</SelectItem>
+                                  <SelectItem value="Human Resources">Human Resources</SelectItem>
+                                  <SelectItem value="IT Support">IT Support</SelectItem>
+                                  <SelectItem value="Customer Service">Customer Service</SelectItem>
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
