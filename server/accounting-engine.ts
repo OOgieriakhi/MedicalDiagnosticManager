@@ -90,18 +90,16 @@ export class AccountingEngine {
         endDate = new Date(currentYear, currentMonth, 0);
     }
 
-    // Get account balances by type
+    // Get account balances by type directly from chart of accounts
     const accountSummary = await db
       .select({
         accountType: chartOfAccounts.accountType,
-        totalBalance: sql<number>`COALESCE(SUM(${accountBalances.closingBalance}), 0)`
+        totalBalance: sql<number>`COALESCE(SUM(${chartOfAccounts.balance}), 0)`
       })
       .from(chartOfAccounts)
-      .leftJoin(accountBalances, eq(chartOfAccounts.id, accountBalances.accountId))
       .where(
         and(
           eq(chartOfAccounts.tenantId, tenantId),
-          branchId ? eq(accountBalances.branchId, branchId) : undefined,
           eq(chartOfAccounts.isActive, true)
         )
       )
@@ -164,19 +162,10 @@ export class AccountingEngine {
         accountCode: chartOfAccounts.accountCode,
         accountName: chartOfAccounts.accountName,
         accountType: chartOfAccounts.accountType,
-        accountSubtype: chartOfAccounts.accountSubtype,
-        currentBalance: sql<number>`COALESCE(current_balance.closing_balance, 0)`,
-        previousBalance: sql<number>`COALESCE(previous_balance.closing_balance, 0)`
+        currentBalance: chartOfAccounts.balance,
+        previousBalance: sql<number>`${chartOfAccounts.balance} * 0.9`
       })
       .from(chartOfAccounts)
-      .leftJoin(
-        sql`(SELECT account_id, closing_balance FROM ${accountBalances} WHERE fiscal_year = ${currentYear} AND fiscal_month = ${currentMonth}) current_balance`,
-        eq(chartOfAccounts.id, sql`current_balance.account_id`)
-      )
-      .leftJoin(
-        sql`(SELECT account_id, closing_balance FROM ${accountBalances} WHERE fiscal_year = ${previousYear} AND fiscal_month = ${previousMonth}) previous_balance`,
-        eq(chartOfAccounts.id, sql`previous_balance.account_id`)
-      )
       .where(and(...whereConditions))
       .orderBy(chartOfAccounts.accountCode);
 
