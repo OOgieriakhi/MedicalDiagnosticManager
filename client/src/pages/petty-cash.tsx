@@ -61,8 +61,11 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Home,
+  ArrowLeft
 } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertPettyCashFundSchema, insertPettyCashTransactionSchema, insertPettyCashReconciliationSchema } from "@shared/schema";
@@ -277,9 +280,17 @@ export default function PettyCash() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Petty Cash Management</h1>
-          <p className="text-muted-foreground">Manage petty cash funds, transactions, and reconciliations</p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">Petty Cash Management</h1>
+            <p className="text-muted-foreground">Manage petty cash funds, transactions, and reconciliations</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Dialog open={showNewFundDialog} onOpenChange={setShowNewFundDialog}>

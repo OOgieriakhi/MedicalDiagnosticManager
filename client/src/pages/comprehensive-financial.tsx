@@ -27,7 +27,9 @@ import {
   BarChart3,
   PieChart,
   Receipt,
-  Users
+  Users,
+  Home,
+  ArrowLeft
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
