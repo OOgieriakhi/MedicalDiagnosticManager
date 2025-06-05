@@ -42,6 +42,7 @@ import {
 import { notificationService, PDFService } from "./notifications";
 import { rbacStorage } from "./rbac-storage";
 import { RBACMiddleware, rbacHelpers } from "./rbac-middleware";
+import { brandingStorage } from "./branding-storage";
 import { seedRBACSystem, assignUserRole } from "./rbac-seed";
 import { z } from "zod";
 import { insertPatientSchema, insertPatientTestSchema, insertTransactionSchema } from "@shared/schema";
@@ -5251,6 +5252,56 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error generating laboratory report:", error);
       res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // ========== BRANDING MANAGEMENT ENDPOINTS ==========
+  
+  // Get organization branding
+  app.get("/api/organization-branding", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branding = await brandingStorage.getOrganizationBranding(req.user!.tenantId);
+      res.json(branding);
+    } catch (error: any) {
+      console.error("Error fetching organization branding:", error);
+      res.status(500).json({ message: "Failed to fetch branding" });
+    }
+  });
+
+  // Update organization branding
+  app.put("/api/organization-branding", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branding = await brandingStorage.updateOrganizationBranding(req.user!.tenantId, req.body);
+      res.json(branding);
+    } catch (error: any) {
+      console.error("Error updating organization branding:", error);
+      res.status(500).json({ message: "Failed to update branding" });
+    }
+  });
+
+  // Create new organization branding (for new tenant deployment)
+  app.post("/api/organization-branding", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const branding = await brandingStorage.createOrganizationBranding({
+        ...req.body,
+        tenantId: req.user!.tenantId
+      });
+      res.json(branding);
+    } catch (error: any) {
+      console.error("Error creating organization branding:", error);
+      res.status(500).json({ message: "Failed to create branding" });
     }
   });
 
