@@ -219,8 +219,8 @@ export default function TrainingSimulation() {
         description: "Congratulations! You've completed this training module.",
       });
       
-      // Refresh progress data
-      progressQuery.refetch();
+      // Refresh modules data
+      modulesQuery.refetch();
     } catch (error) {
       toast({
         title: "Error",
