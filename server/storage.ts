@@ -394,22 +394,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPatientTest(insertPatientTest: InsertPatientTest): Promise<PatientTest> {
-    // Use only the essential columns that we know exist
-    const adaptedPatientTest = {
-      patientId: insertPatientTest.patientId,
-      testId: insertPatientTest.testId,
-      status: insertPatientTest.status || 'scheduled',
-      scheduledAt: insertPatientTest.scheduledAt || new Date(),
-      branchId: insertPatientTest.branchId,
-      tenantId: insertPatientTest.tenantId,
-      notes: insertPatientTest.notes || null
-    };
-
-    const [patientTest] = await db
-      .insert(patientTests)
-      .values(adaptedPatientTest)
-      .returning();
-    return patientTest;
+    // Use raw SQL with exact column names from database
+    const result = await db.execute(sql`
+      INSERT INTO patient_tests 
+        (patient_id, test_id, status, scheduled_at, branch_id, tenant_id, notes, created_at, updated_at)
+      VALUES 
+        (${insertPatientTest.patientId}, ${insertPatientTest.testId}, ${insertPatientTest.status || 'scheduled'}, 
+         ${insertPatientTest.scheduledAt || new Date()}, ${insertPatientTest.branchId}, ${insertPatientTest.tenantId}, 
+         ${insertPatientTest.notes || null}, NOW(), NOW())
+      RETURNING *
+    `);
+    
+    return result.rows[0] as PatientTest;
   }
 
   async updatePatientTestStatus(id: number, status: string): Promise<void> {
