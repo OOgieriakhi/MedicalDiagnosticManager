@@ -108,7 +108,38 @@ export class BrandingStorage implements IBrandingStorage {
         UPDATE organization_branding 
         SET ${updateFields.join(', ')}
         WHERE tenant_id = $${paramIndex}
-        RETURNING *
+        RETURNING 
+          id,
+          tenant_id as "tenantId",
+          organization_name as "organizationName",
+          organization_slogan as "organizationSlogan",
+          logo_url as "logoUrl",
+          favicon_url as "faviconUrl",
+          primary_email as "primaryEmail",
+          support_email as "supportEmail",
+          primary_phone as "primaryPhone",
+          secondary_phone as "secondaryPhone",
+          website,
+          street_address as "streetAddress",
+          city,
+          state,
+          country,
+          postal_code as "postalCode",
+          primary_color as "primaryColor",
+          secondary_color as "secondaryColor",
+          accent_color as "accentColor",
+          background_color as "backgroundColor",
+          text_color as "textColor",
+          facebook_url as "facebookUrl",
+          twitter_url as "twitterUrl",
+          linkedin_url as "linkedinUrl",
+          instagram_url as "instagramUrl",
+          business_registration_number as "businessRegistrationNumber",
+          tax_id as "taxId",
+          established_year as "establishedYear",
+          is_active as "isActive",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
       `;
 
       const result = await pool.query(query, values);
