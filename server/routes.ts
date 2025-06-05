@@ -4490,5 +4490,249 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ==================== GROUP EXECUTIVE DIRECTOR API ROUTES ====================
+
+  // Get GED dashboard metrics
+  app.get("/api/ged/metrics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Mock GED metrics - replace with actual database queries
+      const gedMetrics = {
+        pendingApprovals: 5,
+        monthlyExpenseApprovals: "2500000",
+        fundTransferVolume: "15000000",
+        businessAccountBalance: "45000000",
+        fintechAccountBalance: "12000000",
+        approvedThisMonth: 28,
+        rejectedThisMonth: 3,
+        averageApprovalTime: "2.5 hours"
+      };
+
+      res.json(gedMetrics);
+    } catch (error: any) {
+      console.error("Error fetching GED metrics:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get pending approvals for GED
+  app.get("/api/ged/pending-approvals", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Mock pending approvals - replace with actual database queries
+      const pendingApprovals = [
+        {
+          id: 1,
+          type: "Equipment Purchase",
+          description: "New ultrasound machine for cardiology unit",
+          amount: "850000",
+          requestedBy: "Dr. Sarah Johnson",
+          requestedAt: "2025-06-05T10:30:00Z",
+          priority: "high",
+          department: "Cardiology",
+          justification: "Current ultrasound machine is outdated and requires frequent repairs. New machine will improve diagnostic accuracy and reduce patient wait times."
+        },
+        {
+          id: 2,
+          type: "Training Program",
+          description: "Advanced laboratory training certification",
+          amount: "450000",
+          requestedBy: "Lab Manager",
+          requestedAt: "2025-06-05T09:15:00Z",
+          priority: "medium",
+          department: "Laboratory",
+          justification: "Staff certification required for new testing protocols and equipment operation."
+        },
+        {
+          id: 3,
+          type: "Facility Upgrade",
+          description: "HVAC system upgrade for clean room",
+          amount: "1200000",
+          requestedBy: "Facilities Manager",
+          requestedAt: "2025-06-04T16:45:00Z",
+          priority: "urgent",
+          department: "Infrastructure",
+          justification: "Current HVAC system failing, affecting laboratory environment controls and compliance requirements."
+        }
+      ];
+
+      res.json(pendingApprovals);
+    } catch (error: any) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get fund transfer requests
+  app.get("/api/ged/fund-transfers", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Mock fund transfers - replace with actual database queries
+      const fundTransfers = [
+        {
+          id: 1,
+          fromAccount: "Fintech Primary",
+          toAccount: "Business Main Account",
+          amount: "5000000",
+          purpose: "Monthly revenue consolidation",
+          requestedAt: "2025-06-05T08:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 2,
+          fromAccount: "Fintech Reserve",
+          toAccount: "Business Operating",
+          amount: "2500000",
+          purpose: "Equipment purchase funding",
+          requestedAt: "2025-06-04T14:30:00Z",
+          status: "completed"
+        },
+        {
+          id: 3,
+          fromAccount: "Business Reserve",
+          toAccount: "Business Main Account",
+          amount: "1000000",
+          purpose: "Working capital adjustment",
+          requestedAt: "2025-06-03T11:15:00Z",
+          status: "completed"
+        }
+      ];
+
+      res.json(fundTransfers);
+    } catch (error: any) {
+      console.error("Error fetching fund transfers:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Approve expense
+  app.post("/api/ged/approve-expense/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { comments } = req.body;
+      const user = req.user!;
+
+      // Mock approval process - replace with actual database updates
+      console.log(`GED ${user.username} approved expense ${id} with comments:`, comments);
+
+      // In real implementation, update database:
+      // - Update expense status to 'approved'
+      // - Add approval record with user ID and timestamp
+      // - Create journal entry for accounting
+      // - Send notification to requester
+
+      res.json({ 
+        success: true, 
+        message: "Expense approved successfully",
+        approvedBy: user.username,
+        approvedAt: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("Error approving expense:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Reject expense
+  app.post("/api/ged/reject-expense/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { reason } = req.body;
+      const user = req.user!;
+
+      // Mock rejection process - replace with actual database updates
+      console.log(`GED ${user.username} rejected expense ${id} with reason:`, reason);
+
+      // In real implementation, update database:
+      // - Update expense status to 'rejected'
+      // - Add rejection record with user ID, timestamp, and reason
+      // - Send notification to requester with rejection reason
+
+      res.json({ 
+        success: true, 
+        message: "Expense rejected successfully",
+        rejectedBy: user.username,
+        rejectedAt: new Date().toISOString(),
+        reason
+      });
+    } catch (error: any) {
+      console.error("Error rejecting expense:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Execute fund transfer
+  app.post("/api/ged/fund-transfer", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { fromAccount, toAccount, amount, purpose } = req.body;
+      const user = req.user!;
+
+      // Validate required fields
+      if (!fromAccount || !toAccount || !amount || !purpose) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Mock fund transfer process - replace with actual financial system integration
+      console.log(`GED ${user.username} initiated fund transfer:`, {
+        fromAccount,
+        toAccount,
+        amount,
+        purpose
+      });
+
+      // In real implementation:
+      // - Validate account balances
+      // - Execute transfer through banking API
+      // - Create transaction records
+      // - Update account balances
+      // - Create audit trail
+      // - Send confirmation notifications
+
+      const transferRecord = {
+        id: Date.now(),
+        fromAccount,
+        toAccount,
+        amount,
+        purpose,
+        executedBy: user.username,
+        executedAt: new Date().toISOString(),
+        status: "completed",
+        transferId: `TXN-${Date.now()}`
+      };
+
+      res.json({ 
+        success: true, 
+        message: "Fund transfer completed successfully",
+        transfer: transferRecord
+      });
+    } catch (error: any) {
+      console.error("Error executing fund transfer:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }
