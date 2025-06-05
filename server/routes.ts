@@ -4126,6 +4126,65 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Purchase Orders API
+  app.post("/api/purchase-orders", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const user = req.user!;
+      const { lineItems, totalAmount, approvalLevel, status, ...poData } = req.body;
+      
+      // Generate PO number
+      const poNumber = `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      
+      // Create purchase order
+      const purchaseOrder = await financialStorage.createPurchaseOrder({
+        ...poData,
+        poNumber,
+        tenantId: user.tenantId,
+        branchId: user.branchId || 1,
+        requestedBy: user.id,
+        totalAmount: totalAmount.toString(),
+        approvalLevel,
+        status,
+        requestDate: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Determine first approver based on approval workflow
+      const firstApprover = await financialStorage.getFirstApprover(
+        user.tenantId, 
+        user.branchId || 1, 
+        user.id, 
+        totalAmount
+      );
+
+      if (firstApprover && status === 'pending-approval') {
+        // Create approval record
+        await financialStorage.createApprovalRecord({
+          purchaseOrderId: purchaseOrder.id,
+          approverId: firstApprover.id,
+          level: approvalLevel,
+          status: 'pending',
+          createdAt: new Date()
+        });
+      }
+
+      res.status(201).json({
+        ...purchaseOrder,
+        message: status === 'pending-approval' ? 
+          'Purchase order submitted for approval' : 
+          'Purchase order saved as draft'
+      });
+    } catch (error) {
+      console.error("Error creating purchase order:", error);
+      res.status(500).json({ message: "Failed to create purchase order" });
+    }
+  });
+
   // Get role with permissions
   app.get("/api/roles/:id", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
     try {

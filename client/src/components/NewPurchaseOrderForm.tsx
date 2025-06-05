@@ -135,8 +135,11 @@ export function NewPurchaseOrderForm({ open, onOpenChange }: NewPurchaseOrderFor
       const totalAmount = getTotalAmount();
       const approvalLevel = getRequiredApprovalLevel(totalAmount);
       
-      return apiRequest('/api/purchase-orders', {
+      const response = await fetch('/api/purchase-orders', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           ...data,
           lineItems,
@@ -145,6 +148,12 @@ export function NewPurchaseOrderForm({ open, onOpenChange }: NewPurchaseOrderFor
           status: 'draft'
         })
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create purchase order');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: "Purchase order created successfully" });
@@ -163,8 +172,11 @@ export function NewPurchaseOrderForm({ open, onOpenChange }: NewPurchaseOrderFor
       const totalAmount = getTotalAmount();
       const approvalLevel = getRequiredApprovalLevel(totalAmount);
       
-      return apiRequest('/api/purchase-orders', {
+      const response = await fetch('/api/purchase-orders', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           ...data,
           lineItems,
@@ -173,6 +185,12 @@ export function NewPurchaseOrderForm({ open, onOpenChange }: NewPurchaseOrderFor
           status: 'pending-approval'
         })
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit purchase order');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: "Purchase order submitted for approval" });
