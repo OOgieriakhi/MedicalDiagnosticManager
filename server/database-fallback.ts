@@ -16,7 +16,9 @@ let fallbackData = {
       firstName: 'System',
       lastName: 'Administrator',
       role: 'admin',
-      isActive: true
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
   ],
   tenants: [
