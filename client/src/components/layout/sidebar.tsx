@@ -79,7 +79,8 @@ export default function Sidebar() {
     {
       section: "Administration",
       items: [
-        { icon: Calculator, label: "Accounting", path: "/comprehensive-financial", active: location === "/comprehensive-financial" },
+        { icon: Calculator, label: "Accounting Dashboard", path: "/accounting-dashboard", active: location === "/accounting-dashboard" },
+        { icon: DollarSign, label: "Financial Management", path: "/comprehensive-financial", active: location === "/comprehensive-financial" },
         { icon: Briefcase, label: "Human Resources", path: "/human-resources", active: location === "/human-resources" },
         { icon: GraduationCap, label: "Training Simulation", path: "/training-simulation", active: location === "/training-simulation" },
       ]
