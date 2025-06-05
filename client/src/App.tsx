@@ -1,33 +1,46 @@
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "./hooks/use-auth";
-import { ThemeProvider } from "./hooks/use-theme";
-import { BrandingProvider } from "./lib/branding-context";
-import { ErrorBoundary } from "./components/error-boundary";
-import { DebugRouter } from "./components/debug-router";
-function Router() {
-  return <DebugRouter />;
-}
+import { useState, useEffect } from "react";
+import { SimpleAuth } from "./components/simple-auth";
+import Dashboard from "@/pages/dashboard";
 
 function App() {
-  return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrandingProvider>
-          <ThemeProvider>
-            <AuthProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Router />
-              </TooltipProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </BrandingProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  );
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if user is authenticated
+    fetch('/api/user', { credentials: 'include' })
+      .then(response => {
+        if (response.ok) {
+          return response.json();
+        }
+        return null;
+      })
+      .then(userData => {
+        setUser(userData);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setUser(null);
+        setIsLoading(false);
+      });
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading Orient Medical ERP...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <SimpleAuth />;
+  }
+
+  return <Dashboard />;
 }
 
 export default App;
