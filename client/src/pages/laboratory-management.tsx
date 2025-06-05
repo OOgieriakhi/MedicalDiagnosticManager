@@ -188,7 +188,8 @@ export default function LaboratoryManagement() {
         results,
         notes,
         status,
-        updatedBy: user?.id
+        updatedBy: user?.id,
+        scientistSignature: scientistSignature || user?.username || 'Scientist'
       });
       return response.json();
     },
@@ -1451,7 +1452,8 @@ export default function LaboratoryManagement() {
                           disabled={
                             completeStructuredTestMutation.isPending || 
                             Object.keys(resultValues).length === 0 ||
-                            testParameters.some((param: any) => !resultValues[param.id]?.trim())
+                            testParameters.some((param: any) => !resultValues[param.id]?.trim()) ||
+                            !scientistSignature.trim()
                           }
                         >
                           {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
@@ -1459,15 +1461,16 @@ export default function LaboratoryManagement() {
                       ) : (
                         <Button
                           onClick={() => {
-                            if (selectedTest && testResults.trim()) {
+                            if (selectedTest && testResults.trim() && scientistSignature.trim()) {
                               completeTestMutation.mutate({
                                 testId: selectedTest.id,
                                 results: testResults,
-                                notes: testNotes
+                                notes: testNotes,
+                                scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist'
                               });
                             }
                           }}
-                          disabled={completeTestMutation.isPending || !testResults.trim()}
+                          disabled={completeTestMutation.isPending || !testResults.trim() || !scientistSignature.trim()}
                         >
                           {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
                         </Button>
