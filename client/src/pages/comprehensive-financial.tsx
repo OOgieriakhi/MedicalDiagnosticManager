@@ -31,8 +31,8 @@ import {
   Home,
   ArrowLeft
 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 

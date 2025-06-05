@@ -13,8 +13,11 @@ import {
   Building,
   Briefcase,
   Clock,
-  DollarSign 
+  DollarSign,
+  Home,
+  ArrowLeft
 } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -214,11 +217,19 @@ export default function HumanResources() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Human Resources</h1>
-          <p className="text-muted-foreground">
-            Manage employees, departments, payroll, and HR operations
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">Human Resources</h1>
+            <p className="text-muted-foreground">
+              Manage employees, departments, payroll, and HR operations
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Dialog>
