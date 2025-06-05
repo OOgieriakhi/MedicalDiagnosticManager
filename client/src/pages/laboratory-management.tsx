@@ -23,6 +23,8 @@ import {
   Activity,
   FileText,
   Calendar,
+  Printer,
+  Send,
   User,
   Beaker,
   Target,
@@ -1033,12 +1035,50 @@ export default function LaboratoryManagement() {
                           </Button>
                         )}
                         
-                        {/* View Results */}
-                        {test.status === "completed" && (
-                          <Button variant="outline" size="sm">
-                            <FileText className="w-4 h-4 mr-1" />
-                            View Results
-                          </Button>
+                        {/* View Results for Completed Tests */}
+                        {(test.status === "completed" || test.status === "reported_and_saved") && (
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTest(test);
+                                setShowResultDialog(true);
+                                // Pre-populate fields for viewing/editing
+                                if (test.results) setTestResults(test.results);
+                                if (test.notes) setTestNotes(test.notes);
+                                if (test.scientistSignature) setScientistSignature(test.scientistSignature);
+                              }}
+                            >
+                              <FileText className="w-4 h-4 mr-1" />
+                              {test.status === "reported_and_saved" ? "View Report" : "View Results"}
+                            </Button>
+                            {test.status === "reported_and_saved" && (
+                              <div className="flex gap-1">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => window.print()}
+                                  className="text-blue-600 border-blue-300"
+                                >
+                                  <Printer className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    toast({
+                                      title: "Send Report",
+                                      description: "Report sharing functionality requires configuration.",
+                                    });
+                                  }}
+                                  className="text-green-600 border-green-300"
+                                >
+                                  <Send className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         )}
                         
                         {/* Payment Status Indicator */}
@@ -1372,38 +1412,40 @@ export default function LaboratoryManagement() {
                 </Button>
                 
                 <div className="flex gap-2">
-                  {/* Save Results Button for later processing */}
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      if (testParameters && testParameters.length > 0) {
-                        saveTestResultsMutation.mutate({
-                          testId: selectedTest?.id,
-                          parameterResults: resultValues,
-                          notes: testNotes,
-                          scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist',
-                          saveForLater: true
-                        });
-                      } else {
-                        saveTestResultsMutation.mutate({
-                          testId: selectedTest?.id,
-                          results: testResults,
-                          notes: testNotes,
-                          scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist',
-                          saveForLater: true
-                        });
+                  {/* Show Save Results Button only for non-completed tests */}
+                  {(selectedTest?.status !== "completed" && selectedTest?.status !== "reported_and_saved") && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        if (testParameters && testParameters.length > 0) {
+                          saveTestResultsMutation.mutate({
+                            testId: selectedTest?.id,
+                            parameterResults: resultValues,
+                            notes: testNotes,
+                            scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist',
+                            saveForLater: true
+                          });
+                        } else {
+                          saveTestResultsMutation.mutate({
+                            testId: selectedTest?.id,
+                            results: testResults,
+                            notes: testNotes,
+                            scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist',
+                            saveForLater: true
+                          });
+                        }
+                      }}
+                      disabled={
+                        saveTestResultsMutation.isPending || 
+                        (testParameters && testParameters.length > 0 ? 
+                          Object.keys(resultValues).length === 0 ||
+                          testParameters.some((param: any) => !resultValues[param.id]?.trim()) :
+                          !testResults.trim())
                       }
-                    }}
-                    disabled={
-                      saveTestResultsMutation.isPending || 
-                      (testParameters && testParameters.length > 0 ? 
-                        Object.keys(resultValues).length === 0 ||
-                        testParameters.some((param: any) => !resultValues[param.id]?.trim()) :
-                        !testResults.trim())
-                    }
-                  >
-                    {saveTestResultsMutation.isPending ? "Saving..." : "Save Results"}
-                  </Button>
+                    >
+                      {saveTestResultsMutation.isPending ? "Saving..." : "Save Results"}
+                    </Button>
+                  )}
 
                   {/* Show different buttons based on test status */}
                   {selectedTest?.status === "reported_and_saved" ? (
@@ -1446,34 +1488,47 @@ export default function LaboratoryManagement() {
                     </div>
                   ) : (
                     <>
-                      {testParameters && testParameters.length > 0 ? (
-                        <Button
-                          onClick={() => completeStructuredTestMutation.mutate()}
-                          disabled={
-                            completeStructuredTestMutation.isPending || 
-                            Object.keys(resultValues).length === 0 ||
-                            testParameters.some((param: any) => !resultValues[param.id]?.trim()) ||
-                            !scientistSignature.trim()
-                          }
-                        >
-                          {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => {
-                            if (selectedTest && testResults.trim() && scientistSignature.trim()) {
-                              completeTestMutation.mutate({
-                                testId: selectedTest.id,
-                                results: testResults,
-                                notes: testNotes,
-                                scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist'
-                              });
-                            }
-                          }}
-                          disabled={completeTestMutation.isPending || !testResults.trim() || !scientistSignature.trim()}
-                        >
-                          {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
-                        </Button>
+                      {/* Show Complete buttons only for non-completed tests */}
+                      {(selectedTest?.status !== "completed" && selectedTest?.status !== "reported_and_saved") && (
+                        <>
+                          {testParameters && testParameters.length > 0 ? (
+                            <Button
+                              onClick={() => completeStructuredTestMutation.mutate()}
+                              disabled={
+                                completeStructuredTestMutation.isPending || 
+                                Object.keys(resultValues).length === 0 ||
+                                testParameters.some((param: any) => !resultValues[param.id]?.trim()) ||
+                                !scientistSignature.trim()
+                              }
+                            >
+                              {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => {
+                                if (selectedTest && testResults.trim() && scientistSignature.trim()) {
+                                  completeTestMutation.mutate({
+                                    testId: selectedTest.id,
+                                    results: testResults,
+                                    notes: testNotes,
+                                    scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist'
+                                  });
+                                }
+                              }}
+                              disabled={completeTestMutation.isPending || !testResults.trim() || !scientistSignature.trim()}
+                            >
+                              {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* Show view-only message for completed tests */}
+                      {(selectedTest?.status === "completed" || selectedTest?.status === "reported_and_saved") && (
+                        <div className="text-center text-gray-600 py-2">
+                          <p className="text-sm">This test has been completed and finalized.</p>
+                          <p className="text-xs">You are viewing the final report.</p>
+                        </div>
                       )}
                     </>
                   )}
