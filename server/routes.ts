@@ -992,6 +992,619 @@ export function registerRoutes(app: Express): Server {
     res.send(html);
   });
 
+  // Serve Patient Management module
+  app.get('/patients', (req, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.redirect('/');
+    }
+    
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Management - Orient Medical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1rem; }
+        .btn { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; }
+        .btn:hover { background: #2563eb; }
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+        .badge-new { background: #dbeafe; color: #1e40af; }
+        .badge-active { background: #d1fae5; color: #065f46; }
+        .badge-completed { background: #f3f4f6; color: #374151; }
+        .tab-nav { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem; }
+        .tab-btn { padding: 0.75rem 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .patient-grid { display: grid; gap: 1rem; }
+        .patient-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 6px; }
+        .patient-info h3 { margin: 0 0 0.5rem 0; font-weight: 600; }
+        .patient-info p { margin: 0; color: #6b7280; font-size: 0.875rem; }
+        .patient-meta { display: flex; gap: 0.5rem; align-items: center; }
+        .back-btn { background: #6b7280; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
+        .back-btn:hover { background: #4b5563; }
+        .search-box { width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <div>
+                <h1 style="font-size: 2rem; font-weight: bold; margin: 0 0 0.5rem 0;">Patient Management</h1>
+                <p style="color: #6b7280; margin: 0;">Patient registration, appointments, and medical records management</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+                <button class="btn">+ New Patient</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #10b981;">1,247</div>
+                <p>Total Patients</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #3b82f6;">247</div>
+                <p>Today's Visits</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #f59e0b;">45</div>
+                <p>Pending Appointments</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #ef4444;">8</div>
+                <p>Overdue Follow-ups</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="showTab('patients')">Patient List</button>
+                <button class="tab-btn" onclick="showTab('appointments')">Appointments</button>
+                <button class="tab-btn" onclick="showTab('registration')">Quick Registration</button>
+                <button class="tab-btn" onclick="showTab('reports')">Patient Reports</button>
+            </div>
+
+            <div id="patients-tab" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <input type="text" placeholder="Search patients..." class="search-box">
+                    <div>
+                        <button class="btn">Export List</button>
+                    </div>
+                </div>
+                
+                <div class="patient-grid">
+                    <div class="patient-item">
+                        <div class="patient-info">
+                            <h3>Adaora Okonkwo</h3>
+                            <p>Patient ID: P2025001 | Age: 34 | Phone: +234 806 123 4567</p>
+                            <p style="font-size: 0.75rem;">Last Visit: June 3, 2025 | Next Appointment: June 10, 2025</p>
+                        </div>
+                        <div class="patient-meta">
+                            <span class="badge badge-active">Active</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="patient-item">
+                        <div class="patient-info">
+                            <h3>Emeka Chukwu</h3>
+                            <p>Patient ID: P2025002 | Age: 45 | Phone: +234 803 987 6543</p>
+                            <p style="font-size: 0.75rem;">Last Visit: June 5, 2025 | Tests: Blood Count, Lipid Profile</p>
+                        </div>
+                        <div class="patient-meta">
+                            <span class="badge badge-new">New Visit</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="patient-item">
+                        <div class="patient-info">
+                            <h3>Fatima Ibrahim</h3>
+                            <p>Patient ID: P2025003 | Age: 28 | Phone: +234 807 555 1234</p>
+                            <p style="font-size: 0.75rem;">Last Visit: May 30, 2025 | Follow-up Required</p>
+                        </div>
+                        <div class="patient-meta">
+                            <span class="badge" style="background: #fee2e2; color: #991b1b;">Follow-up Due</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="patient-item">
+                        <div class="patient-info">
+                            <h3>Chinedu Okafor</h3>
+                            <p>Patient ID: P2025004 | Age: 52 | Phone: +234 809 777 8888</p>
+                            <p style="font-size: 0.75rem;">Last Visit: June 4, 2025 | Tests: Diabetes Panel</p>
+                        </div>
+                        <div class="patient-meta">
+                            <span class="badge badge-completed">Completed</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="appointments-tab" class="tab-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Today's Appointments - June 5, 2025</h3>
+                    <button class="btn">Schedule New</button>
+                </div>
+                
+                <div style="display: grid; gap: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <div>
+                            <h4>9:00 AM - Adaora Okonkwo</h4>
+                            <p style="margin: 0; color: #6b7280;">Routine Checkup | Dr. Sarah Johnson</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-success" style="font-size: 0.875rem;">Check In</button>
+                            <button class="btn" style="font-size: 0.875rem; background: #f59e0b;">Reschedule</button>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <div>
+                            <h4>10:30 AM - Emeka Chukwu</h4>
+                            <p style="margin: 0; color: #6b7280;">Blood Tests | Lab Technician</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <span class="badge badge-active">Checked In</span>
+                            <button class="btn" style="font-size: 0.875rem;">Process</button>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <div>
+                            <h4>2:00 PM - Fatima Ibrahim</h4>
+                            <p style="margin: 0; color: #6b7280;">Follow-up Consultation | Dr. Sarah Johnson</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <span class="badge" style="background: #fef3c7; color: #92400e;">Scheduled</span>
+                            <button class="btn" style="font-size: 0.875rem;">View Details</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="registration-tab" class="tab-content" style="display: none;">
+                <div style="max-width: 600px;">
+                    <h3>Quick Patient Registration</h3>
+                    <form style="display: grid; gap: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">First Name</label>
+                                <input type="text" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Last Name</label>
+                                <input type="text" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Phone Number</label>
+                                <input type="tel" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Date of Birth</label>
+                                <input type="date" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Email Address</label>
+                            <input type="email" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Address</label>
+                            <textarea style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; height: 80px;"></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="submit" class="btn btn-success">Register Patient</button>
+                            <button type="button" class="btn" style="background: #6b7280;">Clear Form</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="reports-tab" class="tab-content" style="display: none;">
+                <h3>Patient Reports & Analytics</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                    <div class="card">
+                        <h4>Age Distribution</h4>
+                        <div style="margin: 1rem 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>18-30 years</span>
+                                <span>35%</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>31-50 years</span>
+                                <span>45%</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>50+ years</span>
+                                <span>20%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>Visit Frequency</h4>
+                        <div style="margin: 1rem 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>New Patients</span>
+                                <span>234</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Return Visits</span>
+                                <span>1,013</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Total This Month</span>
+                                <span>1,247</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.style.display = 'none');
+            
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        fetch('/api/user', { credentials: 'include' })
+            .then(response => {
+                if (!response.ok) {
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => {
+                window.location.href = '/';
+            });
+    </script>
+</body>
+</html>`;
+    res.send(html);
+  });
+
+  // Serve Inventory Management module
+  app.get('/inventory', (req, res) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      return res.redirect('/');
+    }
+    
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management - Orient Medical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1rem; }
+        .btn { background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; }
+        .btn:hover { background: #2563eb; }
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        .btn-warning { background: #f59e0b; }
+        .btn-warning:hover { background: #d97706; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+        .badge-low { background: #fee2e2; color: #991b1b; }
+        .badge-normal { background: #d1fae5; color: #065f46; }
+        .badge-expired { background: #fecaca; color: #7f1d1d; }
+        .badge-expiring { background: #fef3c7; color: #92400e; }
+        .tab-nav { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem; }
+        .tab-btn { padding: 0.75rem 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .inventory-grid { display: grid; gap: 1rem; }
+        .inventory-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 6px; }
+        .item-info h3 { margin: 0 0 0.5rem 0; font-weight: 600; }
+        .item-info p { margin: 0; color: #6b7280; font-size: 0.875rem; }
+        .item-meta { display: flex; gap: 0.5rem; align-items: center; }
+        .back-btn { background: #6b7280; color: white; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
+        .back-btn:hover { background: #4b5563; }
+        .progress-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <div>
+                <h1 style="font-size: 2rem; font-weight: bold; margin: 0 0 0.5rem 0;">Inventory Management</h1>
+                <p style="color: #6b7280; margin: 0;">Smart inventory control with automated consumption tracking and alerts</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+                <button class="btn">+ Add Item</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #3b82f6;">342</div>
+                <p>Total Items</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #ef4444;">23</div>
+                <p>Low Stock Alerts</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #f59e0b;">7</div>
+                <p>Expiring Soon</p>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" style="color: #10b981;">₦2.8M</div>
+                <p>Total Value</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="showTab('items')">Inventory Items</button>
+                <button class="tab-btn" onclick="showTab('transactions')">Transactions</button>
+                <button class="tab-btn" onclick="showTab('alerts')">Alerts & Notifications</button>
+                <button class="tab-btn" onclick="showTab('reports')">Stock Reports</button>
+            </div>
+
+            <div id="items-tab" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <input type="text" placeholder="Search inventory items..." style="width: 300px; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn">Stock Count</button>
+                        <button class="btn">Export</button>
+                    </div>
+                </div>
+                
+                <div class="inventory-grid">
+                    <div class="inventory-item">
+                        <div class="item-info">
+                            <h3>Blood Collection Tubes (EDTA)</h3>
+                            <p>Code: LAB001 | Category: Laboratory Supplies</p>
+                            <p style="font-size: 0.75rem;">Current Stock: 450 units | Reorder Level: 200 units</p>
+                            <div class="progress-bar" style="margin-top: 0.5rem;">
+                                <div class="progress-fill" style="width: 75%; background: #10b981;"></div>
+                            </div>
+                        </div>
+                        <div class="item-meta">
+                            <span class="badge badge-normal">Normal</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">Update</button>
+                        </div>
+                    </div>
+                    
+                    <div class="inventory-item">
+                        <div class="item-info">
+                            <h3>Reagent - Glucose Kit</h3>
+                            <p>Code: REG002 | Category: Chemical Reagents</p>
+                            <p style="font-size: 0.75rem;">Current Stock: 12 kits | Reorder Level: 20 kits</p>
+                            <div class="progress-bar" style="margin-top: 0.5rem;">
+                                <div class="progress-fill" style="width: 20%; background: #ef4444;"></div>
+                            </div>
+                        </div>
+                        <div class="item-meta">
+                            <span class="badge badge-low">Low Stock</span>
+                            <button class="btn btn-warning" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">Reorder</button>
+                        </div>
+                    </div>
+                    
+                    <div class="inventory-item">
+                        <div class="item-info">
+                            <h3>Disposable Syringes (5ml)</h3>
+                            <p>Code: MED003 | Category: Medical Supplies</p>
+                            <p style="font-size: 0.75rem;">Current Stock: 2,500 units | Expiry: Aug 2025</p>
+                            <div class="progress-bar" style="margin-top: 0.5rem;">
+                                <div class="progress-fill" style="width: 85%; background: #10b981;"></div>
+                            </div>
+                        </div>
+                        <div class="item-meta">
+                            <span class="badge badge-expiring">Expiring Soon</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="inventory-item">
+                        <div class="item-info">
+                            <h3>Microscope Slides</h3>
+                            <p>Code: LAB004 | Category: Laboratory Equipment</p>
+                            <p style="font-size: 0.75rem;">Current Stock: 1,200 pieces | Last Updated: Today</p>
+                            <div class="progress-bar" style="margin-top: 0.5rem;">
+                                <div class="progress-fill" style="width: 95%; background: #10b981;"></div>
+                            </div>
+                        </div>
+                        <div class="item-meta">
+                            <span class="badge badge-normal">Normal</span>
+                            <button class="btn" style="font-size: 0.875rem; padding: 0.25rem 0.5rem;">View</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="transactions-tab" class="tab-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Recent Transactions</h3>
+                    <button class="btn">New Transaction</button>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f9fafb;">
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Date</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Item</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Type</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">Quantity</th>
+                                <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb;">User</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">June 5, 2025</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">Blood Collection Tubes</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;"><span class="badge" style="background: #dbeafe; color: #1e40af;">Stock In</span></td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">+500</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">John Smith</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">June 5, 2025</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">Glucose Kit</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;"><span class="badge" style="background: #fee2e2; color: #991b1b;">Consumption</span></td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">-5</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">Lab Tech</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">June 4, 2025</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">Disposable Syringes</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;"><span class="badge" style="background: #fee2e2; color: #991b1b;">Consumption</span></td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">-250</td>
+                                <td style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb;">Nurse Station</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="alerts-tab" class="tab-content" style="display: none;">
+                <h3>Inventory Alerts & Notifications</h3>
+                <div style="display: grid; gap: 1rem;">
+                    <div class="card" style="border-left: 4px solid #ef4444;">
+                        <h4 style="color: #ef4444;">Critical Low Stock</h4>
+                        <p><strong>Glucose Reagent Kit</strong> - Only 12 units remaining (Reorder level: 20)</p>
+                        <p style="font-size: 0.875rem; color: #6b7280;">Last updated: 2 hours ago</p>
+                        <button class="btn btn-warning">Create Purchase Order</button>
+                    </div>
+                    
+                    <div class="card" style="border-left: 4px solid #f59e0b;">
+                        <h4 style="color: #f59e0b;">Expiring Items</h4>
+                        <p><strong>Disposable Syringes (5ml)</strong> - Expires in 2 months (August 2025)</p>
+                        <p style="font-size: 0.875rem; color: #6b7280;">Quantity: 2,500 units</p>
+                        <button class="btn">Mark for Priority Use</button>
+                    </div>
+                    
+                    <div class="card" style="border-left: 4px solid #10b981;">
+                        <h4 style="color: #10b981;">Stock Replenished</h4>
+                        <p><strong>Blood Collection Tubes</strong> - Stock increased to 450 units</p>
+                        <p style="font-size: 0.875rem; color: #6b7280;">Received today from supplier</p>
+                        <button class="btn" style="background: #6b7280;">Acknowledge</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reports-tab" class="tab-content" style="display: none;">
+                <h3>Stock Reports & Analytics</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                    <div class="card">
+                        <h4>Stock Levels by Category</h4>
+                        <div style="margin: 1rem 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Laboratory Supplies</span>
+                                <span style="color: #10b981;">85%</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Chemical Reagents</span>
+                                <span style="color: #ef4444;">45%</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Medical Supplies</span>
+                                <span style="color: #10b981;">92%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>Monthly Consumption</h4>
+                        <div style="margin: 1rem 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Blood Collection Tubes</span>
+                                <span>2,340 units</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Reagent Kits</span>
+                                <span>45 kits</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Syringes</span>
+                                <span>1,850 units</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h4>Inventory Value</h4>
+                        <div style="margin: 1rem 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Total Inventory Value</span>
+                                <span>₦2,845,000</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Monthly Consumption</span>
+                                <span>₦485,000</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Turnover Rate</span>
+                                <span>17% per month</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.style.display = 'none');
+            
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        fetch('/api/user', { credentials: 'include' })
+            .then(response => {
+                if (!response.ok) {
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => {
+                window.location.href = '/';
+            });
+    </script>
+</body>
+</html>`;
+    res.send(html);
+  });
+
   // Dashboard metrics endpoint
   app.get("/api/dashboard/metrics/:branchId", async (req, res) => {
     try {
