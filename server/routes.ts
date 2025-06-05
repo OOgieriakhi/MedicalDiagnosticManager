@@ -3771,8 +3771,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { tenantId } = req.query;
-      const entries = await financialStorage.getJournalEntries(Number(tenantId));
+      const tenantId = req.user?.tenantId || 1;
+      const entries = await financialStorage.getJournalEntries(tenantId);
       
       res.json(entries);
     } catch (error) {
