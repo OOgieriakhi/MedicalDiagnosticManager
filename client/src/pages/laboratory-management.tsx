@@ -999,6 +999,41 @@ export default function LaboratoryManagement() {
         </Button>
       </div>
 
+      {/* Instant Loading Control Panel */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-6 rounded-lg mb-6 border">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Data Loading Control Center</h3>
+            <p className="text-gray-600 dark:text-gray-300">Load specific data modules on demand for optimal performance</p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => refetchLabTests()}
+              disabled={labTestsLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {labTestsLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Flask className="w-4 h-4 mr-2" />}
+              {labTestsLoading ? "Loading Tests..." : "Load Test Data"}
+            </Button>
+            <Button
+              onClick={() => refetchMetrics()}
+              disabled={metricsLoading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {metricsLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BarChart3 className="w-4 h-4 mr-2" />}
+              {metricsLoading ? "Loading Metrics..." : "Load Analytics"}
+            </Button>
+            <Button
+              onClick={() => refetchCategories()}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              Load Categories
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Laboratory Workflow Metrics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <Card className="border-l-4 border-l-blue-500">
@@ -1010,10 +1045,10 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Awaiting Payment Verification</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {metricsLoading ? (
-                    <div className="h-8 bg-gray-200 rounded animate-pulse w-12"></div>
+                  {labMetrics ? (
+                    labMetrics.awaitingPaymentVerification || 0
                   ) : (
-                    labMetrics?.awaitingPaymentVerification || 0
+                    <span className="text-gray-400">Click "Load Analytics" to view</span>
                   )}
                 </p>
                 <p className="text-xs text-gray-500">Priority: High</p>
@@ -1031,7 +1066,11 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Awaiting Specimen Collection</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {metricsLoading ? "..." : labMetrics?.awaitingSpecimenCollection || 0}
+                  {labMetrics ? (
+                    labMetrics.awaitingSpecimenCollection || 0
+                  ) : (
+                    <span className="text-gray-400 text-sm">Load Analytics</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -1047,7 +1086,11 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">In Processing</p>
                 <p className="text-2xl font-bold text-yellow-600">
-                  {metricsLoading ? "..." : labMetrics?.inProcessing || 0}
+                  {labMetrics ? (
+                    labMetrics.inProcessing || 0
+                  ) : (
+                    <span className="text-gray-400 text-sm">Load Analytics</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -1063,7 +1106,11 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Completed Today</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {metricsLoading ? "..." : labMetrics?.completedToday || 0}
+                  {labMetrics ? (
+                    labMetrics.completedToday || 0
+                  ) : (
+                    <span className="text-gray-400 text-sm">Load Analytics</span>
+                  )}
                 </p>
               </div>
             </div>
