@@ -208,7 +208,7 @@ export default function LaboratoryManagement() {
     },
     enabled: !!user?.branchId,
     refetchOnWindowFocus: false,
-    staleTime: 0, // Always refetch when query key changes
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes to improve performance
   });
 
   // Query for laboratory tests - only show paid requests
@@ -237,10 +237,10 @@ export default function LaboratoryManagement() {
       );
     },
     enabled: !!user?.branchId,
-    staleTime: 0, // Always refetch when query key changes
+    staleTime: 3 * 60 * 1000, // Cache for 3 minutes to improve performance
   });
 
-  // Query for test categories
+  // Query for test categories - cached for better performance
   const { data: testCategories } = useQuery({
     queryKey: ["/api/test-categories", user?.tenantId],
     queryFn: async () => {
@@ -249,6 +249,7 @@ export default function LaboratoryManagement() {
       return response.json();
     },
     enabled: !!user?.tenantId,
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes - categories rarely change
   });
 
   // Update test results mutation
