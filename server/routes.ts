@@ -5855,6 +5855,31 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.get("/api/accounting/chart-of-accounts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      const { chartOfAccounts } = await import('../shared/schema.js');
+      const accounts = await db
+        .select()
+        .from(chartOfAccounts)
+        .where(and(
+          eq(chartOfAccounts.tenantId, user.tenantId),
+          eq(chartOfAccounts.isActive, true)
+        ))
+        .orderBy(chartOfAccounts.accountCode);
+
+      res.json(accounts);
+    } catch (error: any) {
+      console.error("Error fetching chart of accounts:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/accounting/initialize", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {

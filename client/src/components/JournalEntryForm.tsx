@@ -42,10 +42,21 @@ export function JournalEntryForm({ onClose, onSuccess }: JournalEntryFormProps) 
 
   const createJournalEntry = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('/api/accounting/journal-entries', {
+      const response = await fetch('/api/accounting/journal-entries', {
         method: 'POST',
-        body: JSON.stringify(data)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include'
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create journal entry');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -183,7 +194,7 @@ export function JournalEntryForm({ onClose, onSuccess }: JournalEntryFormProps) 
                             <SelectValue placeholder="Select account" />
                           </SelectTrigger>
                           <SelectContent>
-                            {accounts?.map((account: any) => (
+                            {Array.isArray(accounts) && accounts?.map((account: any) => (
                               <SelectItem key={account.id} value={account.id.toString()}>
                                 {account.accountCode} - {account.accountName}
                               </SelectItem>
