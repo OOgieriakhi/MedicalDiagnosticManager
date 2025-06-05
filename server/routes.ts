@@ -3638,5 +3638,126 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Test Consumption Management API Routes
+  app.get("/api/inventory/test-consumption-templates/:testId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const testId = parseInt(req.params.testId);
+      if (isNaN(testId)) {
+        return res.status(400).json({ message: "Invalid test ID" });
+      }
+
+      const templates = await db.execute(sql`
+        SELECT 
+          tct.*,
+          ii.name as item_name,
+          ii.item_code,
+          ii.unit_of_measure,
+          ic.name as category_name,
+          t.name as test_name
+        FROM test_consumption_templates tct
+        JOIN inventory_items ii ON tct.item_id = ii.id
+        JOIN inventory_categories ic ON ii.category_id = ic.id
+        JOIN tests t ON tct.test_id = t.id
+        WHERE tct.test_id = ${testId}
+        ORDER BY tct.is_critical DESC, ii.name
+      `);
+
+      res.json(templates.rows);
+    } catch (error) {
+      console.error("Error getting test consumption templates:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/inventory/test-consumption-templates", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { testId, itemId, standardQuantity, consumptionType, costCenter, isCritical, notes } = req.body;
+      const tenantId = 1;
+
+      const existing = await db.execute(sql`
+        SELECT id FROM test_consumption_templates 
+        WHERE test_id = ${testId} AND item_id = ${itemId} AND tenant_id = ${tenantId}
+      `);
+
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ message: "Consumption template already exists for this test and item" });
+      }
+
+      const result = await db.execute(sql`
+        INSERT INTO test_consumption_templates (
+          tenant_id, test_id, item_id, standard_quantity, consumption_type,
+          cost_center, is_critical, notes, created_at, updated_at
+        ) VALUES (
+          ${tenantId}, ${testId}, ${itemId}, ${standardQuantity}, ${consumptionType},
+          ${costCenter}, ${isCritical}, ${notes || null}, NOW(), NOW()
+        ) RETURNING id
+      `);
+
+      res.status(201).json({ success: true, id: result.rows[0]?.id });
+    } catch (error) {
+      console.error("Error creating test consumption template:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/inventory/test-consumption-templates/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const templateId = parseInt(req.params.id);
+      const { testId, itemId, standardQuantity, consumptionType, costCenter, isCritical, notes } = req.body;
+
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      await db.execute(sql`
+        UPDATE test_consumption_templates 
+        SET test_id = ${testId}, item_id = ${itemId}, standard_quantity = ${standardQuantity},
+            consumption_type = ${consumptionType}, cost_center = ${costCenter},
+            is_critical = ${isCritical}, notes = ${notes || null}, updated_at = NOW()
+        WHERE id = ${templateId}
+      `);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating test consumption template:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/inventory/test-consumption-templates/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const templateId = parseInt(req.params.id);
+
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      await db.execute(sql`
+        DELETE FROM test_consumption_templates WHERE id = ${templateId}
+      `);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting test consumption template:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }

@@ -232,7 +232,11 @@ export default function TestConsumptionManagement() {
                         Configure which inventory item is consumed for {selectedTestName}
                       </DialogDescription>
                     </DialogHeader>
-                    <form action={handleSubmit} className="space-y-4">
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      handleSubmit(formData);
+                    }} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="itemId">Inventory Item</Label>
                         <Select name="itemId" defaultValue={editingTemplate?.itemId?.toString()}>
