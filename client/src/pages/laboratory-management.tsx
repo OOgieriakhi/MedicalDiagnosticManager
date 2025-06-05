@@ -32,7 +32,12 @@ import {
   CreditCard,
   Syringe,
   Play,
-  FileCheck
+  FileCheck,
+  BarChart3,
+  TrendingUp,
+  PieChart,
+  LineChart,
+  Zap
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -960,7 +965,7 @@ export default function LaboratoryManagement() {
       </div>
 
       {/* Enhanced Laboratory Operations Control Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <Button
           onClick={() => setShowQualityControl(true)}
           className="bg-purple-600 hover:bg-purple-700 text-white"
@@ -988,6 +993,13 @@ export default function LaboratoryManagement() {
         >
           <User className="w-4 h-4 mr-2" />
           Workload Distribution
+        </Button>
+        <Button
+          onClick={() => setShowParameterVisualization(true)}
+          className="bg-cyan-600 hover:bg-cyan-700 text-white"
+        >
+          <BarChart3 className="w-4 h-4 mr-2" />
+          Parameter Visualization
         </Button>
       </div>
 
@@ -2488,6 +2500,445 @@ export default function LaboratoryManagement() {
                   </div>
                 </div>
               </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Interactive Test Parameter Visualization Dialog */}
+      <Dialog open={showParameterVisualization} onOpenChange={setShowParameterVisualization}>
+        <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-cyan-600" />
+              Interactive Test Parameter Visualization
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Visualization Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <Label htmlFor="vizType">Visualization Type</Label>
+                <Select value={selectedVisualizationType} onValueChange={setSelectedVisualizationType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="trends">Trend Analysis</SelectItem>
+                    <SelectItem value="distribution">Distribution Charts</SelectItem>
+                    <SelectItem value="correlation">Parameter Correlation</SelectItem>
+                    <SelectItem value="realtime">Real-time Monitoring</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="paramGroup">Parameter Group</Label>
+                <Select value={selectedParameterGroup} onValueChange={setSelectedParameterGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Parameters</SelectItem>
+                    <SelectItem value="hematology">Hematology</SelectItem>
+                    <SelectItem value="chemistry">Clinical Chemistry</SelectItem>
+                    <SelectItem value="microbiology">Microbiology</SelectItem>
+                    <SelectItem value="immunology">Immunology</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="timeRange">Time Range</Label>
+                <Select value={visualizationTimeRange} onValueChange={setVisualizationTimeRange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="24h">Last 24 Hours</SelectItem>
+                    <SelectItem value="7d">Last 7 Days</SelectItem>
+                    <SelectItem value="30d">Last 30 Days</SelectItem>
+                    <SelectItem value="90d">Last 3 Months</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="vizMode">Visualization Mode</Label>
+                <Select value={visualizationMode} onValueChange={setVisualizationMode}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="interactive">Interactive</SelectItem>
+                    <SelectItem value="static">Static View</SelectItem>
+                    <SelectItem value="animation">Animated</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Visualization Type: Trend Analysis */}
+            {selectedVisualizationType === "trends" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-blue-600" />
+                      Parameter Trend Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Hemoglobin Trend */}
+                      <div className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3 text-red-600">Hemoglobin Levels (g/dL)</h4>
+                        <div className="h-48 bg-gradient-to-br from-red-50 to-red-100 rounded flex items-center justify-center">
+                          <div className="text-center">
+                            <LineChart className="w-12 h-12 text-red-600 mx-auto mb-2" />
+                            <div className="text-sm space-y-1">
+                              <p className="font-medium">Trend: Stable</p>
+                              <p className="text-xs">Range: 12.5-15.2 g/dL</p>
+                              <p className="text-xs">Samples: 156 tests</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Glucose Trend */}
+                      <div className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3 text-blue-600">Glucose Levels (mg/dL)</h4>
+                        <div className="h-48 bg-gradient-to-br from-blue-50 to-blue-100 rounded flex items-center justify-center">
+                          <div className="text-center">
+                            <TrendingUp className="w-12 h-12 text-blue-600 mx-auto mb-2" />
+                            <div className="text-sm space-y-1">
+                              <p className="font-medium">Trend: Increasing</p>
+                              <p className="text-xs">Range: 85-140 mg/dL</p>
+                              <p className="text-xs">Samples: 243 tests</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cholesterol Trend */}
+                      <div className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3 text-green-600">Total Cholesterol (mg/dL)</h4>
+                        <div className="h-48 bg-gradient-to-br from-green-50 to-green-100 rounded flex items-center justify-center">
+                          <div className="text-center">
+                            <LineChart className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                            <div className="text-sm space-y-1">
+                              <p className="font-medium">Trend: Decreasing</p>
+                              <p className="text-xs">Range: 160-220 mg/dL</p>
+                              <p className="text-xs">Samples: 189 tests</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Creatinine Trend */}
+                      <div className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3 text-purple-600">Creatinine (mg/dL)</h4>
+                        <div className="h-48 bg-gradient-to-br from-purple-50 to-purple-100 rounded flex items-center justify-center">
+                          <div className="text-center">
+                            <Activity className="w-12 h-12 text-purple-600 mx-auto mb-2" />
+                            <div className="text-sm space-y-1">
+                              <p className="font-medium">Trend: Normal</p>
+                              <p className="text-xs">Range: 0.7-1.3 mg/dL</p>
+                              <p className="text-xs">Samples: 134 tests</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Visualization Type: Distribution Charts */}
+            {selectedVisualizationType === "distribution" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <PieChart className="w-5 h-5 text-indigo-600" />
+                      Parameter Distribution Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Normal vs Abnormal Distribution */}
+                      <div className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3">Test Result Distribution</h4>
+                        <div className="h-48 bg-gradient-to-br from-green-50 to-red-50 rounded flex items-center justify-center">
+                          <div className="text-center">
+                            <PieChart className="w-12 h-12 text-indigo-600 mx-auto mb-2" />
+                            <div className="text-sm space-y-1">
+                              <p className="text-green-600 font-medium">Normal: 78%</p>
+                              <p className="text-yellow-600 font-medium">Borderline: 15%</p>
+                              <p className="text-red-600 font-medium">Abnormal: 7%</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Test Volume by Department */}
+                      <div className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3">Volume by Department</h4>
+                        <div className="h-48 bg-gradient-to-br from-blue-50 to-cyan-50 rounded flex items-center justify-center">
+                          <div className="text-center">
+                            <BarChart3 className="w-12 h-12 text-blue-600 mx-auto mb-2" />
+                            <div className="text-sm space-y-1">
+                              <p className="text-blue-600">Chemistry: 45%</p>
+                              <p className="text-red-600">Hematology: 30%</p>
+                              <p className="text-green-600">Microbiology: 25%</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Turnaround Time Distribution */}
+                      <div className="p-4 border rounded-lg">
+                        <h4 className="font-semibold mb-3">Turnaround Time</h4>
+                        <div className="h-48 bg-gradient-to-br from-orange-50 to-yellow-50 rounded flex items-center justify-center">
+                          <div className="text-center">
+                            <Clock className="w-12 h-12 text-orange-600 mx-auto mb-2" />
+                            <div className="text-sm space-y-1">
+                              <p className="text-green-600">≤2h: 35%</p>
+                              <p className="text-blue-600">2-6h: 40%</p>
+                              <p className="text-orange-600">6-24h: 20%</p>
+                              <p className="text-red-600">&gt;24h: 5%</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Visualization Type: Parameter Correlation */}
+            {selectedVisualizationType === "correlation" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-yellow-600" />
+                      Parameter Correlation Matrix
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Strong Correlations */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-green-600">Strong Positive Correlations</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 bg-green-50 rounded">
+                            <span className="text-sm">Total Cholesterol ↔ LDL</span>
+                            <Badge className="bg-green-600">r = 0.89</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-green-50 rounded">
+                            <span className="text-sm">Creatinine ↔ BUN</span>
+                            <Badge className="bg-green-600">r = 0.76</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-green-50 rounded">
+                            <span className="text-sm">Hemoglobin ↔ Hematocrit</span>
+                            <Badge className="bg-green-600">r = 0.94</Badge>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Weak/Negative Correlations */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-orange-600">Notable Inverse Correlations</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
+                            <span className="text-sm">HDL ↔ Triglycerides</span>
+                            <Badge variant="secondary">r = -0.45</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
+                            <span className="text-sm">Albumin ↔ CRP</span>
+                            <Badge variant="secondary">r = -0.38</Badge>
+                          </div>
+                          <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
+                            <span className="text-sm">eGFR ↔ Creatinine</span>
+                            <Badge variant="secondary">r = -0.92</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Correlation Heatmap Placeholder */}
+                    <div className="mt-6 p-6 border rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50">
+                      <h4 className="font-semibold mb-4 text-center">Interactive Correlation Heatmap</h4>
+                      <div className="grid grid-cols-5 gap-2 text-xs">
+                        {['Hgb', 'Glu', 'Chol', 'Crea', 'ALT'].map((param, i) => (
+                          <div key={i} className="text-center font-medium p-2">{param}</div>
+                        ))}
+                        {Array.from({ length: 25 }, (_, i) => (
+                          <div
+                            key={i}
+                            className={`h-8 rounded ${
+                              i % 6 === 0 ? 'bg-green-500' :
+                              i % 5 === 0 ? 'bg-blue-400' :
+                              i % 4 === 0 ? 'bg-yellow-400' :
+                              i % 3 === 0 ? 'bg-orange-400' : 'bg-red-400'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Visualization Type: Real-time Monitoring */}
+            {selectedVisualizationType === "realtime" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-green-600" />
+                      Real-time Parameter Monitoring
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Live Parameter Monitors */}
+                      <div className="p-4 border rounded-lg bg-green-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Active Tests</span>
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {filteredTests.filter(t => t.status === "in_progress").length}
+                        </div>
+                        <p className="text-xs text-gray-600">Currently processing</p>
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-blue-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Avg TAT</span>
+                          <TrendingUp className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-blue-600">4.2h</div>
+                        <p className="text-xs text-gray-600">Last 24 hours</p>
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-purple-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">QC Passed</span>
+                          <CheckCircle className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-purple-600">98.5%</div>
+                        <p className="text-xs text-gray-600">Today's rate</p>
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-orange-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Alerts</span>
+                          <AlertCircle className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-orange-600">3</div>
+                        <p className="text-xs text-gray-600">Requires attention</p>
+                      </div>
+                    </div>
+
+                    {/* Real-time Activity Feed */}
+                    <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                      <h4 className="font-semibold mb-3">Live Activity Feed</h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        <div className="flex items-center gap-3 p-2 bg-white rounded">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-sm">CBC test completed - Patient ID: 12345</span>
+                          <span className="text-xs text-gray-500 ml-auto">Just now</span>
+                        </div>
+                        <div className="flex items-center gap-3 p-2 bg-white rounded">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-sm">Chemistry panel started - Batch #B2025-001</span>
+                          <span className="text-xs text-gray-500 ml-auto">2 min ago</span>
+                        </div>
+                        <div className="flex items-center gap-3 p-2 bg-white rounded">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span className="text-sm">QC check required - Analyzer CH-001</span>
+                          <span className="text-xs text-gray-500 ml-auto">5 min ago</span>
+                        </div>
+                        <div className="flex items-center gap-3 p-2 bg-white rounded">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                          <span className="text-sm">Report signed - Dr. Sarah Johnson</span>
+                          <span className="text-xs text-gray-500 ml-auto">8 min ago</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Parameter Comparison Tool */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  Parameter Comparison Tool
+                  <Button
+                    onClick={() => setShowParameterComparison(!showParameterComparison)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {showParameterComparison ? "Hide" : "Show"} Comparison
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              {showParameterComparison && (
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Select Parameters to Compare</Label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-3">
+                        {['Hemoglobin', 'Glucose', 'Cholesterol', 'Creatinine', 'ALT', 'AST', 'Bilirubin', 'Albumin'].map((param) => (
+                          <label key={param} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={comparisonParameters.includes(param)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setComparisonParameters([...comparisonParameters, param]);
+                                } else {
+                                  setComparisonParameters(comparisonParameters.filter(p => p !== param));
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <span className="text-sm">{param}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <Label>Comparison Visualization</Label>
+                      <div className="h-64 border rounded bg-gray-50 flex items-center justify-center">
+                        {comparisonParameters.length > 0 ? (
+                          <div className="text-center">
+                            <BarChart3 className="w-16 h-16 text-cyan-600 mx-auto mb-4" />
+                            <p className="font-medium">Comparing {comparisonParameters.length} parameters</p>
+                            <p className="text-sm text-gray-600 mt-2">
+                              Selected: {comparisonParameters.join(', ')}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-center text-gray-500">
+                            <PieChart className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                            <p>Select parameters to compare</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              )}
             </Card>
           </div>
         </DialogContent>
