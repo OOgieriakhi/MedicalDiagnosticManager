@@ -41,6 +41,7 @@ import BrandingManagement from "@/pages/branding-management";
 import QualityAssurance from "@/pages/quality-assurance";
 import ReferenceRanges from "@/pages/reference-ranges";
 import ReportDesigner from "@/pages/report-designer";
+import PredictiveRecommendations from "@/pages/predictive-recommendations";
 
 function Router() {
   return (

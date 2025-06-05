@@ -43,7 +43,25 @@ export class PredictiveEngine {
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + timeframeDays);
 
-    let query = db
+    let whereConditions = [
+      eq(predictiveRecommendations.tenantId, tenantId),
+      eq(predictiveRecommendations.status, 'active'),
+      lte(predictiveRecommendations.nextDueDate, futureDate)
+    ];
+
+    if (branchId) {
+      whereConditions.push(eq(predictiveRecommendations.branchId, branchId));
+    }
+
+    if (options?.category && options.category !== 'all') {
+      whereConditions.push(eq(predictiveRecommendations.category, options.category));
+    }
+
+    if (options?.priority && options.priority !== 'all') {
+      whereConditions.push(eq(predictiveRecommendations.priority, options.priority));
+    }
+
+    const query = db
       .select({
         id: predictiveRecommendations.id,
         patientId: predictiveRecommendations.patientId,
@@ -67,22 +85,7 @@ export class PredictiveEngine {
       })
       .from(predictiveRecommendations)
       .innerJoin(patients, eq(predictiveRecommendations.patientId, patients.id))
-      .where(
-        and(
-          eq(predictiveRecommendations.tenantId, tenantId),
-          branchId ? eq(predictiveRecommendations.branchId, branchId) : undefined,
-          eq(predictiveRecommendations.status, 'active'),
-          lte(predictiveRecommendations.nextDueDate, futureDate)
-        )
-      );
-
-    if (options?.category && options.category !== 'all') {
-      query = query.where(eq(predictiveRecommendations.category, options.category));
-    }
-
-    if (options?.priority && options.priority !== 'all') {
-      query = query.where(eq(predictiveRecommendations.priority, options.priority));
-    }
+      .where(and(...whereConditions));
 
     const results = await query.orderBy(desc(predictiveRecommendations.riskScore));
 
@@ -282,7 +285,7 @@ export class PredictiveEngine {
           lastTestDate: lastCardioTest?.completedAt || null,
           factors: ['Age factor', 'Gender risk', 'No recent cardiovascular screening'],
           basedOnTests: ['Previous test history analysis'],
-          estimatedCost: 150.00,
+          estimatedCost: "150.00",
           aiModelVersion: '1.0'
         });
       }
@@ -314,7 +317,7 @@ export class PredictiveEngine {
           lastTestDate: lastDiabetesTest?.completedAt || null,
           factors: ['Age factor', 'Preventive care schedule'],
           basedOnTests: ['Diabetes screening guidelines'],
-          estimatedCost: 75.00,
+          estimatedCost: "75.00",
           aiModelVersion: '1.0'
         });
       }

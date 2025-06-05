@@ -9,6 +9,7 @@ import { inventoryStorage } from "./inventory-storage";
 import { inventoryConsumptionService } from "./inventory-consumption";
 import { trainingStorage } from "./training-storage";
 import { marketingStorage } from "./marketing-storage";
+import { predictiveEngine } from "./predictive-engine";
 import { db } from "./db";
 import { 
   patients, 
