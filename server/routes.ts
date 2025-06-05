@@ -1544,7 +1544,7 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     const { id } = req.params;
-    const { results, parameterResults, notes, saveForLater } = req.body;
+    const { results, parameterResults, notes, saveForLater, scientistSignature } = req.body;
     
     try {
       const testId = parseInt(id);
@@ -1596,7 +1596,7 @@ export function registerRoutes(app: Express): Server {
         message: saveForLater ? 
           "Results saved successfully for later processing" : 
           "Results saved and test completed",
-        consolidatedReport: await generateConsolidatedReport(test.patientId)
+        consolidatedReport: await generateConsolidatedReport(test.patientId, scientistSignature || req.user.username)
       });
     } catch (error: any) {
       console.error("Error saving test results:", error);

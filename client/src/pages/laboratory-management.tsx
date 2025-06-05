@@ -1254,8 +1254,23 @@ export default function LaboratoryManagement() {
                     {/* Automated Interpretation Preview */}
                     {showReportPreview && (
                       <div className="border rounded-lg p-4 bg-gray-50">
-                        <h4 className="font-semibold mb-2">Automated Interpretation</h4>
-                        <p className="text-sm">{generateInterpretation(testParameters)}</p>
+                        <h4 className="font-semibold mb-2">Consolidated Report Preview</h4>
+                        <p className="text-sm mb-4">{generateInterpretation(testParameters)}</p>
+                        
+                        {/* Scientist Signature Section */}
+                        <div className="border-t pt-4 mt-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium">Report Signed By:</p>
+                              <p className="text-lg font-semibold text-blue-600">{user?.username || 'Scientist'}</p>
+                              <p className="text-xs text-gray-500">Medical Laboratory Scientist</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-600">Digital Signature</p>
+                              <p className="text-xs text-gray-500">{new Date().toLocaleString()}</p>
+                            </div>
+                          </div>
+                        </div>
                         
                         {/* Report Preview Action Buttons */}
                         <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
@@ -1275,6 +1290,7 @@ export default function LaboratoryManagement() {
                                   testId: selectedTest?.id,
                                   parameterResults: resultValues,
                                   notes: testNotes,
+                                  scientistSignature: user?.username || 'Scientist',
                                   saveForLater: true
                                 });
                               }
@@ -1372,32 +1388,75 @@ export default function LaboratoryManagement() {
                     {saveTestResultsMutation.isPending ? "Saving..." : "Save Results"}
                   </Button>
 
-                  {testParameters && testParameters.length > 0 ? (
-                    <Button
-                      onClick={() => completeStructuredTestMutation.mutate()}
-                      disabled={
-                        completeStructuredTestMutation.isPending || 
-                        Object.keys(resultValues).length === 0 ||
-                        testParameters.some((param: any) => !resultValues[param.id]?.trim())
-                      }
-                    >
-                      {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => {
-                        if (selectedTest && testResults.trim()) {
-                          completeTestMutation.mutate({
-                            testId: selectedTest.id,
-                            results: testResults,
-                            notes: testNotes
+                  {/* Show different buttons based on test status */}
+                  {selectedTest?.status === "reported_and_saved" ? (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // Print report functionality
+                          window.print();
+                        }}
+                      >
+                        Print Report
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // WhatsApp send functionality - would need WhatsApp API integration
+                          toast({
+                            title: "WhatsApp Integration Required",
+                            description: "WhatsApp API needs to be configured for sending reports.",
+                            variant: "destructive",
                           });
-                        }
-                      }}
-                      disabled={completeTestMutation.isPending || !testResults.trim()}
-                    >
-                      {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
-                    </Button>
+                        }}
+                      >
+                        Send via WhatsApp
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          // Email send functionality - would need email service integration
+                          toast({
+                            title: "Email Integration Required",
+                            description: "Email service needs to be configured for sending reports.",
+                            variant: "destructive",
+                          });
+                        }}
+                      >
+                        Send via Email
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      {testParameters && testParameters.length > 0 ? (
+                        <Button
+                          onClick={() => completeStructuredTestMutation.mutate()}
+                          disabled={
+                            completeStructuredTestMutation.isPending || 
+                            Object.keys(resultValues).length === 0 ||
+                            testParameters.some((param: any) => !resultValues[param.id]?.trim())
+                          }
+                        >
+                          {completeStructuredTestMutation.isPending ? "Generating Report..." : "Complete & Generate Report"}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => {
+                            if (selectedTest && testResults.trim()) {
+                              completeTestMutation.mutate({
+                                testId: selectedTest.id,
+                                results: testResults,
+                                notes: testNotes
+                              });
+                            }
+                          }}
+                          disabled={completeTestMutation.isPending || !testResults.trim()}
+                        >
+                          {completeTestMutation.isPending ? "Completing..." : "Complete Test"}
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
