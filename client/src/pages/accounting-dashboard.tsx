@@ -523,7 +523,7 @@ export default function AccountingDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Journal Entries</span>
-                <Button>
+                <Button onClick={() => setShowJournalEntryForm(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   New Journal Entry
                 </Button>
