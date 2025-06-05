@@ -682,6 +682,70 @@ export class DatabaseStorage implements IStorage {
     return invoice || undefined;
   }
 
+  // Organization Bank Accounts
+  async getOrganizationBankAccounts(tenantId: number): Promise<any[]> {
+    try {
+      const query = `
+        SELECT 
+          id,
+          account_name as "accountName",
+          bank_name as "bankName",
+          account_number as "accountNumber",
+          account_type as "accountType",
+          currency,
+          is_active as "isActive",
+          is_default_receiving as "isDefaultReceiving",
+          description
+        FROM organization_bank_accounts
+        WHERE tenant_id = $1 AND is_active = true
+        ORDER BY is_default_receiving DESC, account_name ASC
+      `;
+
+      const result = await pool.query(query, [tenantId]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching organization bank accounts:', error);
+      return [];
+    }
+  }
+
+  async createOrganizationBankAccount(data: any): Promise<any> {
+    try {
+      const query = `
+        INSERT INTO organization_bank_accounts (
+          tenant_id, account_name, bank_name, account_number, 
+          account_type, currency, is_default_receiving, description
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING 
+          id,
+          account_name as "accountName",
+          bank_name as "bankName",
+          account_number as "accountNumber",
+          account_type as "accountType",
+          currency,
+          is_default_receiving as "isDefaultReceiving",
+          description
+      `;
+
+      const result = await pool.query(query, [
+        data.tenantId,
+        data.accountName,
+        data.bankName,
+        data.accountNumber,
+        data.accountType,
+        data.currency || 'NGN',
+        data.isDefaultReceiving || false,
+        data.description
+      ]);
+
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error creating organization bank account:', error);
+      throw error;
+    }
+  }
+
   async markInvoiceAsPaid(id: number, paymentData: { paymentMethod: string; paymentDetails: any; paidBy: number }): Promise<void> {
     await db
       .update(invoices)

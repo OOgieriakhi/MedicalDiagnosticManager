@@ -73,6 +73,7 @@ export default function InvoiceManagement() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentDetails, setPaymentDetails] = useState<any>({});
+  const [receivingBankAccountId, setReceivingBankAccountId] = useState<number | null>(null);
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [testSearchTerm, setTestSearchTerm] = useState("");
   const [showNewReferralDialog, setShowNewReferralDialog] = useState(false);

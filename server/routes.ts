@@ -2315,6 +2315,42 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get organization bank accounts
+  app.get("/api/organization-bank-accounts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = req.user.tenantId;
+      const bankAccounts = await storage.getOrganizationBankAccounts(tenantId);
+      res.json(bankAccounts);
+    } catch (error) {
+      console.error("Error fetching organization bank accounts:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create organization bank account
+  app.post("/api/organization-bank-accounts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const bankAccountData = {
+        ...req.body,
+        tenantId: req.user.tenantId
+      };
+
+      const bankAccount = await storage.createOrganizationBankAccount(bankAccountData);
+      res.status(201).json(bankAccount);
+    } catch (error) {
+      console.error("Error creating organization bank account:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Mark invoice as paid (payment collection stage)
   app.put("/api/invoices/:id/pay", async (req, res) => {
     try {

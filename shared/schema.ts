@@ -1253,6 +1253,22 @@ export const pettyCashReconciliations = pgTable("petty_cash_reconciliations", {
   approvedAt: timestamp("approved_at"),
 });
 
+// Organization Bank Accounts
+export const organizationBankAccounts = pgTable("organization_bank_accounts", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  accountName: text("account_name").notNull(),
+  bankName: text("bank_name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  accountType: text("account_type").notNull(), // savings, current, domiciliary
+  currency: text("currency").notNull().default("NGN"),
+  isActive: boolean("is_active").notNull().default(true),
+  isDefaultReceiving: boolean("is_default_receiving").notNull().default(false),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Payment Vouchers
 export const paymentVouchers = pgTable("payment_vouchers", {
   id: serial("id").primaryKey(),
@@ -1312,6 +1328,12 @@ export const insertPettyCashReconciliationSchema = createInsertSchema(pettyCashR
   approvedAt: true,
 });
 
+export const insertOrganizationBankAccountSchema = createInsertSchema(organizationBankAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertPaymentVoucherSchema = createInsertSchema(paymentVouchers).omit({
   id: true,
   preparedAt: true,
@@ -1340,6 +1362,9 @@ export type InsertPurchaseOrderApproval = z.infer<typeof insertPurchaseOrderAppr
 
 export type PettyCashReconciliation = typeof pettyCashReconciliations.$inferSelect;
 export type InsertPettyCashReconciliation = z.infer<typeof insertPettyCashReconciliationSchema>;
+
+export type OrganizationBankAccount = typeof organizationBankAccounts.$inferSelect;
+export type InsertOrganizationBankAccount = z.infer<typeof insertOrganizationBankAccountSchema>;
 
 export type PaymentVoucher = typeof paymentVouchers.$inferSelect;
 export type InsertPaymentVoucher = z.infer<typeof insertPaymentVoucherSchema>;
