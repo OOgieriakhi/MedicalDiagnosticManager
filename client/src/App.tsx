@@ -28,6 +28,7 @@ import CashiersModule from "@/pages/cashiers-module";
 import PurchaseOrders from "@/pages/purchase-orders";
 import PettyCash from "@/pages/petty-cash";
 import InventoryManagement from "@/pages/inventory-management";
+import TestConsumptionManagement from "@/pages/test-consumption-management";
 import HumanResources from "@/pages/human-resources";
 import RoleManagement from "@/pages/role-management";
 import SecurityAudit from "@/pages/security-audit";
@@ -55,6 +56,7 @@ function Router() {
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrders} />
       <ProtectedRoute path="/petty-cash" component={PettyCash} />
       <ProtectedRoute path="/inventory-management" component={InventoryManagement} />
+      <ProtectedRoute path="/test-consumption-management" component={TestConsumptionManagement} />
       <ProtectedRoute path="/human-resources" component={HumanResources} />
       <ProtectedRoute path="/role-management" component={RoleManagement} />
       <ProtectedRoute path="/security-audit" component={SecurityAudit} />
