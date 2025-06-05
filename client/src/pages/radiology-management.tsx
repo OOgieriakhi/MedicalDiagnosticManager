@@ -54,6 +54,17 @@ export default function RadiologyManagement() {
   const [interpretation, setInterpretation] = useState('');
   const [recommendation, setRecommendation] = useState('');
   const [expectedHours, setExpectedHours] = useState('2');
+  const [radiologistSignature, setRadiologistSignature] = useState('');
+
+  // Helper function to get study stage-based background color
+  const getStudyStageColor = (study: any) => {
+    if (study.status === "reported_and_saved") return "bg-emerald-50 border-emerald-200";
+    if (study.status === "completed") return "bg-green-50 border-green-200";
+    if (study.status === "in_progress") return "bg-yellow-50 border-yellow-200";
+    if (study.status === "scheduled") return "bg-blue-50 border-blue-200";
+    if (study.paymentVerified) return "bg-purple-50 border-purple-200";
+    return "bg-white border-gray-200";
+  };
 
   // Workflow mutations
   const verifyPaymentMutation = useMutation({
@@ -91,12 +102,13 @@ export default function RadiologyManagement() {
   });
 
   const completeImagingMutation = useMutation({
-    mutationFn: async ({ studyId, findings, interpretation, recommendation }: any) => {
+    mutationFn: async ({ studyId, findings, interpretation, recommendation, radiologistSignature }: any) => {
       const testId = studyId.replace('pt-', '');
       const response = await apiRequest('POST', `/api/patient-tests/${testId}/complete-imaging`, {
         findings,
         interpretation,
-        recommendation
+        recommendation,
+        radiologistSignature: radiologistSignature || user?.username || 'Radiologist'
       });
       return response.json();
     },
@@ -134,6 +146,7 @@ export default function RadiologyManagement() {
     setInterpretation('');
     setRecommendation('');
     setExpectedHours('2');
+    setRadiologistSignature('');
     setCurrentStudy(null);
     setCurrentAction('');
   };
@@ -158,7 +171,8 @@ export default function RadiologyManagement() {
         studyId: currentStudy.id, 
         findings, 
         interpretation, 
-        recommendation 
+        recommendation,
+        radiologistSignature
       });
     }
   };

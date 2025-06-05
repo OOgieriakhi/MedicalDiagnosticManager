@@ -48,6 +48,17 @@ export default function CardiologyUnit() {
   const [interpretation, setInterpretation] = useState('');
   const [recommendation, setRecommendation] = useState('');
   const [expectedHours, setExpectedHours] = useState('2');
+  const [cardiologistSignature, setCardiologistSignature] = useState('');
+
+  // Helper function to get procedure stage-based background color
+  const getProcedureStageColor = (procedure: any) => {
+    if (procedure.status === "reported_and_saved") return "bg-emerald-50 border-emerald-200";
+    if (procedure.status === "completed") return "bg-green-50 border-green-200";
+    if (procedure.status === "in_progress") return "bg-yellow-50 border-yellow-200";
+    if (procedure.status === "scheduled") return "bg-blue-50 border-blue-200";
+    if (procedure.paymentVerified) return "bg-purple-50 border-purple-200";
+    return "bg-white border-gray-200";
+  };
 
   // Workflow mutations
   const verifyPaymentMutation = useMutation({
@@ -85,12 +96,13 @@ export default function CardiologyUnit() {
   });
 
   const completeProcedureMutation = useMutation({
-    mutationFn: async ({ studyId, findings, interpretation, recommendation }: any) => {
+    mutationFn: async ({ studyId, findings, interpretation, recommendation, cardiologistSignature }: any) => {
       const testId = studyId.replace('pt-', '');
       const response = await apiRequest('POST', `/api/patient-tests/${testId}/complete-imaging`, {
         findings,
         interpretation,
-        recommendation
+        recommendation,
+        cardiologistSignature: cardiologistSignature || user?.username || 'Cardiologist'
       });
       return response.json();
     },
