@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,7 @@ export default function ReportDesigner() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
-  const [designMode, setDesignMode] = useState(false);
+  const [designMode, setDesignMode] = useState(true);
   const [selectedComponent, setSelectedComponent] = useState<ReportComponent | null>(null);
   const [draggedComponent, setDraggedComponent] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -97,6 +97,13 @@ export default function ReportDesigner() {
       return response.json();
     }
   });
+
+  // Auto-select first template when templates are loaded
+  useEffect(() => {
+    if (templates && templates.length > 0 && !selectedTemplate) {
+      setSelectedTemplate(templates[0]);
+    }
+  }, [templates, selectedTemplate]);
 
   // Create template mutation
   const createTemplateMutation = useMutation({
