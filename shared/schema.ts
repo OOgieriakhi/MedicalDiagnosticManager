@@ -125,6 +125,7 @@ export const patientTests = pgTable("patient_tests", {
   scheduledAt: timestamp("scheduled_at").notNull(),
   completedAt: timestamp("completed_at"),
   results: text("results"),
+  parameterResults: text("parameter_results"), // JSON string of parameter ID -> value mappings
   notes: text("notes"),
   technicianId: integer("technician_id"),
   consultantId: integer("consultant_id"),
