@@ -465,6 +465,7 @@ export default function LaboratoryManagement() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed": return "default";
+      case "reported_and_saved": return "secondary";
       case "in_progress": return "secondary";
       case "pending": return "outline";
       case "rejected": return "destructive";
@@ -475,6 +476,7 @@ export default function LaboratoryManagement() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed": return <CheckCircle className="w-4 h-4" />;
+      case "reported_and_saved": return <FileText className="w-4 h-4" />;
       case "in_progress": return <Clock className="w-4 h-4" />;
       case "pending": return <AlertCircle className="w-4 h-4" />;
       default: return <TestTube className="w-4 h-4" />;

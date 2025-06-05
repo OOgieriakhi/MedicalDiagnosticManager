@@ -1581,7 +1581,7 @@ export function registerRoutes(app: Express): Server {
       await storage.updatePatientTestResults(testId, {
         results: finalResults,
         notes: notes || null,
-        status: saveForLater ? "results_saved" : "completed",
+        status: saveForLater ? "reported_and_saved" : "completed",
         resultsSavedAt: new Date(),
         resultsSavedBy: req.user.id
       });

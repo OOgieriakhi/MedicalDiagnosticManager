@@ -2581,10 +2581,11 @@ export class DatabaseStorage implements IStorage {
     try {
       // Try to get parameters from the test_parameters table if it exists
       const parameters = await db.execute(sql`
-        SELECT id, test_id, parameter_name, unit, normal_range_min, normal_range_max, 
-               normal_range_text, critical_values, methodology, created_at, updated_at
+        SELECT id, test_id, parameter_name, parameter_code, unit, normal_range_min, normal_range_max, 
+               normal_range_text, category, display_order, created_at, updated_at
         FROM test_parameters 
         WHERE test_id = ${testId}
+        ORDER BY display_order ASC
       `);
       
       return parameters.rows || [];
