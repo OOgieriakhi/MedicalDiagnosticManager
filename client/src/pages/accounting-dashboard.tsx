@@ -191,7 +191,7 @@ export default function AccountingDashboard() {
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setShowJournalEntryForm(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Entry
           </Button>
