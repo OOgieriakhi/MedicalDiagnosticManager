@@ -191,7 +191,7 @@ export default function LaboratoryManagement() {
     enabled: !!selectedTest?.testId,
   });
 
-  // Query for laboratory workflow metrics
+  // Query for laboratory workflow metrics - lazy load to improve initial page performance
   const { data: labMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ["/api/laboratory/metrics", user?.branchId, startDate, endDate],
     queryFn: async () => {
@@ -200,28 +200,23 @@ export default function LaboratoryManagement() {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
-      console.log('Frontend metrics query:', { branchId: user?.branchId, startDate, endDate, url: `/api/laboratory/metrics?${params}` });
-      
       const response = await fetch(`/api/laboratory/metrics?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab metrics");
       return response.json();
     },
-    enabled: !!user?.branchId,
+    enabled: !!user?.branchId && showLabAnalytics, // Only load when analytics tab is opened
     refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes to improve performance
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Query for laboratory tests - only show paid requests
+  // Query for laboratory tests - load incrementally for faster initial page load
   const { data: labTests, isLoading: labTestsLoading } = useQuery({
-    queryKey: ["/api/patient-tests", user?.branchId, "paid", startDate, endDate],
+    queryKey: ["/api/patient-tests", user?.branchId, "paid"],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('branchId', user?.branchId?.toString() || '');
       params.append('paidOnly', 'true');
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      
-      console.log('Frontend tests query:', { branchId: user?.branchId, startDate, endDate, url: `/api/patient-tests?${params}` });
+      params.append('limit', '20'); // Load only recent tests initially
       
       const response = await fetch(`/api/patient-tests?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab tests");
@@ -237,7 +232,7 @@ export default function LaboratoryManagement() {
       );
     },
     enabled: !!user?.branchId,
-    staleTime: 3 * 60 * 1000, // Cache for 3 minutes to improve performance
+    staleTime: 3 * 60 * 1000,
   });
 
   // Query for test categories - cached for better performance
@@ -1015,7 +1010,11 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Awaiting Payment Verification</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {metricsLoading ? "..." : labMetrics?.awaitingPaymentVerification || 0}
+                  {metricsLoading ? (
+                    <div className="h-8 bg-gray-200 rounded animate-pulse w-12"></div>
+                  ) : (
+                    labMetrics?.awaitingPaymentVerification || 0
+                  )}
                 </p>
                 <p className="text-xs text-gray-500">Priority: High</p>
               </div>
