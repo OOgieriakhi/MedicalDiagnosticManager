@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { NewPurchaseOrderForm } from "@/components/NewPurchaseOrderForm";
 import { 
   ShoppingCart,
   Plus,
@@ -610,6 +611,12 @@ export default function PurchaseOrders() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* New Purchase Order Form */}
+      <NewPurchaseOrderForm 
+        open={showNewPOForm} 
+        onOpenChange={setShowNewPOForm} 
+      />
     </div>
   );
 }
