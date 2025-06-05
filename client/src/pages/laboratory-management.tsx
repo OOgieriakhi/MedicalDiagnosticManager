@@ -1636,22 +1636,16 @@ export default function LaboratoryManagement() {
                             size="sm"
                             onClick={() => {
                               if (testParameters && testParameters.length > 0) {
-                                saveTestResultsMutation.mutate({
-                                  testId: selectedTest?.id,
-                                  parameterResults: resultValues,
-                                  notes: testNotes,
-                                  scientistSignature: user?.username || 'Scientist',
-                                  saveForLater: true
-                                });
+                                completeStructuredTestMutation.mutate();
                               }
                             }}
                             disabled={
-                              saveTestResultsMutation.isPending || 
+                              completeStructuredTestMutation.isPending || 
                               Object.keys(resultValues).length === 0 ||
                               testParameters.some((param: any) => !resultValues[param.id]?.trim())
                             }
                           >
-                            {saveTestResultsMutation.isPending ? "Saving..." : "Save Report"}
+                            {completeStructuredTestMutation.isPending ? "Saving..." : "Save Report"}
                           </Button>
                         </div>
                       </div>

@@ -39,6 +39,7 @@ import GEDDashboard from "@/pages/ged-dashboard";
 import MarketingManagement from "@/pages/marketing-management";
 import BrandingManagement from "@/pages/branding-management";
 import QualityAssurance from "@/pages/quality-assurance";
+import ReferenceRanges from "@/pages/reference-ranges";
 
 function Router() {
   return (
@@ -73,6 +74,7 @@ function Router() {
       <ProtectedRoute path="/marketing" component={MarketingManagement} />
       <ProtectedRoute path="/branding-management" component={BrandingManagement} />
       <ProtectedRoute path="/quality-assurance" component={QualityAssurance} />
+      <ProtectedRoute path="/reference-ranges" component={ReferenceRanges} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
