@@ -191,7 +191,7 @@ export default function LaboratoryManagement() {
     enabled: !!selectedTest?.testId,
   });
 
-  // Query for laboratory workflow metrics - lazy load to improve initial page performance
+  // Query for laboratory workflow metrics - completely disabled for initial load
   const { data: labMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ["/api/laboratory/metrics", user?.branchId, startDate, endDate],
     queryFn: async () => {
@@ -204,19 +204,19 @@ export default function LaboratoryManagement() {
       if (!response.ok) throw new Error("Failed to fetch lab metrics");
       return response.json();
     },
-    enabled: !!user?.branchId && showLabAnalytics, // Only load when analytics tab is opened
+    enabled: false, // Completely disabled - only load manually when needed
     refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
 
-  // Query for laboratory tests - load incrementally for faster initial page load
-  const { data: labTests, isLoading: labTestsLoading } = useQuery({
+  // Query for laboratory tests - manual load only to improve initial page performance
+  const { data: labTests, isLoading: labTestsLoading, refetch: refetchLabTests } = useQuery({
     queryKey: ["/api/patient-tests", user?.branchId, "paid"],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('branchId', user?.branchId?.toString() || '');
       params.append('paidOnly', 'true');
-      params.append('limit', '20'); // Load only recent tests initially
+      params.append('limit', '10'); // Further reduced for faster loading
       
       const response = await fetch(`/api/patient-tests?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab tests");
@@ -231,20 +231,20 @@ export default function LaboratoryManagement() {
         test.category?.toLowerCase().includes('pathology')
       );
     },
-    enabled: !!user?.branchId,
-    staleTime: 3 * 60 * 1000,
+    enabled: false, // Disabled by default - load manually
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Query for test categories - cached for better performance
-  const { data: testCategories } = useQuery({
+  // Query for test categories - disabled for instant page load
+  const { data: testCategories, refetch: refetchCategories } = useQuery({
     queryKey: ["/api/test-categories", user?.tenantId],
     queryFn: async () => {
       const response = await fetch(`/api/test-categories?tenantId=${user?.tenantId}`);
       if (!response.ok) throw new Error("Failed to fetch categories");
       return response.json();
     },
-    enabled: !!user?.tenantId,
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes - categories rarely change
+    enabled: false, // Disabled to eliminate loading delays
+    staleTime: 15 * 60 * 1000,
   });
 
   // Update test results mutation
