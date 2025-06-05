@@ -82,6 +82,7 @@ function Router() {
       <ProtectedRoute path="/report-designer" component={ReportDesigner} />
       <ProtectedRoute path="/predictive-recommendations" component={PredictiveRecommendations} />
       <ProtectedRoute path="/waiting-room-queue" component={WaitingRoomQueue} />
+      <ProtectedRoute path="/accounting-dashboard" component={AccountingDashboard} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
