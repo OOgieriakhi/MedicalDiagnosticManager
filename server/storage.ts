@@ -394,7 +394,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPatientTest(insertPatientTest: InsertPatientTest): Promise<PatientTest> {
-    // Use only the core required columns
+    // Use only the essential columns that we know exist
     const adaptedPatientTest = {
       patientId: insertPatientTest.patientId,
       testId: insertPatientTest.testId,
@@ -402,8 +402,7 @@ export class DatabaseStorage implements IStorage {
       scheduledAt: insertPatientTest.scheduledAt || new Date(),
       branchId: insertPatientTest.branchId,
       tenantId: insertPatientTest.tenantId,
-      notes: insertPatientTest.notes || null,
-      specimenType: insertPatientTest.specimenType || null
+      notes: insertPatientTest.notes || null
     };
 
     const [patientTest] = await db
