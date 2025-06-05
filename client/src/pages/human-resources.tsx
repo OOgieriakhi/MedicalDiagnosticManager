@@ -99,9 +99,19 @@ export default function HumanResources() {
     queryFn: () => apiRequest("GET", "/api/hr/employees").then(res => res.json()),
   });
 
-  const { data: departments } = useQuery({
+  const { data: departments, error: departmentsError, isLoading: departmentsLoading } = useQuery({
     queryKey: ["/api/hr/departments"],
-    queryFn: () => apiRequest("GET", "/api/hr/departments").then(res => res.json()),
+    queryFn: async () => {
+      console.log("Fetching departments...");
+      const res = await apiRequest("GET", "/api/hr/departments");
+      console.log("Departments response:", res.status);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch departments: ${res.status}`);
+      }
+      const data = await res.json();
+      console.log("Departments data:", data);
+      return data;
+    },
   });
 
   const { data: positions } = useQuery({
