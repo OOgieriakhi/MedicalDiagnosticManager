@@ -461,6 +461,8 @@ export const insertRecognitionEventSchema = createInsertSchema(recognitionEvents
   approvedAt: true,
 });
 
+
+
 // Test parameter templates for structured reporting
 export const testParameters = pgTable("test_parameters", {
   id: serial("id").primaryKey(),
