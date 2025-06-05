@@ -1692,7 +1692,7 @@ export function registerRoutes(app: Express): Server {
           finalResults = testParameters.map((param: any) => {
             const value = parameterResults[param.id];
             const interpretation = value ? interpretParameterValue(param, value) : { status: "pending", flag: "" };
-            return `${param.parameterName}: ${value || "Pending"} ${param.unit || ""} ${interpretation.flag ? `(${interpretation.flag})` : ""}`;
+            return `${param.parameter_name || param.parameterName || 'Unknown Parameter'}: ${value || "Pending"} ${param.unit || ""} ${interpretation.flag ? `(${interpretation.flag})` : ""}`;
           }).join("\n");
           
           // Add automated interpretation
