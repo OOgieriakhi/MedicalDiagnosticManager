@@ -1435,7 +1435,7 @@ export function registerRoutes(app: Express): Server {
                 if (foundTest.length > 0) {
                   testId = foundTest[0].id;
                   testName = foundTest[0].name;
-                  testPrice = foundTest[0].price;
+                  testPrice = Number(foundTest[0].price);
                   console.log('Resolved test from description:', testName, 'ID:', testId);
                 }
               }
@@ -3343,7 +3343,7 @@ export function registerRoutes(app: Express): Server {
         userId: req.user.id,
         action: "create_petty_cash_fund",
         resourceType: "petty_cash_fund",
-        resourceId: Array.isArray(fund) ? fund[0]?.id : fund.id,
+        resourceId: Array.isArray(fund) ? fund[0]?.id || 0 : (fund as any).id || 0,
         details: `Created petty cash fund with initial amount: ${req.body.initialAmount}`
       });
 
@@ -3614,7 +3614,7 @@ export function registerRoutes(app: Express): Server {
       const tenantId = req.user.tenantId;
       const branchId = req.user.branchId;
       const itemId = req.query.itemId ? parseInt(req.query.itemId as string) : undefined;
-      const stock = await inventoryStorage.getInventoryStock(tenantId, branchId, itemId);
+      const stock = await inventoryStorage.getInventoryStock(tenantId, branchId || 0, itemId);
       res.json(stock);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -3805,7 +3805,7 @@ export function registerRoutes(app: Express): Server {
   // Get all roles
   app.get("/api/roles", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId || 1;
       const roles = await rbacStorage.getRoles(tenantId);
       res.json(roles);
     } catch (error: any) {
