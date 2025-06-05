@@ -808,7 +808,7 @@ export default function LaboratoryManagement() {
                     <tr>
                       <td>${param.parameterName}</td>
                       <td>${savedResult || param.resultValue || '-'}</td>
-                      <td>${param.referenceRange || '-'}</td>
+                      <td>${param.normal_range_text || (param.normal_range_min !== null && param.normal_range_max !== null ? `${param.normal_range_min}-${param.normal_range_max}` : 'Not established')}</td>
                       <td>${param.unit || '-'}</td>
                     </tr>
                   `;

@@ -1725,7 +1725,7 @@ export function registerRoutes(app: Express): Server {
           code: param.parameter_code,
           value: param.value || 'Pending',
           unit: param.unit,
-          normalRange: param.normal_range_text || `${param.normal_range_min}-${param.normal_range_max}`,
+          normalRange: param.normal_range_text || (param.normal_range_min !== null && param.normal_range_max !== null ? `${param.normal_range_min}-${param.normal_range_max}` : 'Not established'),
           status: param.status || 'pending',
           flag: param.status === 'high' ? 'H' : param.status === 'low' ? 'L' : '',
           isAbnormal: param.status === 'high' || param.status === 'low'
