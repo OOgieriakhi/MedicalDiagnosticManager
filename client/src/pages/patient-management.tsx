@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Search, Edit, Eye, Calendar, Phone, Mail, MapPin } from "lucide-react";
+import { UserPlus, Search, Edit, Eye, Calendar, Phone, Mail, MapPin, FileText } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -365,14 +365,23 @@ export default function PatientManagement() {
                         {new Date(patient.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                        <Button variant="ghost" size="sm" className="text-medical-blue hover:text-blue-700">
+                        <Button variant="ghost" size="sm" className="text-medical-blue hover:text-blue-700" title="View Patient">
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-slate-gray hover:text-gray-700">
+                        <Button variant="ghost" size="sm" className="text-slate-gray hover:text-gray-700" title="Edit Patient">
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-medical-green hover:text-green-700">
+                        <Button variant="ghost" size="sm" className="text-medical-green hover:text-green-700" title="Schedule Appointment">
                           <Calendar className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-purple-600 hover:text-purple-700" 
+                          title="Generate Report"
+                          onClick={() => window.open(`/report-designer?patientId=${patient.id}`, '_blank')}
+                        >
+                          <FileText className="w-4 h-4" />
                         </Button>
                       </td>
                     </tr>
