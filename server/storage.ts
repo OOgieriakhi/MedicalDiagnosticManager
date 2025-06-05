@@ -640,33 +640,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInvoicesByBranch(branchId: number, status?: string): Promise<any[]> {
-    const baseQuery = db
-      .select({
-        id: invoices.id,
-        invoiceNumber: invoices.invoiceNumber,
-        patientId: invoices.patientId,
-        patientName: sql`${patients.firstName} || ' ' || ${patients.lastName}`.as('patientName'),
-        totalAmount: invoices.totalAmount,
-        paymentStatus: invoices.paymentStatus,
-        paymentMethod: invoices.paymentMethod,
-        createdAt: invoices.createdAt,
-        paidAt: invoices.paidAt,
-        createdByName: sql`${users.username}`.as('createdByName'),
-        tests: invoices.tests
-      })
-      .from(invoices)
-      .leftJoin(patients, eq(invoices.patientId, patients.id))
-      .leftJoin(users, eq(invoices.createdBy, users.id));
+    try {
+      const conditions = [`branch_id = $1`];
+      const params = [branchId];
 
-    const conditions = [eq(invoices.branchId, branchId)];
-    
-    if (status && status !== 'all') {
-      conditions.push(eq(invoices.paymentStatus, status));
+      if (status && status !== 'all') {
+        conditions.push(`payment_status = $${params.length + 1}`);
+        params.push(status);
+      }
+
+      const query = `
+        SELECT 
+          i.id,
+          i.invoice_number as "invoiceNumber",
+          i.patient_id as "patientId",
+          CONCAT(p.first_name, ' ', p.last_name) as "patientName",
+          i.total_amount as "totalAmount",
+          i.payment_status as "paymentStatus",
+          i.payment_method as "paymentMethod",
+          i.created_at as "createdAt",
+          i.paid_at as "paidAt",
+          u.username as "createdByName",
+          i.tests
+        FROM invoices i
+        LEFT JOIN patients p ON i.patient_id = p.id
+        LEFT JOIN users u ON i.created_by = u.id
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY i.created_at DESC
+      `;
+
+      const result = await pool.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching invoices by branch:', error);
+      return [];
     }
-
-    return await baseQuery
-      .where(and(...conditions))
-      .orderBy(desc(invoices.createdAt));
   }
 
   async getInvoice(id: number): Promise<Invoice | undefined> {
