@@ -99,6 +99,11 @@ export default function InvoiceManagement() {
     enabled: !!user?.tenantId,
   });
 
+  // Query for organization bank accounts
+  const { data: organizationBankAccounts } = useQuery({
+    queryKey: ["/api/organization-bank-accounts"],
+  });
+
   // Query for invoices with status filter
   const { data: invoices, refetch: refetchInvoices } = useQuery({
     queryKey: ["/api/invoices", user?.branchId, invoiceFilter === "all" ? undefined : invoiceFilter],
@@ -294,9 +299,20 @@ export default function InvoiceManagement() {
       return;
     }
 
+    // Validate receiving bank account for non-cash payments
+    if (paymentMethod !== "cash" && !receivingBankAccountId) {
+      toast({
+        title: "Error",
+        description: "Please select the receiving bank account for non-cash payments",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const paymentData = {
       paymentMethod,
       paymentDetails,
+      receivingBankAccountId: paymentMethod === "cash" ? null : receivingBankAccountId,
       paidBy: user?.id,
     };
 
