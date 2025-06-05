@@ -700,11 +700,11 @@ export function registerRoutes(app: Express): Server {
           if (patientTest.rows.length > 0) {
             const testData = patientTest.rows[0];
             await inventoryConsumptionService.consumeItemsForCompletedTest(
-              testData.test_id,
+              Number(testData.test_id),
               id,
-              testData.patient_id,
-              testData.branch_id,
-              testData.tenant_id,
+              Number(testData.patient_id),
+              Number(testData.branch_id),
+              Number(testData.tenant_id),
               req.user!.id
             );
             console.log(`Inventory automatically consumed for completed test ID: ${id}`);
