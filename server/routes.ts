@@ -1586,11 +1586,17 @@ export function registerRoutes(app: Express): Server {
         resultsSavedBy: req.user.id
       });
       
+      // Get the test to find the patient ID
+      const test = await storage.getPatientTest(testId);
+      if (!test) {
+        throw new Error("Test not found");
+      }
+
       res.json({ 
         message: saveForLater ? 
           "Results saved successfully for later processing" : 
           "Results saved and test completed",
-        consolidatedReport: await generateConsolidatedReport(testId)
+        consolidatedReport: await generateConsolidatedReport(test.patientId)
       });
     } catch (error: any) {
       console.error("Error saving test results:", error);
