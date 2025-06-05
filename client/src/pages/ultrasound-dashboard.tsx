@@ -329,8 +329,23 @@ export default function UltrasoundDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentStudies?.map((study: any) => (
-                  <div key={study.id} className="flex items-center justify-between p-4 border rounded-lg">
+                {recentStudies?.map((study: any) => {
+                  // Get background color based on workflow status
+                  const getBackgroundColor = () => {
+                    if (study.status === 'scheduled' && !study.paymentVerified) {
+                      return 'bg-red-50 border-red-200'; // Payment pending - red
+                    } else if (study.status === 'scheduled' && study.paymentVerified) {
+                      return 'bg-blue-50 border-blue-200'; // Payment verified - blue
+                    } else if (study.status === 'in_progress') {
+                      return 'bg-yellow-50 border-yellow-200'; // In progress - yellow
+                    } else if (study.status === 'completed') {
+                      return 'bg-green-50 border-green-200'; // Completed - green
+                    }
+                    return 'bg-gray-50 border-gray-200'; // Default - gray
+                  };
+
+                  return (
+                  <div key={study.id} className={`flex items-center justify-between p-4 border rounded-lg ${getBackgroundColor()}`}>
                     <div className="flex items-center gap-4">
                       <div className="p-2 bg-purple-100 rounded-lg">
                         <Waves className="w-5 h-5 text-purple-600" />
@@ -348,7 +363,7 @@ export default function UltrasoundDashboard() {
                         {study.status?.replace('_', ' ').toUpperCase() || 'SCHEDULED'}
                       </Badge>
                       
-                      {(study.status === 'scheduled' || !study.paymentVerified) && (
+                      {study.status === 'scheduled' && !study.paymentVerified && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -358,6 +373,12 @@ export default function UltrasoundDashboard() {
                           <CheckCircle className="w-4 h-4 mr-1" />
                           Verify Payment
                         </Button>
+                      )}
+                      
+                      {study.paymentVerified && study.status === 'scheduled' && (
+                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                          Payment Verified
+                        </Badge>
                       )}
                       
                       {(study.status === 'payment_verified' || (study.status === 'scheduled' && study.paymentVerified)) && (
@@ -397,7 +418,8 @@ export default function UltrasoundDashboard() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 
                 {(!recentStudies || recentStudies.length === 0) && (
                   <div className="text-center py-8 text-gray-500">
