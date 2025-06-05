@@ -10,6 +10,7 @@ import { inventoryConsumptionService } from "./inventory-consumption";
 import { trainingStorage } from "./training-storage";
 import { marketingStorage } from "./marketing-storage";
 import { predictiveEngine } from "./predictive-engine";
+import { queueManager } from "./queue-manager";
 import { db } from "./db";
 import { 
   patients, 
@@ -5523,6 +5524,161 @@ export function registerRoutes(app: Express): Server {
       res.json(result);
     } catch (error: any) {
       console.error("Error updating recommendation status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Queue Management API Routes
+  app.get("/api/queue/patients", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { department, status } = req.query;
+      
+      const queueData = await queueManager.getQueuePatients(
+        user.tenantId,
+        user.branchId || undefined,
+        {
+          department: department as string,
+          status: status as string
+        }
+      );
+
+      res.json(queueData);
+    } catch (error: any) {
+      console.error("Error fetching queue patients:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/queue/stats", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const stats = await queueManager.getQueueStats(
+        user.tenantId,
+        user.branchId || undefined
+      );
+
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching queue stats:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/queue/departments", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const departments = await queueManager.getDepartments(
+        user.tenantId,
+        user.branchId || undefined
+      );
+
+      res.json(departments);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/queue/call-next", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { patientId, department } = req.body;
+
+      if (!patientId || !department) {
+        return res.status(400).json({ message: "Patient ID and department are required" });
+      }
+
+      const result = await queueManager.callNextPatient(
+        user.tenantId,
+        patientId,
+        department
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error calling next patient:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/queue/patients/:id/status", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { id } = req.params;
+      const { status, notes } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const result = await queueManager.updatePatientStatus(
+        user.tenantId,
+        id,
+        status,
+        notes
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error updating patient status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/queue/add-patient", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      if (!user.branchId) {
+        return res.status(400).json({ message: "Branch ID required" });
+      }
+
+      const { patientId, department, doctor, appointmentType, priority, notes } = req.body;
+
+      if (!patientId || !department || !doctor || !appointmentType) {
+        return res.status(400).json({ message: "Required fields missing" });
+      }
+
+      const result = await queueManager.addPatientToQueue(
+        user.tenantId,
+        user.branchId,
+        {
+          patientId,
+          department,
+          doctor,
+          appointmentType,
+          priority,
+          notes
+        }
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error adding patient to queue:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

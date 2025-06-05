@@ -1361,6 +1361,69 @@ export const patientRiskProfiles = pgTable("patient_risk_profiles", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Waiting Room Queue Management
+export const queuePatients = pgTable("queue_patients", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  patientId: integer("patient_id").notNull(),
+  appointmentId: integer("appointment_id"),
+  department: text("department").notNull(),
+  doctor: text("doctor").notNull(),
+  appointmentType: text("appointment_type").notNull(),
+  priority: text("priority").notNull().default("normal"), // urgent, high, normal, low
+  status: text("status").notNull().default("waiting"), // waiting, called, in-progress, completed, no-show
+  position: integer("position").notNull(),
+  estimatedWaitTime: integer("estimated_wait_time").notNull().default(0), // minutes
+  actualWaitTime: integer("actual_wait_time").notNull().default(0), // minutes
+  checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
+  calledAt: timestamp("called_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  noShowAt: timestamp("no_show_at"),
+  notes: text("notes"),
+  serviceTime: integer("service_time"), // actual service time in minutes
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Queue Statistics and Analytics
+export const queueStats = pgTable("queue_stats", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  department: text("department").notNull(),
+  date: timestamp("date").notNull(),
+  totalPatients: integer("total_patients").notNull().default(0),
+  patientsServed: integer("patients_served").notNull().default(0),
+  averageWaitTime: integer("average_wait_time").notNull().default(0),
+  averageServiceTime: integer("average_service_time").notNull().default(0),
+  peakHour: text("peak_hour"),
+  noShowCount: integer("no_show_count").notNull().default(0),
+  efficiency: real("efficiency").notNull().default(0),
+  maxWaitTime: integer("max_wait_time").notNull().default(0),
+  minWaitTime: integer("min_wait_time").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Department Queue Configuration
+export const queueDepartments = pgTable("queue_departments", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  name: text("name").notNull(),
+  code: text("code").notNull(),
+  maxCapacity: integer("max_capacity").notNull().default(50),
+  averageServiceTime: integer("average_service_time").notNull().default(15), // minutes
+  isActive: boolean("is_active").notNull().default(true),
+  operatingHours: jsonb("operating_hours"), // {start: "08:00", end: "17:00"}
+  breakTimes: jsonb("break_times"), // [{start: "12:00", end: "13:00"}]
+  status: text("status").notNull().default("active"), // active, busy, closed
+  currentLoad: integer("current_load").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Payment Vouchers
 export const paymentVouchers = pgTable("payment_vouchers", {
   id: serial("id").primaryKey(),
