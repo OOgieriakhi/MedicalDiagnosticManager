@@ -69,6 +69,24 @@ export default function LaboratoryManagement() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [processingTests, setProcessingTests] = useState<Set<number>>(new Set());
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
+  const [showQualityControl, setShowQualityControl] = useState(false);
+  const [showLabAnalytics, setShowLabAnalytics] = useState(false);
+  const [selectedPriority, setSelectedPriority] = useState("normal");
+  const [turnaroundTime, setTurnaroundTime] = useState("");
+  const [qcLevel, setQcLevel] = useState("");
+  const [batchSize, setBatchSize] = useState(1);
+  const [instrumentId, setInstrumentId] = useState("");
+  const [technician, setTechnician] = useState("");
+  const [showBatchProcessing, setShowBatchProcessing] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState<any[]>([]);
+  const [showWorkloadDistribution, setShowWorkloadDistribution] = useState(false);
+  const [showParameterVisualization, setShowParameterVisualization] = useState(false);
+  const [selectedVisualizationType, setSelectedVisualizationType] = useState("trends");
+  const [selectedParameterGroup, setSelectedParameterGroup] = useState("all");
+  const [visualizationTimeRange, setVisualizationTimeRange] = useState("7d");
+  const [showParameterComparison, setShowParameterComparison] = useState(false);
+  const [comparisonParameters, setComparisonParameters] = useState<string[]>([]);
+  const [visualizationMode, setVisualizationMode] = useState("interactive");
 
   // Function to interpret result value
   const interpretResult = (parameter: any, value: string) => {
@@ -108,6 +126,51 @@ export default function LaboratoryManagement() {
       return "All parameters are within normal limits.";
     } else {
       return `Abnormal findings: ${abnormalResults.join(", ")}. Further clinical correlation is recommended.`;
+    }
+  };
+
+  // Calculate priority score for laboratory workflow optimization
+  const calculatePriorityScore = (test: any) => {
+    let score = 0;
+    if (test.urgency === "urgent") score += 50;
+    if (test.urgency === "stat") score += 100;
+    if (test.category?.toLowerCase().includes("cardiac")) score += 30;
+    if (test.category?.toLowerCase().includes("critical")) score += 40;
+    const hoursSinceRequest = Math.floor((new Date().getTime() - new Date(test.createdAt).getTime()) / (1000 * 60 * 60));
+    score += Math.min(hoursSinceRequest * 2, 20);
+    return score;
+  };
+
+  // Batch processing functions
+  const addToBatch = (test: any) => {
+    if (selectedBatch.length < batchSize) {
+      setSelectedBatch(prev => [...prev, test]);
+    }
+  };
+
+  const removeFromBatch = (testId: number) => {
+    setSelectedBatch(prev => prev.filter(test => test.id !== testId));
+  };
+
+  const processBatch = async () => {
+    if (selectedBatch.length === 0) return;
+    
+    try {
+      for (const test of selectedBatch) {
+        await startProcessingMutation.mutateAsync(test.id);
+      }
+      setSelectedBatch([]);
+      setShowBatchProcessing(false);
+      toast({
+        title: "Batch Processed",
+        description: `Successfully processed ${selectedBatch.length} tests in batch.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Batch Processing Failed",
+        description: "Some tests in the batch could not be processed.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -896,9 +959,41 @@ export default function LaboratoryManagement() {
         <MessageNotification />
       </div>
 
+      {/* Enhanced Laboratory Operations Control Panel */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Button
+          onClick={() => setShowQualityControl(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          <Target className="w-4 h-4 mr-2" />
+          Quality Control
+        </Button>
+        <Button
+          onClick={() => setShowBatchProcessing(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+        >
+          <FileCheck className="w-4 h-4 mr-2" />
+          Batch Processing
+        </Button>
+        <Button
+          onClick={() => setShowLabAnalytics(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          <Activity className="w-4 h-4 mr-2" />
+          Lab Analytics
+        </Button>
+        <Button
+          onClick={() => setShowWorkloadDistribution(true)}
+          className="bg-orange-600 hover:bg-orange-700 text-white"
+        >
+          <User className="w-4 h-4 mr-2" />
+          Workload Distribution
+        </Button>
+      </div>
+
       {/* Laboratory Workflow Metrics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <Card>
+        <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -909,6 +1004,7 @@ export default function LaboratoryManagement() {
                 <p className="text-2xl font-bold text-blue-600">
                   {metricsLoading ? "..." : labMetrics?.awaitingPaymentVerification || 0}
                 </p>
+                <p className="text-xs text-gray-500">Priority: High</p>
               </div>
             </div>
           </CardContent>
@@ -1909,6 +2005,491 @@ export default function LaboratoryManagement() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* Quality Control Dialog */}
+      <Dialog open={showQualityControl} onOpenChange={setShowQualityControl}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-purple-600" />
+              Laboratory Quality Control System
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* QC Level Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <div className="p-3 bg-green-100 rounded-full inline-block mb-2">
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                    </div>
+                    <h3 className="font-semibold">Level 1 QC</h3>
+                    <p className="text-sm text-gray-600">Daily Controls</p>
+                    <Button 
+                      onClick={() => setQcLevel("level1")}
+                      className="mt-2 w-full"
+                      variant={qcLevel === "level1" ? "default" : "outline"}
+                    >
+                      Select
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <div className="p-3 bg-yellow-100 rounded-full inline-block mb-2">
+                      <AlertCircle className="w-6 h-6 text-yellow-600" />
+                    </div>
+                    <h3 className="font-semibold">Level 2 QC</h3>
+                    <p className="text-sm text-gray-600">Weekly Validation</p>
+                    <Button 
+                      onClick={() => setQcLevel("level2")}
+                      className="mt-2 w-full"
+                      variant={qcLevel === "level2" ? "default" : "outline"}
+                    >
+                      Select
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <div className="p-3 bg-red-100 rounded-full inline-block mb-2">
+                      <XCircle className="w-6 h-6 text-red-600" />
+                    </div>
+                    <h3 className="font-semibold">Level 3 QC</h3>
+                    <p className="text-sm text-gray-600">Monthly Audit</p>
+                    <Button 
+                      onClick={() => setQcLevel("level3")}
+                      className="mt-2 w-full"
+                      variant={qcLevel === "level3" ? "default" : "outline"}
+                    >
+                      Select
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* QC Configuration */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="instrument">Instrument ID</Label>
+                <Input
+                  id="instrument"
+                  value={instrumentId}
+                  onChange={(e) => setInstrumentId(e.target.value)}
+                  placeholder="e.g., CHEM-001, HEMA-002"
+                />
+              </div>
+              <div>
+                <Label htmlFor="technician">Technician</Label>
+                <Input
+                  id="technician"
+                  value={technician}
+                  onChange={(e) => setTechnician(e.target.value)}
+                  placeholder="Technician name"
+                />
+              </div>
+            </div>
+
+            {/* QC Metrics Display */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quality Control Metrics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 border rounded">
+                    <div className="text-xl font-bold text-green-600">99.2%</div>
+                    <div className="text-sm">Accuracy</div>
+                  </div>
+                  <div className="text-center p-3 border rounded">
+                    <div className="text-xl font-bold text-blue-600">2.1%</div>
+                    <div className="text-sm">CV</div>
+                  </div>
+                  <div className="text-center p-3 border rounded">
+                    <div className="text-xl font-bold text-orange-600">0.98</div>
+                    <div className="text-sm">R²</div>
+                  </div>
+                  <div className="text-center p-3 border rounded">
+                    <div className="text-xl font-bold text-purple-600">1.5σ</div>
+                    <div className="text-sm">Deviation</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Processing Dialog */}
+      <Dialog open={showBatchProcessing} onOpenChange={setShowBatchProcessing}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCheck className="w-5 h-5 text-indigo-600" />
+              Laboratory Batch Processing System
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Batch Configuration */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="batchSize">Batch Size</Label>
+                <Input
+                  id="batchSize"
+                  type="number"
+                  value={batchSize}
+                  onChange={(e) => setBatchSize(parseInt(e.target.value) || 1)}
+                  min="1"
+                  max="50"
+                />
+              </div>
+              <div>
+                <Label htmlFor="priority">Priority Level</Label>
+                <Select value={selectedPriority} onValueChange={setSelectedPriority}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stat">STAT</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="routine">Routine</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="turnaround">Expected TAT (hours)</Label>
+                <Input
+                  id="turnaround"
+                  value={turnaroundTime}
+                  onChange={(e) => setTurnaroundTime(e.target.value)}
+                  placeholder="e.g., 2, 24, 48"
+                />
+              </div>
+            </div>
+
+            {/* Current Batch */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  Current Batch ({selectedBatch.length}/{batchSize})
+                  <Button
+                    onClick={processBatch}
+                    disabled={selectedBatch.length === 0}
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    Process Batch
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedBatch.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">No tests in current batch</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedBatch.map((test) => (
+                      <div key={test.id} className="flex items-center justify-between p-3 border rounded">
+                        <div>
+                          <p className="font-medium">{test.testName}</p>
+                          <p className="text-sm text-gray-600">{test.patientName}</p>
+                        </div>
+                        <Button
+                          onClick={() => removeFromBatch(test.id)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Available Tests for Batching */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Tests for Batch Processing</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                  {filteredTests
+                    .filter(test => test.status === "specimen_collected" || test.paymentVerified)
+                    .filter(test => !selectedBatch.find(b => b.id === test.id))
+                    .slice(0, 20)
+                    .map((test) => (
+                      <div key={test.id} className="flex items-center justify-between p-3 border rounded">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{test.testName}</p>
+                          <p className="text-xs text-gray-600">{test.patientName}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              Priority: {calculatePriorityScore(test)}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => addToBatch(test)}
+                          disabled={selectedBatch.length >= batchSize}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Laboratory Analytics Dialog */}
+      <Dialog open={showLabAnalytics} onOpenChange={setShowLabAnalytics}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-600" />
+              Laboratory Analytics & Performance Metrics
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Performance Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {labMetrics?.totalRequests || filteredTests.length}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Requests</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {labMetrics?.completedToday || filteredTests.filter(t => t.status === "completed").length}
+                  </div>
+                  <div className="text-sm text-gray-600">Completed Today</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-orange-600">18.5h</div>
+                  <div className="text-sm text-gray-600">Avg TAT</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-purple-600">96.8%</div>
+                  <div className="text-sm text-gray-600">On-Time Rate</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Department Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Department Performance Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-red-100 rounded">
+                        <TestTube className="w-4 h-4 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Hematology</p>
+                        <p className="text-sm text-gray-600">Blood cell analysis</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">{filteredTests.filter(t => t.category?.toLowerCase().includes('blood')).length} tests</p>
+                      <p className="text-sm text-green-600">+12% efficiency</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 border rounded">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded">
+                        <Beaker className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Clinical Chemistry</p>
+                        <p className="text-sm text-gray-600">Biochemical analysis</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">{filteredTests.filter(t => t.category?.toLowerCase().includes('chemistry')).length} tests</p>
+                      <p className="text-sm text-green-600">+8% efficiency</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 border rounded">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded">
+                        <Microscope className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Microbiology</p>
+                        <p className="text-sm text-gray-600">Culture & sensitivity</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">{filteredTests.filter(t => t.category?.toLowerCase().includes('microbiology')).length} tests</p>
+                      <p className="text-sm text-orange-600">-3% efficiency</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Trend Analysis */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Weekly Trend Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 flex items-center justify-center border rounded bg-gray-50">
+                  <div className="text-center">
+                    <Activity className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">Performance trend chart visualization</p>
+                    <p className="text-sm text-gray-400">Real-time analytics dashboard</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workload Distribution Dialog */}
+      <Dialog open={showWorkloadDistribution} onOpenChange={setShowWorkloadDistribution}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-orange-600" />
+              Staff Workload Distribution
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Staff Performance Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <User className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Dr. Sarah Johnson</p>
+                      <p className="text-sm text-gray-600">Senior Lab Technician</p>
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500">Today: 24 tests</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '80%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <User className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Michael Chen</p>
+                      <p className="text-sm text-gray-600">Lab Technician</p>
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500">Today: 18 tests</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '60%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-full">
+                      <User className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Emily Rodriguez</p>
+                      <p className="text-sm text-gray-600">Junior Technician</p>
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500">Today: 12 tests</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div className="bg-orange-600 h-2 rounded-full" style={{ width: '40%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Workload Assignment */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Intelligent Workload Assignment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <p className="font-medium">STAT Tests Queue</p>
+                      <p className="text-sm text-gray-600">High priority urgent tests</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive">URGENT</Badge>
+                      <Button size="sm">Auto-Assign</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <p className="font-medium">Chemistry Panel Batch</p>
+                      <p className="text-sm text-gray-600">15 tests ready for processing</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">BATCH</Badge>
+                      <Button size="sm">Assign to Team</Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <p className="font-medium">Routine Screening</p>
+                      <p className="text-sm text-gray-600">Standard workflow tests</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">ROUTINE</Badge>
+                      <Button size="sm">Balance Load</Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
