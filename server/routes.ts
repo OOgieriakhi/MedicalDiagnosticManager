@@ -3804,7 +3804,7 @@ export function registerRoutes(app: Express): Server {
 
   // ==================== TRAINING SIMULATION API ROUTES ====================
 
-  // Get training modules by department
+  // Get training modules by department with role-based access
   app.get("/api/training/modules", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -3812,21 +3812,37 @@ export function registerRoutes(app: Express): Server {
       }
 
       const { department, difficulty } = req.query;
-      const modules = await trainingStorage.getTrainingModules({
-        department: department as string,
-        difficulty: difficulty as string,
-      });
+      const user = req.user!;
+      
+      // Admin/CEO gets access to all modules
+      const isAdmin = user.role === 'admin' || user.role === 'ceo' || user.role === 'director';
+      
+      let modules;
+      if (isAdmin) {
+        // Admin gets all modules regardless of department filter
+        modules = await trainingStorage.getTrainingModules({
+          difficulty: difficulty as string,
+        });
+      } else {
+        // Regular users get modules for their department only
+        const userDepartment = user.department || department as string;
+        modules = await trainingStorage.getTrainingModules({
+          department: userDepartment,
+          difficulty: difficulty as string,
+        });
+      }
 
       // Enrich with user progress if available
       const enrichedModules = await Promise.all(
         modules.map(async (module) => {
-          const progress = await trainingStorage.getUserTrainingProgress(req.user!.id, module.id);
+          const progress = await trainingStorage.getUserTrainingProgress(user.id, module.id);
           const userProgress = progress[0];
           
           return {
             ...module,
             progressPercentage: userProgress?.progressPercentage || 0,
             certificateEarned: userProgress?.certificateEarned || false,
+            accessLevel: isAdmin ? 'full' : 'restricted',
           };
         })
       );

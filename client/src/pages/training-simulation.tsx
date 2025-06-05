@@ -90,7 +90,7 @@ interface TrainingSession {
 
 export default function TrainingSimulation() {
   const { toast } = useToast();
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("laboratory");
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("frontdesk");
   const [activeSession, setActiveSession] = useState<TrainingSession | null>(null);
   const [currentScenario, setCurrentScenario] = useState<TrainingScenario | null>(null);
   const [simulationMode, setSimulationMode] = useState<'guided' | 'assessment' | 'free_practice'>('guided');
@@ -260,6 +260,7 @@ export default function TrainingSimulation() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="frontdesk">Front Desk / Reception</SelectItem>
                     <SelectItem value="laboratory">Laboratory</SelectItem>
                     <SelectItem value="radiology">Radiology</SelectItem>
                     <SelectItem value="ultrasound">Ultrasound</SelectItem>
@@ -267,6 +268,7 @@ export default function TrainingSimulation() {
                     <SelectItem value="pharmacy">Pharmacy</SelectItem>
                     <SelectItem value="nursing">Nursing</SelectItem>
                     <SelectItem value="physiotherapy">Physiotherapy</SelectItem>
+                    <SelectItem value="administrative">Administrative</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
