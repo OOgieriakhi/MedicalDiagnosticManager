@@ -142,6 +142,11 @@ export default function MarketingManagement() {
     queryKey: ["/api/marketing/metrics"],
   });
 
+  // Fetch staff members for recipient selection
+  const { data: staffMembers = [] } = useQuery({
+    queryKey: ["/api/users"],
+  });
+
   // Message mutations
   const markAsReadMutation = useMutation({
     mutationFn: async (messageId: number) => {
@@ -769,12 +774,17 @@ export default function MarketingManagement() {
             <form onSubmit={(e) => {
               e.preventDefault();
               const formData = new FormData(e.target as HTMLFormElement);
+              const selectedRecipients = formData.get('recipients');
+              const recipientIds = selectedRecipients === 'all' 
+                ? staffMembers.map((staff: any) => staff.id)
+                : [parseInt(selectedRecipients as string)];
+              
               createMessageMutation.mutate({
                 messageType: formData.get('messageType'),
                 subject: formData.get('subject'),
                 content: formData.get('content'),
                 priority: formData.get('priority'),
-                recipientIds: [1], // Simplified for demo
+                recipientIds,
                 actionRequired: formData.get('actionRequired') === 'on',
               });
             }}>
@@ -788,6 +798,21 @@ export default function MarketingManagement() {
                     <SelectItem value="announcement">Announcement</SelectItem>
                     <SelectItem value="alert">Alert</SelectItem>
                     <SelectItem value="request">Request</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                
+                <Select name="recipients" defaultValue="all" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Send to" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Send to All Staff</SelectItem>
+                    {staffMembers.map((staff: any) => (
+                      <SelectItem key={staff.id} value={staff.id.toString()}>
+                        {staff.username}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 

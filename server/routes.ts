@@ -4059,6 +4059,21 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Internal messaging system
+  app.get("/api/messages/metrics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const metrics = await marketingStorage.getMessageMetrics(user.tenantId || 1, user.id);
+      res.json(metrics);
+    } catch (error: any) {
+      console.error("Error fetching message metrics:", error);
+      res.status(500).json({ message: "Failed to fetch message metrics" });
+    }
+  });
+
   app.get("/api/messages", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
