@@ -504,17 +504,23 @@ export default function LaboratoryManagement() {
     let matchesStatus = false;
     if (statusFilter === "all") {
       matchesStatus = true;
-    } else if (statusFilter === "pending") {
-      matchesStatus = test.status === "pending" || test.status === "scheduled" || (!test.paymentVerified && test.paymentStatus === "paid");
-    } else if (statusFilter === "in_progress") {
-      matchesStatus = test.status === "in_progress" || test.status === "processing" || test.status === "specimen_collected" || test.processingStarted;
-    } else if (statusFilter === "completed") {
-      matchesStatus = test.status === "completed" || test.status === "delivered";
     } else if (statusFilter === "payment_verification") {
-      matchesStatus = !test.paymentVerified && test.paymentStatus === "paid";
+      // Tests that need payment verification - paid but not yet verified by lab staff
+      matchesStatus = test.paymentStatus === "paid" && !test.paymentVerified;
     } else if (statusFilter === "specimen_collection") {
-      matchesStatus = test.paymentVerified && !test.specimenCollected;
+      // Tests with verified payment but no specimen collected yet
+      matchesStatus = test.paymentVerified === true && !test.specimenCollected;
+    } else if (statusFilter === "in_progress") {
+      // Tests that are actively being processed
+      matchesStatus = (test.status === "processing" || test.status === "in_progress") && test.processingStarted === true;
+    } else if (statusFilter === "completed") {
+      // Tests that are completed or reported
+      matchesStatus = test.status === "completed" || test.status === "reported_and_saved";
+    } else if (statusFilter === "pending") {
+      // Any other pending states
+      matchesStatus = test.status === "pending" || test.status === "scheduled";
     } else {
+      // Direct status match
       matchesStatus = test.status === statusFilter;
     }
     
