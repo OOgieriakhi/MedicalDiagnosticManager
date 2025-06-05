@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useBranding } from "@/lib/branding-context";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Palette, Building2, Contact, Globe, Settings, Save, Eye } from "lucide-react";
+import { Palette, Building2, Contact, Globe, Settings, Save, Eye, Home, ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 
 export default function BrandingManagement() {
   const { toast } = useToast();
@@ -116,6 +117,30 @@ export default function BrandingManagement() {
 
   return (
     <div className="container mx-auto p-6 space-y-8">
+      {/* Navigation Header */}
+      <div className="flex items-center justify-between border-b pb-4">
+        <div className="flex items-center space-x-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <Link href="/financial-management">
+            <Button variant="ghost" size="sm">Financial</Button>
+          </Link>
+          <Link href="/marketing">
+            <Button variant="ghost" size="sm">Marketing</Button>
+          </Link>
+          <Link href="/human-resources">
+            <Button variant="ghost" size="sm">HR</Button>
+          </Link>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Orient Medical Diagnostic Centre
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Organization Branding</h1>
