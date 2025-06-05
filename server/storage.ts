@@ -165,19 +165,29 @@ export class DatabaseStorage implements IStorage {
   private static persistentEmployees: any[] = [];
 
   constructor() {
-    try {
-      this.sessionStore = new PostgresSessionStore({ 
-        pool, 
-        createTableIfMissing: true 
-      });
-    } catch (error) {
-      console.warn('PostgreSQL session store failed, using memory store:', error.message);
-      // Fallback to memory store if PostgreSQL fails
-      const MemoryStore = require('memorystore')(require('express-session'));
-      this.sessionStore = new MemoryStore({
-        checkPeriod: 86400000, // prune expired entries every 24h
-      });
-    }
+    // Use simple memory store for session management
+    const MemoryStore = (session: any) => {
+      return class extends session.Store {
+        sessions: Map<string, any> = new Map();
+        
+        get(sid: string, callback: (err?: any, session?: any) => void) {
+          const session = this.sessions.get(sid);
+          setImmediate(callback, null, session);
+        }
+        
+        set(sid: string, session: any, callback?: (err?: any) => void) {
+          this.sessions.set(sid, session);
+          if (callback) setImmediate(callback);
+        }
+        
+        destroy(sid: string, callback?: (err?: any) => void) {
+          this.sessions.delete(sid);
+          if (callback) setImmediate(callback);
+        }
+      };
+    };
+    
+    this.sessionStore = new (MemoryStore(session))();
   }
 
   async getUser(id: number): Promise<User | undefined> {
