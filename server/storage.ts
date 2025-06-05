@@ -641,11 +641,11 @@ export class DatabaseStorage implements IStorage {
 
   async getInvoicesByBranch(branchId: number, status?: string): Promise<any[]> {
     try {
-      const conditions = [`branch_id = $1`];
+      const conditions = [`i.branch_id = $1`];
       const params = [branchId];
 
       if (status && status !== 'all') {
-        conditions.push(`payment_status = $${params.length + 1}`);
+        conditions.push(`i.payment_status = $${params.length + 1}`);
         params.push(status);
       }
 
