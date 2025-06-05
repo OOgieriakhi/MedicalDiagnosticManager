@@ -255,7 +255,7 @@ export default function PatientIntake() {
         subtotal: calculateTotal(),
         commission: calculateCommission(),
         total: Math.max(0, calculateTotal() - calculateCommission()),
-        status: paymentMethod === "invoice" ? "pending" : "paid",
+        status: paymentMethod === "invoice" ? "unpaid" : "paid",
         paymentMethod: paymentMethod
       };
 
@@ -275,16 +275,18 @@ export default function PatientIntake() {
         });
       }
 
-      // 4. Create transaction record
-      await apiRequest("POST", "/api/transactions", {
-        type: "payment",
-        amount: Math.max(0, calculateTotal() - calculateCommission()).toString(),
-        description: `Payment for ${selectedTests.length} diagnostic test(s) - ${paymentMethod.toUpperCase()}${selectedBank ? ` via ${selectedBank}` : ''}`,
-        patientTestId: scheduledTests[0]?.id,
-        branchId: user?.branchId,
-        tenantId: user?.tenantId,
-        createdBy: user?.id
-      });
+      // 4. Create transaction record only if payment is processed (not for invoice)
+      if (paymentMethod !== "invoice") {
+        await apiRequest("POST", "/api/transactions", {
+          type: "payment",
+          amount: Math.max(0, calculateTotal() - calculateCommission()).toString(),
+          description: `Payment for ${selectedTests.length} diagnostic test(s) - ${paymentMethod.toUpperCase()}${selectedBank ? ` via ${selectedBank}` : ''}`,
+          patientTestId: scheduledTests[0]?.id,
+          branchId: user?.branchId,
+          tenantId: user?.tenantId,
+          createdBy: user?.id
+        });
+      }
 
       setCurrentWorkflowStep("confirmation");
       setCurrentStep(4);
