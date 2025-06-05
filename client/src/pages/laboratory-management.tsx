@@ -1254,6 +1254,38 @@ export default function LaboratoryManagement() {
                       <div className="border rounded-lg p-4 bg-gray-50">
                         <h4 className="font-semibold mb-2">Automated Interpretation</h4>
                         <p className="text-sm">{generateInterpretation(testParameters)}</p>
+                        
+                        {/* Report Preview Action Buttons */}
+                        <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowReportPreview(false)}
+                          >
+                            Close Preview
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              if (testParameters && testParameters.length > 0) {
+                                saveTestResultsMutation.mutate({
+                                  testId: selectedTest?.id,
+                                  parameterResults: resultValues,
+                                  notes: testNotes,
+                                  saveForLater: true
+                                });
+                              }
+                            }}
+                            disabled={
+                              saveTestResultsMutation.isPending || 
+                              Object.keys(resultValues).length === 0 ||
+                              testParameters.some((param: any) => !resultValues[param.id]?.trim())
+                            }
+                          >
+                            {saveTestResultsMutation.isPending ? "Saving..." : "Save Report"}
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
