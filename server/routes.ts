@@ -11,6 +11,7 @@ import { trainingStorage } from "./training-storage";
 import { marketingStorage } from "./marketing-storage";
 import { predictiveEngine } from "./predictive-engine";
 import { queueManager } from "./queue-manager";
+import { accountingEngine } from "./accounting-engine";
 import { db } from "./db";
 import { 
   patients, 
@@ -5679,6 +5680,194 @@ export function registerRoutes(app: Express): Server {
       res.json(result);
     } catch (error: any) {
       console.error("Error adding patient to queue:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Accounting & Financial Management API Routes
+  app.get("/api/accounting/summary", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { period } = req.query;
+      
+      const summary = await accountingEngine.getFinancialSummary(
+        user.tenantId,
+        user.branchId || undefined,
+        period as string
+      );
+
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error fetching financial summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/accounting/balances", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { accountType, search } = req.query;
+      
+      const balances = await accountingEngine.getAccountBalances(
+        user.tenantId,
+        user.branchId || undefined,
+        accountType as string,
+        search as string
+      );
+
+      res.json(balances);
+    } catch (error: any) {
+      console.error("Error fetching account balances:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/accounting/journal-entries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { limit, status } = req.query;
+      
+      const entries = await accountingEngine.getJournalEntries(
+        user.tenantId,
+        user.branchId || undefined,
+        parseInt(limit as string) || 50,
+        status as string
+      );
+
+      res.json(entries);
+    } catch (error: any) {
+      console.error("Error fetching journal entries:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/accounting/journal-entries/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { id } = req.params;
+      
+      const entry = await accountingEngine.getJournalEntryDetails(
+        parseInt(id),
+        user.tenantId
+      );
+
+      res.json(entry);
+    } catch (error: any) {
+      console.error("Error fetching journal entry details:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/accounting/cash-flow", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { months } = req.query;
+      
+      const cashFlow = await accountingEngine.getCashFlowData(
+        user.tenantId,
+        user.branchId || undefined,
+        parseInt(months as string) || 12
+      );
+
+      res.json(cashFlow);
+    } catch (error: any) {
+      console.error("Error fetching cash flow data:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/accounting/journal-entries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      if (!user.branchId) {
+        return res.status(400).json({ message: "Branch ID required" });
+      }
+
+      const { description, referenceType, referenceId, referenceNumber, lineItems } = req.body;
+
+      if (!description || !lineItems || lineItems.length === 0) {
+        return res.status(400).json({ message: "Description and line items are required" });
+      }
+
+      const entry = await accountingEngine.createJournalEntry(
+        user.tenantId,
+        user.branchId,
+        {
+          description,
+          referenceType,
+          referenceId,
+          referenceNumber,
+          lineItems,
+          createdBy: user.id
+        }
+      );
+
+      res.json(entry);
+    } catch (error: any) {
+      console.error("Error creating journal entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/accounting/journal-entries/:id/post", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { id } = req.params;
+      
+      const result = await accountingEngine.postJournalEntry(
+        parseInt(id),
+        user.tenantId,
+        user.id
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error posting journal entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/accounting/initialize", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      await accountingEngine.initializeChartOfAccounts(user.tenantId);
+
+      res.json({ success: true, message: "Chart of accounts initialized" });
+    } catch (error: any) {
+      console.error("Error initializing chart of accounts:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

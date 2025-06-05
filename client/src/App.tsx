@@ -43,6 +43,7 @@ import ReferenceRanges from "@/pages/reference-ranges";
 import ReportDesigner from "@/pages/report-designer";
 import PredictiveRecommendations from "@/pages/predictive-recommendations";
 import WaitingRoomQueue from "@/pages/waiting-room-queue";
+import AccountingDashboard from "@/pages/accounting-dashboard";
 
 function Router() {
   return (
