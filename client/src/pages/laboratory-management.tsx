@@ -815,8 +815,8 @@ export default function LaboratoryManagement() {
       // Tests that need payment verification - paid but not yet verified by lab staff
       matchesStatus = test.status === "scheduled" && !test.paymentVerified;
     } else if (statusFilter === "specimen_collection") {
-      // Tests with verified payment but no specimen collected yet
-      matchesStatus = test.status === "payment_verified" || (test.paymentVerified === true && test.status !== "specimen_collected");
+      // Tests ready for specimen collection
+      matchesStatus = test.status === "specimen_collected";
     } else if (statusFilter === "in_progress") {
       // Tests that are actively being processed
       matchesStatus = test.status === "processing" || test.processingStarted === true;
@@ -1197,7 +1197,7 @@ export default function LaboratoryManagement() {
                       
                       <div className="flex items-center gap-2 ml-4">
                         {/* Payment Verification Step */}
-                        {!test.paymentVerified && test.paymentStatus === "paid" && (
+                        {test.status === "scheduled" && !test.paymentVerified && (
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -1222,7 +1222,7 @@ export default function LaboratoryManagement() {
                         )}
                         
                         {/* Specimen Collection Step */}
-                        {test.paymentVerified && !test.specimenCollected && (
+                        {test.status === "specimen_collected" && (
                           <Dialog>
                             <DialogTrigger asChild>
                               <Button 
