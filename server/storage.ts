@@ -143,6 +143,17 @@ export interface IStorage {
   getFinancialMetrics(branchId: number, startDate?: Date, endDate?: Date): Promise<any>;
   getRevenueBreakdown(branchId: number, startDate?: Date, endDate?: Date): Promise<any>;
   getTransactionHistory(branchId: number, paymentMethod?: string, startDate?: Date, endDate?: Date, limit?: number): Promise<any[]>;
+
+  // HR management methods
+  getEmployees(tenantId: number, branchId?: number): Promise<any[]>;
+  createEmployee(data: any): Promise<any>;
+  getDepartments(tenantId: number): Promise<any[]>;
+  createDepartment(data: any): Promise<any>;
+  getPositions(tenantId: number): Promise<any[]>;
+  createPosition(data: any): Promise<any>;
+  getPayrollPeriods(tenantId: number): Promise<any[]>;
+  createPayrollPeriod(data: any): Promise<any>;
+  getHRMetrics(tenantId: number): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1593,6 +1604,241 @@ export class DatabaseStorage implements IStorage {
       revenue: [],
       expenses: [],
       netIncome: 0
+    };
+  }
+
+  // HR management method implementations
+  async getEmployees(tenantId: number, branchId?: number): Promise<any[]> {
+    return [
+      {
+        id: 1,
+        employeeId: "EMP001",
+        firstName: "John",
+        lastName: "Doe",
+        email: "john.doe@company.com",
+        phone: "+234 xxx xxx xxxx",
+        dateOfBirth: "1990-05-15",
+        gender: "Male",
+        maritalStatus: "Single",
+        address: "123 Main Street, Lagos",
+        emergencyContactName: "Jane Doe",
+        emergencyContactPhone: "+234 xxx xxx xxxx",
+        hireDate: "2023-01-15",
+        department: "Laboratory",
+        position: "Lab Technician",
+        salary: "150000",
+        status: "active",
+        tenantId,
+        branchId: branchId || 1,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+  }
+
+  async createEmployee(data: any): Promise<any> {
+    // In real implementation, this would insert into an employees table
+    const employee = {
+      id: Date.now(),
+      employeeId: data.employeeId,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      dateOfBirth: data.dateOfBirth,
+      gender: data.gender,
+      maritalStatus: data.maritalStatus,
+      address: data.address,
+      emergencyContactName: data.emergencyContactName,
+      emergencyContactPhone: data.emergencyContactPhone,
+      hireDate: data.hireDate,
+      department: data.department,
+      position: data.position,
+      salary: data.salary,
+      status: "active",
+      tenantId: data.tenantId,
+      branchId: data.branchId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    console.log("Created employee:", employee);
+    return employee;
+  }
+
+  async getDepartments(tenantId: number): Promise<any[]> {
+    return [
+      {
+        id: 1,
+        name: "Laboratory",
+        description: "Medical laboratory services and testing",
+        headOfDepartment: "Dr. Sarah Johnson",
+        employeeCount: 12,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        name: "Radiology",
+        description: "Medical imaging and diagnostic services",
+        headOfDepartment: "Dr. Michael Chen",
+        employeeCount: 8,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        name: "Administration",
+        description: "Administrative and management functions",
+        headOfDepartment: "Ms. Patricia Williams",
+        employeeCount: 15,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+  }
+
+  async createDepartment(data: any): Promise<any> {
+    // In real implementation, this would insert into a departments table
+    const department = {
+      id: Date.now(),
+      name: data.name,
+      description: data.description,
+      headOfDepartment: data.headOfDepartment || null,
+      employeeCount: 0,
+      tenantId: data.tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    console.log("Created department:", department);
+    return department;
+  }
+
+  async getPositions(tenantId: number): Promise<any[]> {
+    return [
+      {
+        id: 1,
+        title: "Lab Technician",
+        department: "Laboratory",
+        description: "Performs laboratory tests and procedures",
+        baseSalary: "120000",
+        requirements: "BSc in Medical Laboratory Science",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        title: "Radiologist",
+        department: "Radiology",
+        description: "Interprets medical imaging studies",
+        baseSalary: "500000",
+        requirements: "MD with Radiology specialization",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        title: "Administrative Assistant",
+        department: "Administration",
+        description: "Provides administrative support",
+        baseSalary: "80000",
+        requirements: "HND/BSc in any field",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+  }
+
+  async createPosition(data: any): Promise<any> {
+    // In real implementation, this would insert into a positions table
+    const position = {
+      id: Date.now(),
+      title: data.title,
+      department: data.department,
+      description: data.description,
+      baseSalary: data.baseSalary,
+      requirements: data.requirements,
+      tenantId: data.tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    console.log("Created position:", position);
+    return position;
+  }
+
+  async getPayrollPeriods(tenantId: number): Promise<any[]> {
+    return [
+      {
+        id: 1,
+        periodName: "June 2025",
+        startDate: "2025-06-01",
+        endDate: "2025-06-30",
+        payDate: "2025-07-05",
+        status: "upcoming",
+        totalEmployees: 35,
+        totalAmount: "5250000",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        periodName: "May 2025",
+        startDate: "2025-05-01",
+        endDate: "2025-05-31",
+        payDate: "2025-06-05",
+        status: "completed",
+        totalEmployees: 35,
+        totalAmount: "5250000",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+  }
+
+  async createPayrollPeriod(data: any): Promise<any> {
+    // In real implementation, this would insert into a payroll_periods table
+    const payrollPeriod = {
+      id: Date.now(),
+      periodName: data.periodName,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      payDate: data.payDate,
+      status: "upcoming",
+      totalEmployees: 0,
+      totalAmount: "0",
+      tenantId: data.tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    console.log("Created payroll period:", payrollPeriod);
+    return payrollPeriod;
+  }
+
+  async getHRMetrics(tenantId: number): Promise<any> {
+    return {
+      totalEmployees: 35,
+      activeEmployees: 33,
+      newHiresThisMonth: 2,
+      departmentCount: 5,
+      averageSalary: "150000",
+      totalPayroll: "5250000",
+      employeeTurnoverRate: "5.7%",
+      attendanceRate: "95.2%",
+      topPerformingDepartment: "Laboratory",
+      upcomingBirthdays: 3,
+      pendingLeaveRequests: 7,
+      expiredDocuments: 2
     };
   }
 }

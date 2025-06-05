@@ -435,24 +435,99 @@ export default function HumanResources() {
                     />
                   </div>
 
-                  <FormField
-                    control={employeeForm.control}
-                    name="hireDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Hire Date</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="date" 
-                            {...field}
-                            value={field.value ? field.value.toISOString().split('T')[0] : ''}
-                            onChange={(e) => field.onChange(new Date(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={employeeForm.control}
+                      name="department"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Department/Unit</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select department" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Laboratory">Laboratory</SelectItem>
+                              <SelectItem value="Radiology">Radiology</SelectItem>
+                              <SelectItem value="Administration">Administration</SelectItem>
+                              <SelectItem value="Finance">Finance</SelectItem>
+                              <SelectItem value="Human Resources">Human Resources</SelectItem>
+                              <SelectItem value="IT Support">IT Support</SelectItem>
+                              <SelectItem value="Customer Service">Customer Service</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={employeeForm.control}
+                      name="position"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Designation/Position</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select position" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Lab Technician">Lab Technician</SelectItem>
+                              <SelectItem value="Senior Lab Technician">Senior Lab Technician</SelectItem>
+                              <SelectItem value="Radiologist">Radiologist</SelectItem>
+                              <SelectItem value="Radiographer">Radiographer</SelectItem>
+                              <SelectItem value="Administrative Assistant">Administrative Assistant</SelectItem>
+                              <SelectItem value="Manager">Manager</SelectItem>
+                              <SelectItem value="Accountant">Accountant</SelectItem>
+                              <SelectItem value="HR Officer">HR Officer</SelectItem>
+                              <SelectItem value="IT Specialist">IT Specialist</SelectItem>
+                              <SelectItem value="Customer Service Representative">Customer Service Representative</SelectItem>
+                              <SelectItem value="Medical Director">Medical Director</SelectItem>
+                              <SelectItem value="Operations Manager">Operations Manager</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={employeeForm.control}
+                      name="salary"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Salary (NGN)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="150000" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={employeeForm.control}
+                      name="hireDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hire Date</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="date" 
+                              {...field}
+                              value={field.value ? field.value.toISOString().split('T')[0] : ''}
+                              onChange={(e) => field.onChange(new Date(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <Button 
                     type="submit" 
