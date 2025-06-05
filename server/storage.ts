@@ -1760,6 +1760,36 @@ export class DatabaseStorage implements IStorage {
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
+      },
+      {
+        id: 9,
+        name: "Executive Management",
+        description: "Senior leadership and strategic management",
+        headOfDepartment: "Dr. Omokaro Ogierhiakhi",
+        employeeCount: 3,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 10,
+        name: "Audit & Compliance",
+        description: "Internal audit and regulatory compliance",
+        headOfDepartment: "Mr. Tunde Adeoye",
+        employeeCount: 2,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 11,
+        name: "Quality Assurance",
+        description: "Quality control and assurance management",
+        headOfDepartment: "Dr. Ngozi Okechukwu",
+        employeeCount: 3,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     ];
 
@@ -2056,6 +2086,186 @@ export class DatabaseStorage implements IStorage {
         description: "Supervises medical records department",
         baseSalary: "200000",
         requirements: "BSc in Health Information Management + Management experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Executive Management
+      {
+        id: 23,
+        title: "Chief Executive Officer (CEO)",
+        department: "Executive Management",
+        description: "Overall strategic leadership and management",
+        baseSalary: "800000",
+        requirements: "MD/MBA + Executive experience + Board certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 24,
+        title: "Chief Medical Officer (CMO)",
+        department: "Executive Management",
+        description: "Oversees all medical operations and clinical standards",
+        baseSalary: "700000",
+        requirements: "MD + Medical administration experience + Fellowship",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 25,
+        title: "Chief Operating Officer (COO)",
+        department: "Executive Management",
+        description: "Manages daily operations and organizational efficiency",
+        baseSalary: "650000",
+        requirements: "MBA/MSc in Healthcare Management + Operations experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 26,
+        title: "Chief Financial Officer (CFO)",
+        department: "Finance & Accounting",
+        description: "Oversees financial strategy and fiscal management",
+        baseSalary: "600000",
+        requirements: "BSc/MSc in Finance/Accounting + CPA/ICAN + Executive experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 27,
+        title: "Medical Director",
+        department: "Executive Management",
+        description: "Clinical leadership and medical staff supervision",
+        baseSalary: "550000",
+        requirements: "MD + Administrative experience + Medical leadership",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 28,
+        title: "Laboratory Director",
+        department: "Laboratory",
+        description: "Oversees all laboratory operations and quality standards",
+        baseSalary: "450000",
+        requirements: "MD/PhD in Laboratory Medicine + Laboratory management experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 29,
+        title: "Radiology Director",
+        department: "Radiology",
+        description: "Manages radiology department and imaging services",
+        baseSalary: "500000",
+        requirements: "MD in Radiology + Administrative experience + Fellowship",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Audit & Compliance
+      {
+        id: 30,
+        title: "Chief Audit Executive",
+        department: "Audit & Compliance",
+        description: "Heads internal audit and risk management",
+        baseSalary: "400000",
+        requirements: "BSc in Accounting/Finance + CIA/CISA + Audit experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 31,
+        title: "Internal Auditor",
+        department: "Audit & Compliance",
+        description: "Conducts internal audits and compliance reviews",
+        baseSalary: "250000",
+        requirements: "BSc in Accounting/Finance + Professional certification + Audit experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 32,
+        title: "Compliance Officer",
+        department: "Audit & Compliance",
+        description: "Ensures regulatory compliance and policy adherence",
+        baseSalary: "220000",
+        requirements: "BSc in Law/Health Administration + Compliance certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Quality Assurance
+      {
+        id: 33,
+        title: "Quality Assurance Director",
+        department: "Quality Assurance",
+        description: "Oversees quality management systems and standards",
+        baseSalary: "350000",
+        requirements: "BSc/MSc in Quality Management + QMS certification + Management experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 34,
+        title: "Quality Control Analyst",
+        department: "Quality Assurance",
+        description: "Monitors and analyzes quality metrics and processes",
+        baseSalary: "180000",
+        requirements: "BSc in Quality Management/Statistics + Quality certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 35,
+        title: "Risk Management Specialist",
+        department: "Quality Assurance",
+        description: "Identifies and mitigates operational and clinical risks",
+        baseSalary: "200000",
+        requirements: "BSc in Risk Management/Healthcare + Risk certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Additional Senior Positions
+      {
+        id: 36,
+        title: "Chief Information Officer (CIO)",
+        department: "Administration",
+        description: "Manages IT infrastructure and digital transformation",
+        baseSalary: "500000",
+        requirements: "BSc/MSc in Computer Science/IT + IT management experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 37,
+        title: "Senior Accountant",
+        department: "Finance & Accounting",
+        description: "Senior financial analysis and reporting",
+        baseSalary: "200000",
+        requirements: "BSc in Accounting + ICAN/ACCA + 5+ years experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 38,
+        title: "Group Executive Director",
+        department: "Executive Management",
+        description: "Multi-branch strategic oversight and governance",
+        baseSalary: "900000",
+        requirements: "MD/MBA + Multi-site healthcare experience + Board certification",
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
