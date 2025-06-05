@@ -297,7 +297,7 @@ export default function PatientIntake() {
     }
   };
 
-  const handleProceedToTests = () => {
+  const handleProceedToTests = async () => {
     if (!selectedTests.length) {
       toast({
         title: "No Tests Selected",
@@ -314,6 +314,34 @@ export default function PatientIntake() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Check for duplicate tests on the same day
+    try {
+      const response = await apiRequest("GET", `/api/patient-tests?patientId=${selectedPatient?.id}&today=true&branchId=${user?.branchId}`);
+      const todayTests = await response.json();
+      
+      // Check if any selected tests already exist for today
+      const duplicateTests = selectedTests.filter(testId => 
+        todayTests.some((existingTest: any) => existingTest.testId === Number(testId))
+      );
+
+      if (duplicateTests.length > 0) {
+        const duplicateTestNames = duplicateTests.map(testId => {
+          const test = (tests as any[]).find((t: any) => t.id === testId);
+          return test?.name || `Test ${testId}`;
+        }).join(", ");
+
+        const proceed = window.confirm(
+          `Warning: The following tests are already scheduled for this patient today: ${duplicateTestNames}.\n\nDo you want to proceed with scheduling duplicate tests?`
+        );
+
+        if (!proceed) {
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking duplicate tests:", error);
     }
 
     setCurrentWorkflowStep("scheduling");
