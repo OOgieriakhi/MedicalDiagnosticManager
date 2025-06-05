@@ -85,8 +85,4 @@ async function fixBlankPage() {
   }
 }
 
-if (require.main === module) {
-  fixBlankPage();
-}
-
-module.exports = { fixBlankPage };
+fixBlankPage();

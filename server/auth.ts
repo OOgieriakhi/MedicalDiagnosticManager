@@ -5,6 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
+import { fallbackStorage } from "./database-fallback";
 import { User as SelectUser } from "@shared/schema";
 
 declare global {
@@ -43,19 +44,50 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
-      const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
-        return done(null, false);
-      } else {
-        return done(null, user);
+      try {
+        // Try database first
+        const user = await storage.getUserByUsername(username);
+        if (user && (await comparePasswords(password, user.password))) {
+          return done(null, user);
+        }
+      } catch (error) {
+        console.warn('Database authentication failed, trying fallback:', error.message);
+        // Use fallback storage if database fails
+        try {
+          const isValid = await fallbackStorage.validatePassword(username, password);
+          if (isValid) {
+            const fallbackUser = await fallbackStorage.getUserByUsername(username);
+            return done(null, fallbackUser);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback authentication also failed:', fallbackError.message);
+        }
       }
+      return done(null, false);
     }),
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
-    const user = await storage.getUser(id);
-    done(null, user);
+    try {
+      const user = await storage.getUser(id);
+      if (user) {
+        done(null, user);
+      } else {
+        // Try fallback storage
+        const fallbackUser = await fallbackStorage.getUser(id);
+        done(null, fallbackUser);
+      }
+    } catch (error) {
+      console.warn('User deserialization failed, trying fallback:', error.message);
+      try {
+        const fallbackUser = await fallbackStorage.getUser(id);
+        done(null, fallbackUser);
+      } catch (fallbackError) {
+        console.error('Fallback deserialization also failed:', fallbackError.message);
+        done(null, null);
+      }
+    }
   });
 
   app.post("/api/register", async (req, res, next) => {
