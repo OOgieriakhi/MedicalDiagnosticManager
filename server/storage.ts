@@ -2595,31 +2595,15 @@ export class DatabaseStorage implements IStorage {
 
   // Update patient test results
   async updatePatientTestResults(testId: number, updateData: any): Promise<void> {
-    const updateFields: any = {
-      results: updateData.results,
-      notes: updateData.notes,
-      status: updateData.status,
-      completedAt: updateData.status === "completed" ? new Date() : null,
-      updatedAt: new Date()
-    };
-
-    // Add new fields if they exist
-    if (updateData.parameterResults !== undefined) {
-      updateFields.parameterResults = updateData.parameterResults;
-    }
-    if (updateData.scientistSignature !== undefined) {
-      updateFields.scientistSignature = updateData.scientistSignature;
-    }
-    if (updateData.resultsSavedAt !== undefined) {
-      updateFields.resultsSavedAt = updateData.resultsSavedAt;
-    }
-    if (updateData.resultsSavedBy !== undefined) {
-      updateFields.resultsSavedBy = updateData.resultsSavedBy;
-    }
-
     await db
       .update(patientTests)
-      .set(updateFields)
+      .set({
+        results: updateData.results,
+        notes: updateData.notes,
+        status: updateData.status,
+        completedAt: updateData.status === "completed" ? new Date() : null,
+        updatedAt: new Date()
+      })
       .where(eq(patientTests.id, testId));
   }
 

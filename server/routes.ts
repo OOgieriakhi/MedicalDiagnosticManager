@@ -1648,31 +1648,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get patient test results for printing
-  app.get("/api/patient-tests/:id/results", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-
-    try {
-      const testId = parseInt(req.params.id);
-      const test = await storage.getPatientTest(testId);
-      
-      if (!test) {
-        return res.status(404).json({ message: "Test not found" });
-      }
-
-      // Return the test results data including parameter results
-      res.json({
-        results: test.results,
-        notes: test.notes,
-        parameterResults: test.parameterResults ? JSON.parse(test.parameterResults) : null,
-        scientistSignature: test.scientistSignature
-      });
-    } catch (error: any) {
-      console.error("Error fetching test results:", error);
-      res.status(500).json({ message: "Failed to fetch test results" });
-    }
-  });
-
   // Save test results for later processing (printing, WhatsApp, email)
   app.post("/api/patient-tests/:id/save-results", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -1692,7 +1667,7 @@ export function registerRoutes(app: Express): Server {
           finalResults = testParameters.map((param: any) => {
             const value = parameterResults[param.id];
             const interpretation = value ? interpretParameterValue(param, value) : { status: "pending", flag: "" };
-            return `${param.parameter_name || param.parameterName || 'Unknown Parameter'}: ${value || "Pending"} ${param.unit || ""} ${interpretation.flag ? `(${interpretation.flag})` : ""}`;
+            return `${param.parameterName}: ${value || "Pending"} ${param.unit || ""} ${interpretation.flag ? `(${interpretation.flag})` : ""}`;
           }).join("\n");
           
           // Add automated interpretation
@@ -1715,8 +1690,6 @@ export function registerRoutes(app: Express): Server {
       await storage.updatePatientTestResults(testId, {
         results: finalResults,
         notes: notes || null,
-        parameterResults: parameterResults ? JSON.stringify(parameterResults) : null,
-        scientistSignature: scientistSignature || req.user.username,
         status: saveForLater ? "reported_and_saved" : "completed",
         resultsSavedAt: new Date(),
         resultsSavedBy: req.user.id

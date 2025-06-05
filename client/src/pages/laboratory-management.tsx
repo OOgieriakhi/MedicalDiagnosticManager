@@ -508,10 +508,8 @@ export default function LaboratoryManagement() {
         return;
       }
 
-      // Get test parameters and their results from the database
+      // Get test parameters if needed
       let testParameters = [];
-      let testResultsData = null;
-      
       if (test.testId) {
         try {
           const paramsResponse = await apiRequest("GET", `/api/test-parameters/${test.testId}`);
@@ -521,16 +519,6 @@ export default function LaboratoryManagement() {
         } catch (error) {
           console.warn("Could not fetch test parameters:", error);
         }
-      }
-
-      // Get the actual test results data including parameter values
-      try {
-        const testResultsResponse = await apiRequest("GET", `/api/patient-tests/${test.id}/results`);
-        if (testResultsResponse.ok) {
-          testResultsData = await testResultsResponse.json();
-        }
-      } catch (error) {
-        console.warn("Could not fetch test results:", error);
       }
 
       // Create the HTML content for the report
@@ -711,11 +699,11 @@ export default function LaboratoryManagement() {
             </div>
           </div>
 
-          ${(test.results || testResultsData?.results) ? `
+          ${test.results ? `
           <div class="section">
             <div class="section-title">Test Results</div>
             <div style="white-space: pre-wrap; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
-              ${test.results || testResultsData?.results || 'No results available'}
+              ${test.results}
             </div>
           </div>
           ` : ''}
@@ -733,18 +721,14 @@ export default function LaboratoryManagement() {
                 </tr>
               </thead>
               <tbody>
-                ${testParameters.map(param => {
-                  // Get the actual result value from the saved data
-                  const savedResult = testResultsData?.parameterResults ? testResultsData.parameterResults[param.id] : null;
-                  return `
-                    <tr>
-                      <td>${param.parameterName}</td>
-                      <td>${savedResult || param.resultValue || '-'}</td>
-                      <td>${param.referenceRange || '-'}</td>
-                      <td>${param.unit || '-'}</td>
-                    </tr>
-                  `;
-                }).join('')}
+                ${testParameters.map(param => `
+                  <tr>
+                    <td>${param.parameterName}</td>
+                    <td>${param.resultValue || '-'}</td>
+                    <td>${param.referenceRange || '-'}</td>
+                    <td>${param.unit || '-'}</td>
+                  </tr>
+                `).join('')}
               </tbody>
             </table>
           </div>
@@ -1363,37 +1347,13 @@ export default function LaboratoryManagement() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={async () => {
-                                if (test.status === "reported_and_saved") {
-                                  // For saved reports, fetch and display saved data
-                                  try {
-                                    const testResultsResponse = await apiRequest("GET", `/api/patient-tests/${test.id}/results`);
-                                    if (testResultsResponse.ok) {
-                                      const savedData = await testResultsResponse.json();
-                                      setSelectedTest(test);
-                                      setTestResults(savedData.results || "");
-                                      setTestNotes(savedData.notes || "");
-                                      setScientistSignature(savedData.scientistSignature || "");
-                                      
-                                      // Load parameter results if available
-                                      if (savedData.parameterResults) {
-                                        setResultValues(savedData.parameterResults);
-                                      }
-                                      
-                                      setShowResultDialog(true);
-                                      setShowReportPreview(true); // Show in preview mode
-                                    }
-                                  } catch (error) {
-                                    console.warn("Could not fetch saved results:", error);
-                                  }
-                                } else {
-                                  // For other statuses, show normal edit mode
-                                  setSelectedTest(test);
-                                  setShowResultDialog(true);
-                                  if (test.results) setTestResults(test.results);
-                                  if (test.notes) setTestNotes(test.notes);
-                                  if (test.scientistSignature) setScientistSignature(test.scientistSignature);
-                                }
+                              onClick={() => {
+                                setSelectedTest(test);
+                                setShowResultDialog(true);
+                                // Pre-populate fields for viewing/editing
+                                if (test.results) setTestResults(test.results);
+                                if (test.notes) setTestNotes(test.notes);
+                                if (test.scientistSignature) setScientistSignature(test.scientistSignature);
                               }}
                             >
                               <FileText className="w-4 h-4 mr-1" />
