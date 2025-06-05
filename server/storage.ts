@@ -18,6 +18,9 @@ import {
   purchaseOrderItems,
   paymentApprovals,
   pettyCashFunds,
+  departments,
+  positions,
+  employees,
   pettyCashTransactions,
   pettyCashReconciliations,
   auditTrail,
@@ -1667,7 +1670,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDepartments(tenantId: number): Promise<any[]> {
-    return [
+    // Return default departments plus any created ones stored in memory
+    const defaultDepartments = [
       {
         id: 1,
         name: "Laboratory",
@@ -1699,23 +1703,32 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       }
     ];
+
+    // Add any departments created during this session
+    const sessionDepartments = this.sessionDepartments || [];
+    return [...defaultDepartments, ...sessionDepartments.filter(dept => dept.tenantId === tenantId)];
   }
 
   async createDepartment(data: any): Promise<any> {
-    // In real implementation, this would insert into a departments table
-    const department = {
-      id: Date.now(),
-      name: data.name,
-      description: data.description,
-      headOfDepartment: data.headOfDepartment || null,
-      employeeCount: 0,
-      tenantId: data.tenantId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    console.log("Created department:", department);
-    return department;
+    try {
+      const [department] = await db.insert(departments).values({
+        name: data.name,
+        description: data.description || '',
+        tenantId: data.tenantId,
+        branchId: data.branchId || 1, // Default to branch 1 if not provided
+        managerId: data.managerId || null,
+        budgetAllocation: data.budgetAllocation || "0",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      
+      console.log("Created department:", department);
+      return department;
+    } catch (error) {
+      console.error("Error creating department:", error);
+      throw error;
+    }
   }
 
   async getPositions(tenantId: number): Promise<any[]> {
