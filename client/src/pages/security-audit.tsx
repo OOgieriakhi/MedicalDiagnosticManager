@@ -12,6 +12,7 @@ import { DataGrid } from "@/components/ui/data-grid";
 import { ProfessionalCard } from "@/components/ui/professional-card";
 import { MetricDisplay } from "@/components/ui/metric-display";
 import { format } from "date-fns";
+import { Link } from "wouter";
 
 type SecurityEvent = {
   id: number;
@@ -204,9 +205,17 @@ export default function SecurityAudit() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Security Audit</h1>
-          <p className="text-gray-600 mt-1">Monitor security events and access patterns</p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <Home className="w-4 h-4 mr-2" />
+              Home
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Security Audit</h1>
+            <p className="text-gray-600 mt-1">Monitor security events and access patterns</p>
+          </div>
         </div>
       </div>
 
