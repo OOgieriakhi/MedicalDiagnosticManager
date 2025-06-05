@@ -725,9 +725,9 @@ export default function HumanResources() {
                   {employees?.slice(0, 5).map((employee: any) => (
                     <div key={employee.id} className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium">{employee.first_name} {employee.last_name}</p>
+                        <p className="font-medium">{employee.firstName} {employee.lastName}</p>
                         <p className="text-sm text-muted-foreground">
-                          {employee.department_name || "No department"}
+                          {employee.department || "No department"}
                         </p>
                       </div>
                       <Badge variant="default">New</Badge>
@@ -750,11 +750,11 @@ export default function HumanResources() {
                       <div>
                         <p className="font-medium">{department.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {department.employee_count || 0} employees
+                          {department.employeeCount || 0} employees
                         </p>
                       </div>
                       <Badge variant="outline">
-                        {department.employee_count || 0}
+                        {department.employeeCount || 0}
                       </Badge>
                     </div>
                   ))}
@@ -816,21 +816,21 @@ export default function HumanResources() {
                 <TableBody>
                   {employees?.map((employee: any) => (
                     <TableRow key={employee.id}>
-                      <TableCell className="font-mono">{employee.employee_id}</TableCell>
+                      <TableCell className="font-mono">{employee.employeeId}</TableCell>
                       <TableCell className="font-medium">
-                        {employee.first_name} {employee.last_name}
+                        {employee.firstName} {employee.lastName}
                       </TableCell>
                       <TableCell>{employee.email}</TableCell>
                       <TableCell>{employee.phone}</TableCell>
-                      <TableCell>{employee.department_name || "-"}</TableCell>
+                      <TableCell>{employee.department || "-"}</TableCell>
                       <TableCell>
-                        {new Date(employee.hire_date).toLocaleDateString()}
+                        {new Date(employee.hireDate).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
                         <Badge 
-                          variant={employee.employment_status === 'active' ? 'default' : 'secondary'}
+                          variant={employee.status === 'active' ? 'default' : 'secondary'}
                         >
-                          {employee.employment_status}
+                          {employee.status}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -865,10 +865,10 @@ export default function HumanResources() {
                     <TableRow key={department.id}>
                       <TableCell className="font-medium">{department.name}</TableCell>
                       <TableCell>{department.description || "-"}</TableCell>
-                      <TableCell>{department.manager_name || "Not assigned"}</TableCell>
-                      <TableCell>{department.employee_count || 0}</TableCell>
+                      <TableCell>{department.headOfDepartment || "Not assigned"}</TableCell>
+                      <TableCell>{department.employeeCount || 0}</TableCell>
                       <TableCell>
-                        {new Date(department.created_at).toLocaleDateString()}
+                        {new Date(department.createdAt).toLocaleDateString()}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1008,12 +1008,12 @@ export default function HumanResources() {
                   {positions?.map((position: any) => (
                     <TableRow key={position.id}>
                       <TableCell className="font-medium">{position.title}</TableCell>
-                      <TableCell>{position.department_name}</TableCell>
-                      <TableCell>₦{position.base_salary?.toLocaleString()}</TableCell>
-                      <TableCell>{position.employee_count || 0}</TableCell>
+                      <TableCell>{position.department}</TableCell>
+                      <TableCell>₦{position.baseSalary?.toLocaleString()}</TableCell>
+                      <TableCell>{position.employeeCount || 0}</TableCell>
                       <TableCell>
-                        <Badge variant={position.is_active ? 'default' : 'secondary'}>
-                          {position.is_active ? 'Active' : 'Inactive'}
+                        <Badge variant={position.isActive ? 'default' : 'secondary'}>
+                          {position.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
                     </TableRow>

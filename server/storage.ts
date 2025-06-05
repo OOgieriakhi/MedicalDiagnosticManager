@@ -1728,14 +1728,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDepartments(tenantId: number): Promise<any[]> {
-    // Return default departments plus any created ones stored persistently
+    // Get all employees to calculate actual counts
+    const employees = await this.getEmployees(tenantId);
+    
+    // Return default departments with calculated employee counts
     const defaultDepartments = [
       {
         id: 1,
         name: "Laboratory",
         description: "Medical laboratory services and testing",
         headOfDepartment: "Dr. Sarah Johnson",
-        employeeCount: 12,
+        employeeCount: employees.filter(emp => emp.department === "Laboratory").length,
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1745,7 +1748,7 @@ export class DatabaseStorage implements IStorage {
         name: "Radiology",
         description: "Medical imaging and diagnostic services",
         headOfDepartment: "Dr. Michael Chen",
-        employeeCount: 8,
+        employeeCount: employees.filter(emp => emp.department === "Radiology").length,
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1755,27 +1758,37 @@ export class DatabaseStorage implements IStorage {
         name: "Administration",
         description: "Administrative and management functions",
         headOfDepartment: "Ms. Patricia Williams",
-        employeeCount: 15,
+        employeeCount: employees.filter(emp => emp.department === "Administration").length,
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
       },
       {
         id: 4,
-        name: "Ultrasound Unit",
-        description: "Ultrasound imaging and diagnostic services",
-        headOfDepartment: "Dr. Blessing Okoro",
-        employeeCount: 5,
+        name: "Executive Management",
+        description: "Executive leadership and strategic management",
+        headOfDepartment: "Dr. Omokaro Ogierhiakhi",
+        employeeCount: employees.filter(emp => emp.department === "Executive Management").length,
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
       },
       {
         id: 5,
+        name: "Ultrasound Unit",
+        description: "Ultrasound imaging and diagnostic services",
+        headOfDepartment: "Dr. Blessing Okoro",
+        employeeCount: employees.filter(emp => emp.department === "Ultrasound Unit").length,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 6,
         name: "Cardiology",
         description: "Cardiac diagnostic and monitoring services",
         headOfDepartment: "Dr. Emmanuel Adebayo",
-        employeeCount: 4,
+        employeeCount: employees.filter(emp => emp.department === "Cardiology").length,
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
