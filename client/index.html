@@ -152,13 +152,11 @@
                 });
                 
                 if (response.ok) {
-                    const user = await response.json();
+                    const result = await response.json();
                     message.innerHTML = '<div class="message success">Login successful! Loading dashboard...</div>';
                     
-                    // Redirect to dashboard after successful login
-                    setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1000);
+                    // Redirect to dashboard immediately after successful login
+                    window.location.href = '/dashboard';
                 } else {
                     const errorText = await response.text();
                     message.innerHTML = '<div class="message error">Login failed: ' + errorText + '</div>';

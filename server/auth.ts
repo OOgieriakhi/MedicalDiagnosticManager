@@ -144,7 +144,12 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+    // Send success response with redirect instruction
+    res.status(200).json({ 
+      success: true, 
+      user: req.user,
+      redirect: '/dashboard'
+    });
   });
 
   app.post("/api/logout", (req, res, next) => {
