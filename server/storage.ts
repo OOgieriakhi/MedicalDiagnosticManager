@@ -1794,7 +1794,7 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       },
       {
-        id: 6,
+        id: 7,
         name: "Finance & Accounting",
         description: "Financial management and accounting operations",
         headOfDepartment: "Mr. Chinedu Okwu",
@@ -1901,6 +1901,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPositions(tenantId: number): Promise<any[]> {
+    // Get all employees to calculate position-specific counts
+    const employees = await this.getEmployees(tenantId);
+    
     return [
       // Laboratory Department
       {
@@ -1908,14 +1911,42 @@ export class DatabaseStorage implements IStorage {
         title: "Lab Technician",
         department: "Laboratory",
         description: "Performs laboratory tests and procedures",
-        baseSalary: "120000",
+        baseSalary: 120000,
         requirements: "BSc in Medical Laboratory Science",
+        employeeCount: employees.filter(emp => emp.position === "Lab Technician").length,
+        isActive: employees.some(emp => emp.position === "Lab Technician"),
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
       },
       {
         id: 2,
+        title: "Chief Executive Officer (CEO)",
+        department: "Executive Management",
+        description: "Senior executive leadership and strategic management",
+        baseSalary: 800000,
+        requirements: "MBA or relevant advanced degree, 15+ years experience",
+        employeeCount: employees.filter(emp => emp.position === "Chief Executive Officer (CEO)").length,
+        isActive: employees.some(emp => emp.position === "Chief Executive Officer (CEO)"),
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        title: "Operations Manager",
+        department: "Administration",
+        description: "Oversees daily operations and administrative functions",
+        baseSalary: 280000,
+        requirements: "Bachelor's degree, 5+ years management experience",
+        employeeCount: employees.filter(emp => emp.position === "Operations Manager").length,
+        isActive: employees.some(emp => emp.position === "Operations Manager"),
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 4,
         title: "Senior Lab Scientist",
         department: "Laboratory",
         description: "Supervises lab operations and complex testing",
