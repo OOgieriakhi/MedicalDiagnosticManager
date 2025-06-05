@@ -29,25 +29,7 @@ app.get('/', (req, res) => {
   }
 });
 
-// Serve dashboard for authenticated users
-app.get('/dashboard', (req, res) => {
-  console.log('Dashboard route accessed');
-  console.log('Is authenticated:', req.isAuthenticated ? req.isAuthenticated() : false);
-  console.log('User:', req.user);
-  
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    console.log('User not authenticated, redirecting to login');
-    return res.redirect('/');
-  }
-  
-  console.log('User authenticated, serving dashboard');
-  const dashboardPath = path.join(process.cwd(), 'dashboard.html');
-  if (fs.existsSync(dashboardPath)) {
-    res.sendFile(dashboardPath);
-  } else {
-    res.status(404).send('Dashboard not found');
-  }
-});
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

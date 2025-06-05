@@ -412,6 +412,28 @@ export function registerRoutes(app: Express): Server {
   // Setup authentication routes
   setupAuth(app);
 
+  // Serve dashboard for authenticated users
+  app.get('/dashboard', (req, res) => {
+    console.log('Dashboard route accessed');
+    console.log('Is authenticated:', req.isAuthenticated ? req.isAuthenticated() : false);
+    console.log('User:', req.user);
+    
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      console.log('User not authenticated, redirecting to login');
+      return res.redirect('/');
+    }
+    
+    console.log('User authenticated, serving dashboard');
+    const path = require('path');
+    const fs = require('fs');
+    const dashboardPath = path.join(process.cwd(), 'dashboard.html');
+    if (fs.existsSync(dashboardPath)) {
+      res.sendFile(dashboardPath);
+    } else {
+      res.status(404).send('Dashboard not found');
+    }
+  });
+
   // Dashboard metrics endpoint
   app.get("/api/dashboard/metrics/:branchId", async (req, res) => {
     try {
