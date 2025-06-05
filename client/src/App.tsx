@@ -78,6 +78,7 @@ function Router() {
       <ProtectedRoute path="/quality-assurance" component={QualityAssurance} />
       <ProtectedRoute path="/reference-ranges" component={ReferenceRanges} />
       <ProtectedRoute path="/report-designer" component={ReportDesigner} />
+      <ProtectedRoute path="/predictive-recommendations" component={PredictiveRecommendations} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
