@@ -1710,6 +1710,56 @@ export class DatabaseStorage implements IStorage {
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
+      },
+      {
+        id: 4,
+        name: "Ultrasound Unit",
+        description: "Ultrasound imaging and diagnostic services",
+        headOfDepartment: "Dr. Blessing Okoro",
+        employeeCount: 5,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 5,
+        name: "Cardiology",
+        description: "Cardiac diagnostic and monitoring services",
+        headOfDepartment: "Dr. Emmanuel Adebayo",
+        employeeCount: 4,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 6,
+        name: "Finance & Accounting",
+        description: "Financial management and accounting operations",
+        headOfDepartment: "Mr. Chinedu Okwu",
+        employeeCount: 6,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 7,
+        name: "Customer Service",
+        description: "Patient reception and customer support",
+        headOfDepartment: "Mrs. Funmi Adegoke",
+        employeeCount: 8,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 8,
+        name: "Medical Records",
+        description: "Patient data management and medical records",
+        headOfDepartment: "Dr. Kemi Osuntokun",
+        employeeCount: 4,
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     ];
 
@@ -1760,6 +1810,7 @@ export class DatabaseStorage implements IStorage {
 
   async getPositions(tenantId: number): Promise<any[]> {
     return [
+      // Laboratory Department
       {
         id: 1,
         title: "Lab Technician",
@@ -1773,6 +1824,29 @@ export class DatabaseStorage implements IStorage {
       },
       {
         id: 2,
+        title: "Senior Lab Scientist",
+        department: "Laboratory",
+        description: "Supervises lab operations and complex testing",
+        baseSalary: "180000",
+        requirements: "BSc in Medical Laboratory Science + 5 years experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 3,
+        title: "Laboratory Manager",
+        department: "Laboratory",
+        description: "Manages laboratory department operations",
+        baseSalary: "250000",
+        requirements: "BSc/MSc in Medical Laboratory Science + Management experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Radiology Department
+      {
+        id: 4,
         title: "Radiologist",
         department: "Radiology",
         description: "Interprets medical imaging studies",
@@ -1783,12 +1857,205 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       },
       {
-        id: 3,
+        id: 5,
+        title: "Radiographer",
+        department: "Radiology",
+        description: "Operates imaging equipment and assists patients",
+        baseSalary: "150000",
+        requirements: "HND/BSc in Radiography",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 6,
+        title: "CT/MRI Technologist",
+        department: "Radiology",
+        description: "Specialized in CT and MRI imaging procedures",
+        baseSalary: "200000",
+        requirements: "BSc in Radiography + CT/MRI certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Administration Department
+      {
+        id: 7,
         title: "Administrative Assistant",
         department: "Administration",
         description: "Provides administrative support",
         baseSalary: "80000",
         requirements: "HND/BSc in any field",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 8,
+        title: "Human Resources Manager",
+        department: "Administration",
+        description: "Manages HR operations and employee relations",
+        baseSalary: "220000",
+        requirements: "BSc in Human Resources/Psychology + HR experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 9,
+        title: "Operations Manager",
+        department: "Administration",
+        description: "Oversees daily operations and workflow",
+        baseSalary: "280000",
+        requirements: "BSc in Business Administration + Operations experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Ultrasound Unit
+      {
+        id: 10,
+        title: "Sonographer",
+        department: "Ultrasound Unit",
+        description: "Performs ultrasound examinations",
+        baseSalary: "180000",
+        requirements: "BSc in Radiography + Ultrasound certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 11,
+        title: "Senior Sonographer",
+        department: "Ultrasound Unit",
+        description: "Senior level ultrasound specialist",
+        baseSalary: "220000",
+        requirements: "BSc in Radiography + Advanced Ultrasound certification + 5 years experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Cardiology Department
+      {
+        id: 12,
+        title: "Cardiologist",
+        department: "Cardiology",
+        description: "Specializes in cardiac diagnostics",
+        baseSalary: "600000",
+        requirements: "MD with Cardiology specialization",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 13,
+        title: "Cardiac Technician",
+        department: "Cardiology",
+        description: "Performs ECG, stress tests and cardiac monitoring",
+        baseSalary: "140000",
+        requirements: "HND/BSc in Medical Sciences + Cardiac certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Finance & Accounting
+      {
+        id: 14,
+        title: "Accountant",
+        department: "Finance & Accounting",
+        description: "Manages financial records and transactions",
+        baseSalary: "160000",
+        requirements: "BSc in Accounting + Professional certification (ICAN/ACCA)",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 15,
+        title: "Finance Manager",
+        department: "Finance & Accounting",
+        description: "Oversees financial operations and planning",
+        baseSalary: "300000",
+        requirements: "BSc in Finance/Accounting + Management experience + Professional certification",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 16,
+        title: "Billing Specialist",
+        department: "Finance & Accounting",
+        description: "Handles patient billing and insurance claims",
+        baseSalary: "100000",
+        requirements: "HND/BSc in Accounting or related field",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Customer Service
+      {
+        id: 17,
+        title: "Receptionist",
+        department: "Customer Service",
+        description: "Front desk operations and patient registration",
+        baseSalary: "70000",
+        requirements: "SSCE/OND + Customer service experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 18,
+        title: "Customer Service Representative",
+        department: "Customer Service",
+        description: "Handles patient inquiries and support",
+        baseSalary: "85000",
+        requirements: "HND/BSc + Customer service experience",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 19,
+        title: "Patient Coordinator",
+        department: "Customer Service",
+        description: "Coordinates patient appointments and follow-ups",
+        baseSalary: "120000",
+        requirements: "HND/BSc in Health Sciences or related field",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      // Medical Records
+      {
+        id: 20,
+        title: "Medical Records Officer",
+        department: "Medical Records",
+        description: "Manages patient medical records and data",
+        baseSalary: "90000",
+        requirements: "HND/BSc in Health Information Management",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 21,
+        title: "Data Entry Clerk",
+        department: "Medical Records",
+        description: "Handles data entry and record digitization",
+        baseSalary: "60000",
+        requirements: "SSCE/OND + Computer literacy",
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 22,
+        title: "Health Information Manager",
+        department: "Medical Records",
+        description: "Supervises medical records department",
+        baseSalary: "200000",
+        requirements: "BSc in Health Information Management + Management experience",
         tenantId,
         createdAt: new Date(),
         updatedAt: new Date()
