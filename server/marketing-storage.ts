@@ -1,39 +1,53 @@
 import { db } from "./db";
 import { eq, and, sql, desc, asc, like, inArray } from "drizzle-orm";
-import * as marketingSchema from "@shared/marketing-schema";
+import { 
+  marketingCampaigns, 
+  marketingLeads, 
+  internalMessages, 
+  messageActions, 
+  marketingReports, 
+  workTasks,
+  type InsertMarketingCampaign,
+  type InsertMarketingLead,
+  type InsertInternalMessage,
+  type InsertMessageAction,
+  type InsertMarketingReport,
+  type InsertWorkTask
+} from "@shared/schema";
 
 export class MarketingStorage {
   // ==================== MARKETING CAMPAIGNS ====================
   
   async getMarketingCampaigns(tenantId: number, branchId?: number) {
-    const query = db
-      .select()
-      .from(marketingSchema.marketingCampaigns)
-      .where(eq(marketingSchema.marketingCampaigns.tenantId, tenantId));
-
+    let whereClause = eq(marketingCampaigns.tenantId, tenantId);
+    
     if (branchId) {
-      query.where(and(
-        eq(marketingSchema.marketingCampaigns.tenantId, tenantId),
-        eq(marketingSchema.marketingCampaigns.branchId, branchId)
-      ));
+      whereClause = and(
+        eq(marketingCampaigns.tenantId, tenantId),
+        eq(marketingCampaigns.branchId, branchId)
+      );
     }
 
-    return await query.orderBy(desc(marketingSchema.marketingCampaigns.createdAt));
+    return await db
+      .select()
+      .from(marketingCampaigns)
+      .where(whereClause)
+      .orderBy(desc(marketingCampaigns.createdAt));
   }
 
-  async createMarketingCampaign(data: marketingSchema.InsertMarketingCampaign) {
+  async createMarketingCampaign(data: InsertMarketingCampaign) {
     const [campaign] = await db
-      .insert(marketingSchema.marketingCampaigns)
+      .insert(marketingCampaigns)
       .values(data)
       .returning();
     return campaign;
   }
 
-  async updateMarketingCampaign(id: number, data: Partial<marketingSchema.InsertMarketingCampaign>) {
+  async updateMarketingCampaign(id: number, data: Partial<InsertMarketingCampaign>) {
     const [campaign] = await db
-      .update(marketingSchema.marketingCampaigns)
+      .update(marketingCampaigns)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(marketingSchema.marketingCampaigns.id, id))
+      .where(eq(marketingCampaigns.id, id))
       .returning();
     return campaign;
   }
@@ -41,284 +55,282 @@ export class MarketingStorage {
   async getCampaignPerformance(tenantId: number, campaignId?: number) {
     const whereClause = campaignId 
       ? and(
-          eq(marketingSchema.marketingCampaigns.tenantId, tenantId),
-          eq(marketingSchema.marketingCampaigns.id, campaignId)
+          eq(marketingCampaigns.tenantId, tenantId),
+          eq(marketingCampaigns.id, campaignId)
         )
-      : eq(marketingSchema.marketingCampaigns.tenantId, tenantId);
+      : eq(marketingCampaigns.tenantId, tenantId);
 
     return await db
       .select({
-        id: marketingSchema.marketingCampaigns.id,
-        campaignName: marketingSchema.marketingCampaigns.campaignName,
-        campaignType: marketingSchema.marketingCampaigns.campaignType,
-        budget: marketingSchema.marketingCampaigns.budget,
-        actualSpend: marketingSchema.marketingCampaigns.actualSpend,
-        status: marketingSchema.marketingCampaigns.status,
-        targetMetrics: marketingSchema.marketingCampaigns.targetMetrics,
-        actualMetrics: marketingSchema.marketingCampaigns.actualMetrics,
-        startDate: marketingSchema.marketingCampaigns.startDate,
-        endDate: marketingSchema.marketingCampaigns.endDate,
+        id: marketingCampaigns.id,
+        campaignName: marketingCampaigns.campaignName,
+        budget: marketingCampaigns.budget,
+        actualSpend: marketingCampaigns.actualSpend,
+        status: marketingCampaigns.status,
+        startDate: marketingCampaigns.startDate,
+        endDate: marketingCampaigns.endDate,
+        roi: sql<number>`CASE WHEN ${marketingCampaigns.actualSpend} > 0 THEN 
+          ((${marketingCampaigns.budget} - ${marketingCampaigns.actualSpend}) / ${marketingCampaigns.actualSpend}) * 100 
+          ELSE 0 END`,
+        spendRate: sql<number>`CASE WHEN ${marketingCampaigns.budget} > 0 THEN 
+          (${marketingCampaigns.actualSpend} / ${marketingCampaigns.budget}) * 100 
+          ELSE 0 END`
       })
-      .from(marketingSchema.marketingCampaigns)
+      .from(marketingCampaigns)
       .where(whereClause);
   }
 
   // ==================== MARKETING LEADS ====================
-
+  
   async getMarketingLeads(tenantId: number, branchId?: number, status?: string) {
-    let whereClause = eq(marketingSchema.marketingLeads.tenantId, tenantId);
+    let whereClause = eq(marketingLeads.tenantId, tenantId);
     
-    if (branchId) {
-      whereClause = and(whereClause, eq(marketingSchema.marketingLeads.branchId, branchId));
-    }
-    
-    if (status) {
-      whereClause = and(whereClause, eq(marketingSchema.marketingLeads.status, status));
+    if (branchId && status) {
+      whereClause = and(
+        eq(marketingLeads.tenantId, tenantId),
+        eq(marketingLeads.branchId, branchId),
+        eq(marketingLeads.status, status)
+      );
+    } else if (branchId) {
+      whereClause = and(
+        eq(marketingLeads.tenantId, tenantId),
+        eq(marketingLeads.branchId, branchId)
+      );
+    } else if (status) {
+      whereClause = and(
+        eq(marketingLeads.tenantId, tenantId),
+        eq(marketingLeads.status, status)
+      );
     }
 
     return await db
       .select()
-      .from(marketingSchema.marketingLeads)
+      .from(marketingLeads)
       .where(whereClause)
-      .orderBy(desc(marketingSchema.marketingLeads.createdAt));
+      .orderBy(desc(marketingLeads.createdAt));
   }
 
-  async createMarketingLead(data: marketingSchema.InsertMarketingLead) {
+  async createMarketingLead(data: InsertMarketingLead) {
     const [lead] = await db
-      .insert(marketingSchema.marketingLeads)
+      .insert(marketingLeads)
       .values(data)
       .returning();
     return lead;
   }
 
-  async updateMarketingLead(id: number, data: Partial<marketingSchema.InsertMarketingLead>) {
+  async updateMarketingLead(id: number, data: Partial<InsertMarketingLead>) {
     const [lead] = await db
-      .update(marketingSchema.marketingLeads)
+      .update(marketingLeads)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(marketingSchema.marketingLeads.id, id))
+      .where(eq(marketingLeads.id, id))
       .returning();
     return lead;
   }
 
   async getLeadConversionMetrics(tenantId: number, period?: string) {
-    return await db.execute(
-      sql`SELECT 
-        COUNT(*) as total_leads,
-        COUNT(CASE WHEN converted_to_patient = true THEN 1 END) as converted_leads,
-        COUNT(CASE WHEN status = 'new' THEN 1 END) as new_leads,
-        COUNT(CASE WHEN status = 'contacted' THEN 1 END) as contacted_leads,
-        COUNT(CASE WHEN status = 'qualified' THEN 1 END) as qualified_leads,
-        COUNT(CASE WHEN status = 'lost' THEN 1 END) as lost_leads,
-        AVG(lead_score) as average_lead_score,
-        lead_source,
-        COUNT(*) as leads_by_source
-      FROM ${marketingSchema.marketingLeads}
-      WHERE tenant_id = ${tenantId}
-      GROUP BY lead_source`
-    );
+    return await db
+      .select({
+        totalLeads: sql<number>`COUNT(*)`,
+        convertedLeads: sql<number>`COUNT(CASE WHEN status = 'converted' THEN 1 END)`,
+        conversionRate: sql<number>`ROUND(
+          (COUNT(CASE WHEN status = 'converted' THEN 1 END)::float / COUNT(*)) * 100, 2
+        )`,
+        avgLeadScore: sql<number>`AVG(lead_score)`
+      })
+      .from(marketingLeads)
+      .where(eq(marketingLeads.tenantId, tenantId));
   }
 
-  // ==================== INTERNAL MESSAGING SYSTEM ====================
-
+  // ==================== INTERNAL MESSAGING ====================
+  
   async getInternalMessages(tenantId: number, userId: number, messageType?: string) {
     let whereClause = and(
-      eq(marketingSchema.internalMessages.tenantId, tenantId),
-      sql`${userId} = ANY(recipient_ids)`
+      eq(internalMessages.tenantId, tenantId),
+      sql`${internalMessages.recipientIds}::jsonb ? ${userId}::text`
     );
-
+    
     if (messageType) {
-      whereClause = and(whereClause, eq(marketingSchema.internalMessages.messageType, messageType));
+      whereClause = and(
+        eq(internalMessages.tenantId, tenantId),
+        eq(internalMessages.messageType, messageType),
+        sql`${internalMessages.recipientIds}::jsonb ? ${userId}::text`
+      );
     }
 
     return await db
       .select()
-      .from(marketingSchema.internalMessages)
+      .from(internalMessages)
       .where(whereClause)
-      .orderBy(desc(marketingSchema.internalMessages.createdAt));
+      .orderBy(desc(internalMessages.createdAt));
   }
 
-  async createInternalMessage(data: marketingSchema.InsertInternalMessage) {
+  async createInternalMessage(data: InsertInternalMessage) {
     const [message] = await db
-      .insert(marketingSchema.internalMessages)
+      .insert(internalMessages)
       .values(data)
       .returning();
     return message;
   }
 
   async markMessageAsRead(messageId: number, userId: number) {
-    // Get current message to update readBy array
     const [message] = await db
-      .select()
-      .from(marketingSchema.internalMessages)
-      .where(eq(marketingSchema.internalMessages.id, messageId));
-
-    if (!message) return null;
-
-    const currentReadBy = message.readBy as any[] || [];
-    const alreadyRead = currentReadBy.some((read: any) => read.userId === userId);
-
-    if (!alreadyRead) {
-      currentReadBy.push({ userId, readAt: new Date() });
-      
-      const [updatedMessage] = await db
-        .update(marketingSchema.internalMessages)
-        .set({ 
-          readBy: currentReadBy,
-          status: 'read'
-        })
-        .where(eq(marketingSchema.internalMessages.id, messageId))
-        .returning();
-
-      return updatedMessage;
-    }
-
+      .update(internalMessages)
+      .set({
+        readBy: sql`COALESCE(${internalMessages.readBy}, '{}'::jsonb) || jsonb_build_object(${userId}::text, NOW())`
+      })
+      .where(eq(internalMessages.id, messageId))
+      .returning();
     return message;
   }
 
   async acknowledgeMessage(messageId: number, userId: number) {
     const [message] = await db
-      .select()
-      .from(marketingSchema.internalMessages)
-      .where(eq(marketingSchema.internalMessages.id, messageId));
-
-    if (!message) return null;
-
-    const currentAcknowledgedBy = message.acknowledgedBy as any[] || [];
-    const alreadyAcknowledged = currentAcknowledgedBy.some((ack: any) => ack.userId === userId);
-
-    if (!alreadyAcknowledged) {
-      currentAcknowledgedBy.push({ userId, acknowledgedAt: new Date() });
-      
-      const [updatedMessage] = await db
-        .update(marketingSchema.internalMessages)
-        .set({ 
-          acknowledgedBy: currentAcknowledgedBy,
-          status: 'acknowledged'
-        })
-        .where(eq(marketingSchema.internalMessages.id, messageId))
-        .returning();
-
-      return updatedMessage;
-    }
-
+      .update(internalMessages)
+      .set({
+        acknowledgedBy: sql`COALESCE(${internalMessages.acknowledgedBy}, '{}'::jsonb) || jsonb_build_object(${userId}::text, NOW())`
+      })
+      .where(eq(internalMessages.id, messageId))
+      .returning();
     return message;
   }
 
   async completeMessageAction(messageId: number, userId: number, actionDetails?: string) {
-    const [updatedMessage] = await db
-      .update(marketingSchema.internalMessages)
-      .set({ 
+    const [message] = await db
+      .update(internalMessages)
+      .set({
         actionCompleted: true,
         actionCompletedBy: userId,
         actionCompletedAt: new Date(),
-        actionDetails,
-        status: 'completed'
+        actionDetails: actionDetails || null
       })
-      .where(eq(marketingSchema.internalMessages.id, messageId))
+      .where(eq(internalMessages.id, messageId))
       .returning();
-
-    return updatedMessage;
+    return message;
   }
 
-  async trackMessageAction(data: marketingSchema.InsertMessageAction) {
+  async trackMessageAction(data: InsertMessageAction) {
     const [action] = await db
-      .insert(marketingSchema.messageActions)
+      .insert(messageActions)
       .values(data)
       .returning();
     return action;
   }
 
-  // ==================== WORK TASKS MANAGEMENT ====================
-
+  // ==================== WORK TASKS ====================
+  
   async getWorkTasks(tenantId: number, assignedTo?: number, status?: string, taskType?: string) {
-    let whereClause = eq(marketingSchema.workTasks.tenantId, tenantId);
-
-    if (assignedTo) {
-      whereClause = and(whereClause, eq(marketingSchema.workTasks.assignedTo, assignedTo));
-    }
-
-    if (status) {
-      whereClause = and(whereClause, eq(marketingSchema.workTasks.status, status));
-    }
-
-    if (taskType) {
-      whereClause = and(whereClause, eq(marketingSchema.workTasks.taskType, taskType));
+    let whereClause = eq(workTasks.tenantId, tenantId);
+    
+    if (assignedTo && status && taskType) {
+      whereClause = and(
+        eq(workTasks.tenantId, tenantId),
+        eq(workTasks.assignedTo, assignedTo),
+        eq(workTasks.status, status),
+        eq(workTasks.taskType, taskType)
+      );
+    } else if (assignedTo && status) {
+      whereClause = and(
+        eq(workTasks.tenantId, tenantId),
+        eq(workTasks.assignedTo, assignedTo),
+        eq(workTasks.status, status)
+      );
+    } else if (assignedTo) {
+      whereClause = and(
+        eq(workTasks.tenantId, tenantId),
+        eq(workTasks.assignedTo, assignedTo)
+      );
+    } else if (status) {
+      whereClause = and(
+        eq(workTasks.tenantId, tenantId),
+        eq(workTasks.status, status)
+      );
     }
 
     return await db
       .select()
-      .from(marketingSchema.workTasks)
+      .from(workTasks)
       .where(whereClause)
-      .orderBy(desc(marketingSchema.workTasks.createdAt));
+      .orderBy(desc(workTasks.createdAt));
   }
 
-  async createWorkTask(data: marketingSchema.InsertWorkTask) {
+  async createWorkTask(data: InsertWorkTask) {
     const [task] = await db
-      .insert(marketingSchema.workTasks)
+      .insert(workTasks)
       .values(data)
       .returning();
     return task;
   }
 
-  async updateWorkTask(id: number, data: Partial<marketingSchema.InsertWorkTask>) {
+  async updateWorkTask(id: number, data: Partial<InsertWorkTask>) {
     const [task] = await db
-      .update(marketingSchema.workTasks)
+      .update(workTasks)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(marketingSchema.workTasks.id, id))
+      .where(eq(workTasks.id, id))
       .returning();
     return task;
   }
 
   async completeWorkTask(id: number, userId: number, completionNotes?: string) {
     const [task] = await db
-      .update(marketingSchema.workTasks)
+      .update(workTasks)
       .set({
         status: 'completed',
         completedDate: new Date(),
-        completionNotes,
+        completionNotes: completionNotes || null,
         updatedAt: new Date()
       })
-      .where(eq(marketingSchema.workTasks.id, id))
+      .where(eq(workTasks.id, id))
       .returning();
     return task;
   }
 
   async verifyTaskCompletion(id: number, verifiedBy: number) {
     const [task] = await db
-      .update(marketingSchema.workTasks)
+      .update(workTasks)
       .set({
-        verifiedBy,
+        status: 'verified',
+        verifiedBy: verifiedBy,
         verifiedAt: new Date(),
         updatedAt: new Date()
       })
-      .where(eq(marketingSchema.workTasks.id, id))
+      .where(eq(workTasks.id, id))
       .returning();
     return task;
   }
 
   // ==================== MARKETING REPORTS ====================
-
+  
   async getMarketingReports(tenantId: number, reportType?: string, status?: string) {
-    let whereClause = eq(marketingSchema.marketingReports.tenantId, tenantId);
-
-    if (reportType) {
-      whereClause = and(whereClause, eq(marketingSchema.marketingReports.reportType, reportType));
-    }
-
-    if (status) {
-      whereClause = and(whereClause, eq(marketingSchema.marketingReports.status, status));
+    let whereClause = eq(marketingReports.tenantId, tenantId);
+    
+    if (reportType && status) {
+      whereClause = and(
+        eq(marketingReports.tenantId, tenantId),
+        eq(marketingReports.reportType, reportType),
+        eq(marketingReports.status, status)
+      );
+    } else if (reportType) {
+      whereClause = and(
+        eq(marketingReports.tenantId, tenantId),
+        eq(marketingReports.reportType, reportType)
+      );
+    } else if (status) {
+      whereClause = and(
+        eq(marketingReports.tenantId, tenantId),
+        eq(marketingReports.status, status)
+      );
     }
 
     return await db
       .select()
-      .from(marketingSchema.marketingReports)
+      .from(marketingReports)
       .where(whereClause)
-      .orderBy(desc(marketingSchema.marketingReports.createdAt));
+      .orderBy(desc(marketingReports.createdAt));
   }
 
-  async createMarketingReport(data: marketingSchema.InsertMarketingReport) {
+  async createMarketingReport(data: InsertMarketingReport) {
     const [report] = await db
-      .insert(marketingSchema.marketingReports)
+      .insert(marketingReports)
       .values(data)
       .returning();
     return report;
@@ -326,84 +338,78 @@ export class MarketingStorage {
 
   async submitMarketingReport(id: number) {
     const [report] = await db
-      .update(marketingSchema.marketingReports)
+      .update(marketingReports)
       .set({
         status: 'submitted',
         submittedAt: new Date(),
         updatedAt: new Date()
       })
-      .where(eq(marketingSchema.marketingReports.id, id))
+      .where(eq(marketingReports.id, id))
       .returning();
     return report;
   }
 
   async approveMarketingReport(id: number, approvedBy: number) {
     const [report] = await db
-      .update(marketingSchema.marketingReports)
+      .update(marketingReports)
       .set({
         status: 'approved',
-        approvedBy,
+        approvedBy: approvedBy,
         approvedAt: new Date(),
         updatedAt: new Date()
       })
-      .where(eq(marketingSchema.marketingReports.id, id))
+      .where(eq(marketingReports.id, id))
       .returning();
     return report;
   }
 
-  // ==================== ANALYTICS AND METRICS ====================
-
+  // ==================== MARKETING METRICS ====================
+  
   async getMarketingMetrics(tenantId: number, period: string = '30d') {
-    const periodClause = period === '7d' 
-      ? sql`created_at >= NOW() - INTERVAL '7 days'`
-      : period === '30d'
-      ? sql`created_at >= NOW() - INTERVAL '30 days'`
-      : sql`created_at >= NOW() - INTERVAL '90 days'`;
+    const campaigns = await db
+      .select({
+        totalCampaigns: sql<number>`COUNT(*)`,
+        activeCampaigns: sql<number>`COUNT(CASE WHEN status = 'active' THEN 1 END)`,
+        totalBudget: sql<number>`SUM(budget)`,
+        totalSpend: sql<number>`SUM(actual_spend)`
+      })
+      .from(marketingCampaigns)
+      .where(eq(marketingCampaigns.tenantId, tenantId));
 
-    const campaignMetrics = await db.execute(
-      sql`SELECT 
-        COUNT(*) as total_campaigns,
-        COUNT(CASE WHEN status = 'active' THEN 1 END) as active_campaigns,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_campaigns,
-        SUM(CAST(budget AS DECIMAL)) as total_budget,
-        SUM(CAST(actual_spend AS DECIMAL)) as total_spend,
-        AVG(CAST(budget AS DECIMAL)) as avg_campaign_budget
-      FROM ${marketingSchema.marketingCampaigns}
-      WHERE tenant_id = ${tenantId} AND ${periodClause}`
-    );
-
-    const leadMetrics = await db.execute(
-      sql`SELECT 
-        COUNT(*) as total_leads,
-        COUNT(CASE WHEN converted_to_patient = true THEN 1 END) as converted_leads,
-        AVG(lead_score) as avg_lead_score,
-        COUNT(CASE WHEN status = 'new' THEN 1 END) as new_leads
-      FROM ${marketingSchema.marketingLeads}
-      WHERE tenant_id = ${tenantId} AND ${periodClause}`
-    );
+    const leads = await db
+      .select({
+        totalLeads: sql<number>`COUNT(*)`,
+        convertedLeads: sql<number>`COUNT(CASE WHEN status = 'converted' THEN 1 END)`,
+        avgLeadScore: sql<number>`AVG(lead_score)`
+      })
+      .from(marketingLeads)
+      .where(eq(marketingLeads.tenantId, tenantId));
 
     return {
-      campaigns: campaignMetrics.rows[0],
-      leads: leadMetrics.rows[0],
-      period
+      campaigns: campaigns[0] || { totalCampaigns: 0, activeCampaigns: 0, totalBudget: 0, totalSpend: 0 },
+      leads: leads[0] || { totalLeads: 0, convertedLeads: 0, avgLeadScore: 0 }
     };
   }
 
   async getMessageMetrics(tenantId: number, userId?: number) {
-    const userClause = userId 
-      ? sql`AND ${userId} = ANY(recipient_ids)`
-      : sql``;
+    let whereClause = eq(internalMessages.tenantId, tenantId);
+    
+    if (userId) {
+      whereClause = and(
+        eq(internalMessages.tenantId, tenantId),
+        sql`${internalMessages.recipientIds}::jsonb ? ${userId}::text`
+      );
+    }
 
-    return await db.execute(
-      sql`SELECT 
-        COUNT(*) as total_messages,
-        COUNT(CASE WHEN status = 'read' THEN 1 END) as read_messages,
-        COUNT(CASE WHEN status = 'acknowledged' THEN 1 END) as acknowledged_messages,
-        COUNT(CASE WHEN action_completed = true THEN 1 END) as completed_actions,
-        COUNT(CASE WHEN action_required = true AND action_completed = false THEN 1 END) as pending_actions
-      FROM ${marketingSchema.internalMessages}
-      WHERE tenant_id = ${tenantId} ${userClause}`
-    );
+    return await db
+      .select({
+        totalMessages: sql<number>`COUNT(*)`,
+        unreadMessages: sql<number>`COUNT(CASE WHEN ${internalMessages.readBy} IS NULL THEN 1 END)`,
+        actionRequired: sql<number>`COUNT(CASE WHEN ${internalMessages.actionRequired} = true AND ${internalMessages.actionCompleted} = false THEN 1 END)`,
+        completedActions: sql<number>`COUNT(CASE WHEN ${internalMessages.actionCompleted} = true THEN 1 END)`
+      })
+      .from(internalMessages)
+      .where(whereClause);
   }
 }
 
