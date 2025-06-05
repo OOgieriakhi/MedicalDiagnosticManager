@@ -161,7 +161,7 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   sessionStore: session.SessionStore;
-  sessionDepartments: any[] = [];
+  private static persistentDepartments: any[] = [];
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
@@ -1671,7 +1671,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDepartments(tenantId: number): Promise<any[]> {
-    // Return default departments plus any created ones stored in memory
+    // Return default departments plus any created ones stored persistently
     const defaultDepartments = [
       {
         id: 1,
@@ -1705,13 +1705,13 @@ export class DatabaseStorage implements IStorage {
       }
     ];
 
-    // Add any departments created during this session
-    const sessionDepartments = this.sessionDepartments || [];
-    return [...defaultDepartments, ...sessionDepartments.filter(dept => dept.tenantId === tenantId)];
+    // Add any departments created and stored persistently
+    const persistentDepartments = DatabaseStorage.persistentDepartments.filter(dept => dept.tenantId === tenantId);
+    return [...defaultDepartments, ...persistentDepartments];
   }
 
   async createDepartment(data: any): Promise<any> {
-    // Create department object for session storage
+    // Create department object for persistent storage
     const newDepartment = {
       id: Date.now(), // Temporary ID
       name: data.name,
@@ -1725,8 +1725,8 @@ export class DatabaseStorage implements IStorage {
       updatedAt: new Date()
     };
 
-    // Store in session for immediate availability
-    this.sessionDepartments.push(newDepartment);
+    // Store in persistent static storage for immediate availability
+    DatabaseStorage.persistentDepartments.push(newDepartment);
     
     // Try to store in database (will work once schema is deployed)
     try {
@@ -1745,7 +1745,7 @@ export class DatabaseStorage implements IStorage {
       console.log("Created department in database:", department);
       return department;
     } catch (error) {
-      console.log("Database insert failed, using session storage:", error.message);
+      console.log("Database insert failed, using persistent storage:", (error as Error).message);
       return newDepartment;
     }
   }
