@@ -175,28 +175,39 @@ export default function PatientIntake() {
       return;
     }
 
-    // Check for duplicate test on same day
-    const duplicateTest = existingTests.find((test: any) => 
-      test.testId === testId && 
-      (test.status === 'requested' || test.status === 'paid' || test.status === 'specimen_collected' || test.status === 'in_progress')
-    );
-
-    if (duplicateTest && !selectedTests.includes(testId)) {
-      const testName = (tests as any[]).find((t: any) => t.id === testId)?.name || 'Test';
-      const confirmDuplicate = window.confirm(
-        `Patient ${selectedPatient.firstName} ${selectedPatient.lastName} already has "${testName}" requested today (Status: ${duplicateTest.status}). Do you want to continue with adding this test again?`
-      );
-      
-      if (!confirmDuplicate) {
-        return;
-      }
+    // If test is already selected, just remove it
+    if (selectedTests.includes(testId)) {
+      setSelectedTests(prev => prev.filter(id => id !== testId));
+      return;
     }
 
-    setSelectedTests(prev => 
-      prev.includes(testId) 
-        ? prev.filter(id => id !== testId)
-        : [...prev, testId]
-    );
+    // Check for duplicate test on same day via API call
+    try {
+      const response = await apiRequest("GET", `/api/patient-tests?patientId=${selectedPatient.id}&today=true&branchId=${user?.branchId}`);
+      const todayTests = await response.json();
+      
+      const duplicateTest = todayTests.find((test: any) => 
+        test.testId === testId && 
+        (test.status === 'scheduled' || test.status === 'paid' || test.status === 'specimen_collected' || test.status === 'in_progress')
+      );
+
+      if (duplicateTest) {
+        const testName = (tests as any[]).find((t: any) => t.id === testId)?.name || 'Test';
+        const confirmDuplicate = window.confirm(
+          `Patient ${selectedPatient.firstName} ${selectedPatient.lastName} already has "${testName}" scheduled today (Status: ${duplicateTest.status}).\n\nDo you want to continue with adding this test again?`
+        );
+        
+        if (!confirmDuplicate) {
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking for duplicate tests:", error);
+      // Continue with selection if API call fails
+    }
+
+    // Add test to selection
+    setSelectedTests(prev => [...prev, testId]);
   };
 
   const handleProceedToPayment = async () => {
