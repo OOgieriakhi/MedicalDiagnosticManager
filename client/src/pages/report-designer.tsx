@@ -233,7 +233,7 @@ export default function ReportDesigner() {
   const saveTemplate = () => {
     if (!selectedTemplate) return;
 
-    if (selectedTemplate.id.startsWith('new-')) {
+    if (typeof selectedTemplate.id === 'string' && selectedTemplate.id.startsWith('new-')) {
       // Create new template
       createTemplateMutation.mutate({
         ...selectedTemplate,
