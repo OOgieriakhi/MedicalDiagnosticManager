@@ -516,15 +516,26 @@ export default function RadiologyManagement() {
                       )}
                       
                       {study.status === 'in_progress' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAction('complete-imaging', study)}
-                          disabled={completeImagingMutation.isPending}
-                        >
-                          <FileText className="w-4 h-4 mr-1" />
-                          Complete Study
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open('/report-designer', '_blank')}
+                            className="text-purple-600 border-purple-200 bg-purple-50 hover:bg-purple-100"
+                          >
+                            <FileText className="w-4 h-4 mr-1" />
+                            Report Form
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAction('complete-imaging', study)}
+                            disabled={completeImagingMutation.isPending}
+                          >
+                            <FileText className="w-4 h-4 mr-1" />
+                            Complete Study
+                          </Button>
+                        </>
                       )}
                       
                       {study.status === 'completed' && (
@@ -601,6 +612,16 @@ export default function RadiologyManagement() {
                       <Badge className={getStatusBadge(study.status)}>
                         {study.status?.toUpperCase() || 'SCHEDULED'}
                       </Badge>
+                      {(study.status === 'processing' || study.status === 'in_progress') && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => window.open('/report-designer', '_blank')}
+                          className="text-purple-600 border-purple-200 bg-purple-50 hover:bg-purple-100"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm">
                         <Eye className="w-4 h-4" />
                       </Button>
