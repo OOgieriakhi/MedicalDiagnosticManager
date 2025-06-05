@@ -140,6 +140,7 @@ export default function CardiologyUnit() {
     setInterpretation('');
     setRecommendation('');
     setExpectedHours('2');
+    setCardiologistSignature('');
     setCurrentStudy(null);
     setCurrentAction('');
   };
@@ -164,7 +165,8 @@ export default function CardiologyUnit() {
         studyId: currentStudy.id, 
         findings, 
         interpretation, 
-        recommendation 
+        recommendation,
+        cardiologistSignature
       });
     }
   };

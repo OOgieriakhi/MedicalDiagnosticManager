@@ -48,6 +48,18 @@ export default function LaboratoryManagement() {
   const [testResults, setTestResults] = useState("");
   const [testNotes, setTestNotes] = useState("");
   const [resultValues, setResultValues] = useState<Record<number, string>>({});
+  const [scientistSignature, setScientistSignature] = useState('');
+
+  // Helper function to get test stage-based background color
+  const getTestStageColor = (test: any) => {
+    if (test.status === "reported_and_saved") return "bg-emerald-50 border-emerald-200";
+    if (test.status === "completed") return "bg-green-50 border-green-200";
+    if (test.status === "in_progress") return "bg-yellow-50 border-yellow-200";
+    if (test.status === "specimen_collected") return "bg-blue-50 border-blue-200";
+    if (test.paymentVerified) return "bg-purple-50 border-purple-200";
+    return "bg-white border-gray-200";
+  };
+
   const [showReportPreview, setShowReportPreview] = useState(false);
   const [specimenType, setSpecimenType] = useState("");
   const [expectedHours, setExpectedHours] = useState("");
@@ -55,17 +67,6 @@ export default function LaboratoryManagement() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [processingTests, setProcessingTests] = useState<Set<number>>(new Set());
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
-  const [scientistSignature, setScientistSignature] = useState("");
-
-  // Helper function to get test stage-based background color
-  const getTestStageColor = (test: any) => {
-    if (test.status === "reported_and_saved") return "bg-emerald-50 border-emerald-200";
-    if (test.status === "completed") return "bg-green-50 border-green-200";
-    if (test.processingStarted) return "bg-yellow-50 border-yellow-200";
-    if (test.specimenCollected) return "bg-blue-50 border-blue-200";
-    if (test.paymentVerified) return "bg-purple-50 border-purple-200";
-    return "bg-white border-gray-200";
-  };
 
   // Function to interpret result value
   const interpretResult = (parameter: any, value: string) => {
