@@ -1340,6 +1340,17 @@ export default function LaboratoryManagement() {
                     className="mt-1"
                   />
                 </div>
+
+                <div>
+                  <Label htmlFor="scientist-signature">Scientist Signature *</Label>
+                  <Input
+                    id="scientist-signature"
+                    placeholder="Enter scientist name for report authentication..."
+                    value={scientistSignature}
+                    onChange={(e) => setScientistSignature(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-between gap-2">
@@ -1367,6 +1378,7 @@ export default function LaboratoryManagement() {
                           testId: selectedTest?.id,
                           parameterResults: resultValues,
                           notes: testNotes,
+                          scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist',
                           saveForLater: true
                         });
                       } else {
@@ -1374,6 +1386,7 @@ export default function LaboratoryManagement() {
                           testId: selectedTest?.id,
                           results: testResults,
                           notes: testNotes,
+                          scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist',
                           saveForLater: true
                         });
                       }
