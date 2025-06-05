@@ -721,7 +721,7 @@ export default function LaboratoryManagement() {
                 </tr>
               </thead>
               <tbody>
-                ${testParameters.map(param => `
+                ${testParameters.map((param: any) => `
                   <tr>
                     <td>${param.parameterName}</td>
                     <td>${param.resultValue || '-'}</td>
@@ -1843,8 +1843,7 @@ export default function LaboratoryManagement() {
                                   completeTestMutation.mutate({
                                     testId: selectedTest.id,
                                     results: testResults,
-                                    notes: testNotes,
-                                    scientistSignature: scientistSignature || user?.username || 'Laboratory Scientist'
+                                    notes: testNotes
                                   });
                                 }
                               }}

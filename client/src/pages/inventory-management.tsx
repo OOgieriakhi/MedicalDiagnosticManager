@@ -639,7 +639,7 @@ export default function InventoryManagement() {
                         <TableCell>{item.total_available || 0}</TableCell>
                         <TableCell>{item.unit_of_measure}</TableCell>
                         <TableCell>
-                          <Badge variant={getStockStatusColor(status)}>
+                          <Badge variant={getStockStatusColor(status) as "default" | "destructive" | "outline" | "secondary"}>
                             {status}
                           </Badge>
                         </TableCell>

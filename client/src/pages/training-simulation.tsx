@@ -220,7 +220,7 @@ export default function TrainingSimulation() {
       });
       
       // Refresh modules data
-      modulesQuery.refetch();
+      queryClient.invalidateQueries({ queryKey: ["/api/training/modules"] });
     } catch (error) {
       toast({
         title: "Error",

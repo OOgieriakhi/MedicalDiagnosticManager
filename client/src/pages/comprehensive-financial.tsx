@@ -293,10 +293,10 @@ export default function ComprehensiveFinancial() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(financialMetrics?.totalRevenue || 0)}
+                  {formatCurrency((financialMetrics as any)?.totalRevenue || 0)}
                 </p>
                 <p className="text-xs text-green-600">
-                  +{financialMetrics?.revenueGrowth || 0}% from last period
+                  +{(financialMetrics as any)?.revenueGrowth || 0}% from last period
                 </p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">

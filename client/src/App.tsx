@@ -42,7 +42,7 @@ import BrandingManagement from "@/pages/branding-management";
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={Dashboard} />
+      <ProtectedRoute path="/" component={() => <Dashboard />} />
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
       <ProtectedRoute path="/financial-management" component={FinancialManagement} />
