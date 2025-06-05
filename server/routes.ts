@@ -1687,6 +1687,183 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Generate automated report preview for a patient test
+  app.get("/api/patient-tests/:id/report-preview", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const patientTestId = parseInt(req.params.id);
+      const test = await storage.getPatientTest(patientTestId);
+      
+      if (!test) {
+        return res.status(404).json({ message: "Test not found" });
+      }
+
+      const patient = await storage.getPatient(test.patientId);
+      const parametersWithResults = await storage.getTestParametersWithResults(patientTestId);
+      const tenant = await storage.getTenant(patient?.tenantId || 1);
+      const branch = await storage.getBranch(patient?.branchId || 1);
+
+      // Generate enhanced report preview with clinical interpretation
+      const reportPreview = {
+        patient: {
+          name: `${patient?.firstName} ${patient?.lastName}`,
+          patientId: patient?.patientId,
+          dateOfBirth: patient?.dateOfBirth,
+          gender: patient?.gender,
+          phone: patient?.phone
+        },
+        test: {
+          name: test.testName,
+          code: test.testCode,
+          category: test.category,
+          completedAt: test.completedAt,
+          status: test.status
+        },
+        parameters: parametersWithResults.map((param: any) => ({
+          name: param.parameter_name,
+          code: param.parameter_code,
+          value: param.value || 'Pending',
+          unit: param.unit,
+          normalRange: param.normal_range_text || `${param.normal_range_min}-${param.normal_range_max}`,
+          status: param.status || 'pending',
+          flag: param.status === 'high' ? 'H' : param.status === 'low' ? 'L' : '',
+          isAbnormal: param.status === 'high' || param.status === 'low'
+        })),
+        clinicalSummary: {
+          totalParameters: parametersWithResults.length,
+          abnormalCount: parametersWithResults.filter((p: any) => p.status === 'high' || p.status === 'low').length,
+          overallStatus: parametersWithResults.some((p: any) => p.status === 'high' || p.status === 'low') ? 'abnormal' : 'normal',
+          clinicalInterpretation: generateClinicalInterpretationFunc(test.testName, parametersWithResults),
+          recommendations: generateRecommendationsFunc(test.testName, parametersWithResults)
+        },
+        organization: {
+          name: tenant?.name || 'Orient Medical Diagnostic Center',
+          address: branch?.address || 'Medical Center',
+          phone: branch?.phone || ''
+        },
+        reportMetadata: {
+          generatedAt: new Date(),
+          generatedBy: test.scientistSignature || 'Laboratory Staff',
+          reportId: `RPT-${patientTestId}-${Date.now()}`
+        }
+      };
+
+      res.json(reportPreview);
+    } catch (error: any) {
+      console.error("Error generating report preview:", error);
+      res.status(500).json({ message: "Failed to generate report preview" });
+    }
+  });
+
+  // AI-aided clinical interpretation function
+  function generateClinicalInterpretationFunc(testName: string, parameters: any[]): string {
+    const abnormalParams = parameters.filter((p: any) => p.status === 'high' || p.status === 'low');
+    
+    if (abnormalParams.length === 0) {
+      return `${testName} results are within normal limits. No significant abnormalities detected.`;
+    }
+
+    const interpretations = [];
+
+    // Test-specific clinical interpretations
+    if (testName.toLowerCase().includes('lipid') || testName.toLowerCase().includes('cholesterol')) {
+      const highCholesterol = abnormalParams.find((p: any) => p.parameter_name?.toLowerCase().includes('cholesterol') && p.status === 'high');
+      const highTriglycerides = abnormalParams.find((p: any) => p.parameter_name?.toLowerCase().includes('triglyceride') && p.status === 'high');
+      
+      if (highCholesterol) {
+        interpretations.push('Elevated cholesterol levels indicate increased cardiovascular risk');
+      }
+      if (highTriglycerides) {
+        interpretations.push('Elevated triglycerides may suggest metabolic syndrome risk');
+      }
+    }
+
+    if (testName.toLowerCase().includes('glucose') || testName.toLowerCase().includes('hba1c')) {
+      const highGlucose = abnormalParams.find((p: any) => p.parameter_name?.toLowerCase().includes('glucose') && p.status === 'high');
+      const highHbA1c = abnormalParams.find((p: any) => p.parameter_name?.toLowerCase().includes('hba1c') && p.status === 'high');
+      
+      if (highGlucose) {
+        interpretations.push('Elevated glucose levels may indicate diabetes or prediabetes');
+      }
+      if (highHbA1c) {
+        interpretations.push('Elevated HbA1c suggests poor long-term glucose control');
+      }
+    }
+
+    if (testName.toLowerCase().includes('liver') || testName.toLowerCase().includes('hepatic')) {
+      const highALT = abnormalParams.find((p: any) => p.parameter_name?.toLowerCase().includes('alt') && p.status === 'high');
+      const highAST = abnormalParams.find((p: any) => p.parameter_name?.toLowerCase().includes('ast') && p.status === 'high');
+      
+      if (highALT || highAST) {
+        interpretations.push('Elevated liver enzymes may indicate hepatic dysfunction');
+      }
+    }
+
+    if (interpretations.length === 0) {
+      interpretations.push(`${abnormalParams.length} parameter(s) outside normal range requiring clinical correlation`);
+    }
+
+    return interpretations.join('. ') + '.';
+  }
+
+  // Generate clinical recommendations based on test results
+  function generateRecommendationsFunc(testName: string, parameters: any[]): string[] {
+    const abnormalParams = parameters.filter((p: any) => p.status === 'high' || p.status === 'low');
+    const recommendations = [];
+
+    if (abnormalParams.length === 0) {
+      recommendations.push('Continue routine monitoring as per clinical guidelines');
+      return recommendations;
+    }
+
+    // General recommendations
+    recommendations.push('Clinical correlation with patient symptoms and medical history is recommended');
+
+    // Test-specific recommendations
+    if (testName.toLowerCase().includes('lipid') || testName.toLowerCase().includes('cholesterol')) {
+      const hasHighCholesterol = abnormalParams.some((p: any) => p.parameter_name?.toLowerCase().includes('cholesterol') && p.status === 'high');
+      if (hasHighCholesterol) {
+        recommendations.push('Consider dietary modification and lifestyle counseling');
+        recommendations.push('Repeat testing in 6-12 weeks if lifestyle interventions implemented');
+      }
+    }
+
+    if (testName.toLowerCase().includes('glucose')) {
+      const hasHighGlucose = abnormalParams.some((p: any) => p.parameter_name?.toLowerCase().includes('glucose') && p.status === 'high');
+      if (hasHighGlucose) {
+        recommendations.push('Consider oral glucose tolerance test or HbA1c for diabetes screening');
+        recommendations.push('Dietary counseling and weight management if indicated');
+      }
+    }
+
+    if (testName.toLowerCase().includes('liver')) {
+      const hasHighLiver = abnormalParams.some((p: any) => (p.parameter_name?.toLowerCase().includes('alt') || p.parameter_name?.toLowerCase().includes('ast')) && p.status === 'high');
+      if (hasHighLiver) {
+        recommendations.push('Consider hepatitis panel and medication history review');
+        recommendations.push('Avoid hepatotoxic substances and alcohol');
+      }
+    }
+
+    // Critical values handling
+    const criticalParams = abnormalParams.filter((p: any) => {
+      const value = parseFloat(p.value);
+      const min = parseFloat(p.normal_range_min);
+      const max = parseFloat(p.normal_range_max);
+      
+      if (!isNaN(value) && !isNaN(min) && !isNaN(max)) {
+        return (p.status === 'high' && value > max * 1.5) || (p.status === 'low' && value < min * 0.5);
+      }
+      return false;
+    });
+
+    if (criticalParams.length > 0) {
+      recommendations.push('URGENT: Critical values detected - immediate clinical evaluation recommended');
+    }
+
+    return recommendations;
+  }
+
   // Save test results for later processing (printing, WhatsApp, email)
   app.post("/api/patient-tests/:id/save-results", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
