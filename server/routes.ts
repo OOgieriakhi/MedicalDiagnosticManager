@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { rbacStorage } from "./rbac-storage";
-import * as RBACMiddleware from "./rbac-middleware";
+import { RBACMiddleware, rbacHelpers } from "./rbac-middleware";
 import { financialStorage } from "./financial-storage";
 import { inventoryStorage } from "./inventory-storage";
 import { inventoryConsumptionService } from "./inventory-consumption";
@@ -40,8 +40,6 @@ import {
   sql 
 } from "drizzle-orm";
 import { notificationService, PDFService } from "./notifications";
-import { rbacStorage } from "./rbac-storage";
-import { RBACMiddleware, rbacHelpers } from "./rbac-middleware";
 import { brandingStorage } from "./branding-storage";
 import { seedRBACSystem, assignUserRole } from "./rbac-seed";
 import { z } from "zod";
