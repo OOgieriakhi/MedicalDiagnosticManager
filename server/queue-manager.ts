@@ -210,7 +210,7 @@ export class QueueManager {
     // Get waiting counts for each department
     const waitingCounts = await Promise.all(
       departments.map(async (dept) => {
-        const count = await db
+        const waitingCount = await db
           .select({ count: count() })
           .from(queuePatients)
           .where(
@@ -224,7 +224,7 @@ export class QueueManager {
         
         return {
           departmentId: dept.id,
-          waitingCount: count[0]?.count || 0
+          waitingCount: waitingCount[0]?.count || 0
         };
       })
     );
