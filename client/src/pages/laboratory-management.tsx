@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { MessageNotification } from "@/components/message-notification";
 import { 
   Search, 
   TestTube, 
@@ -515,6 +516,7 @@ export default function LaboratoryManagement() {
             <p className="text-gray-600">Manage laboratory tests, results, and quality control</p>
           </div>
         </div>
+        <MessageNotification />
       </div>
 
       {/* Laboratory Workflow Metrics Dashboard */}
