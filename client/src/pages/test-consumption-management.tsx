@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -144,7 +144,7 @@ export default function TestConsumptionManagement() {
       standardQuantity: formData.get("standardQuantity") as string,
       consumptionType: formData.get("consumptionType") as 'direct' | 'proportional' | 'fixed',
       costCenter: formData.get("costCenter") as string,
-      isCritical: formData.get("isCritical") === "true",
+      isCritical: formData.get("isCritical") === "on",
       notes: formData.get("notes") as string || undefined,
     };
 
@@ -174,262 +174,271 @@ export default function TestConsumptionManagement() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Test Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TestTube className="h-5 w-5" />
-              Select Test/Procedure
-            </CardTitle>
-            <CardDescription>
-              Choose a test to manage its inventory consumption
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* Test Selection */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TestTube className="h-5 w-5" />
+            Test Consumption Management
+          </CardTitle>
+          <CardDescription>
+            Select a diagnostic test or procedure to configure its inventory consumption templates
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              {tests.map((test) => (
-                <Button
-                  key={test.id}
-                  variant={selectedTest === test.id ? "default" : "outline"}
-                  className="w-full justify-start"
-                  onClick={() => setSelectedTest(test.id)}
-                >
-                  <div className="text-left">
-                    <div className="font-medium">{test.name}</div>
-                    <div className="text-xs text-muted-foreground">{test.categoryName}</div>
-                  </div>
-                </Button>
-              ))}
+              <Label htmlFor="test-select">Select Test/Procedure</Label>
+              <Select value={selectedTest?.toString() || ""} onValueChange={(value) => setSelectedTest(parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a diagnostic test or procedure" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tests.map((test) => (
+                    <SelectItem key={test.id} value={test.id.toString()}>
+                      {test.name} ({test.categoryName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Consumption Templates */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Consumption Templates</CardTitle>
-                <CardDescription>
-                  {selectedTest ? `Items consumed for: ${selectedTestName}` : "Select a test to view consumption templates"}
-                </CardDescription>
+            {selectedTest && (
+              <div className="flex items-end">
+                <div className="p-3 bg-muted rounded-lg flex-1">
+                  <div className="text-sm font-medium">{selectedTestName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {tests.find(t => t.id === selectedTest)?.categoryName}
+                  </div>
+                </div>
               </div>
-              {selectedTest && (
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={() => setEditingTemplate(null)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Item
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editingTemplate ? "Edit" : "Add"} Consumption Template
-                      </DialogTitle>
-                      <DialogDescription>
-                        Configure which inventory item is consumed for {selectedTestName}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      handleSubmit(formData);
-                    }} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="itemId">Inventory Item</Label>
-                        <Select name="itemId" defaultValue={editingTemplate?.itemId?.toString()}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select inventory item" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {inventoryItems.map((item) => (
-                              <SelectItem key={item.id} value={item.id.toString()}>
-                                {item.name} - {item.itemCode} ({item.categoryName})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="standardQuantity">Quantity</Label>
-                          <Input
-                            name="standardQuantity"
-                            type="number"
-                            step="0.1"
-                            placeholder="1.0"
-                            defaultValue={editingTemplate?.standardQuantity}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="consumptionType">Type</Label>
-                          <Select name="consumptionType" defaultValue={editingTemplate?.consumptionType || "direct"}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="direct">Direct</SelectItem>
-                              <SelectItem value="proportional">Proportional</SelectItem>
-                              <SelectItem value="fixed">Fixed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+      {/* Consumption Templates */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Consumption Templates</CardTitle>
+              <CardDescription>
+                {selectedTest ? `Items consumed for: ${selectedTestName}` : "Select a test to view consumption templates"}
+              </CardDescription>
+            </div>
+            {selectedTest && (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => setEditingTemplate(null)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Item
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingTemplate ? "Edit" : "Add"} Consumption Template
+                    </DialogTitle>
+                    <DialogDescription>
+                      Configure which inventory item is consumed for {selectedTestName}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    handleSubmit(formData);
+                  }} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="itemId">Inventory Item</Label>
+                      <Select name="itemId" defaultValue={editingTemplate?.itemId?.toString()}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select inventory item" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {inventoryItems.map((item) => (
+                            <SelectItem key={item.id} value={item.id.toString()}>
+                              {item.name} - {item.itemCode} ({item.categoryName})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="costCenter">Cost Center</Label>
-                        <Select name="costCenter" defaultValue={editingTemplate?.costCenter || "laboratory"}>
+                        <Label htmlFor="standardQuantity">Quantity</Label>
+                        <Input
+                          name="standardQuantity"
+                          type="number"
+                          step="0.1"
+                          placeholder="1.0"
+                          defaultValue={editingTemplate?.standardQuantity}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="consumptionType">Type</Label>
+                        <Select name="consumptionType" defaultValue={editingTemplate?.consumptionType || "direct"}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="laboratory">Laboratory</SelectItem>
-                            <SelectItem value="radiology">Radiology</SelectItem>
-                            <SelectItem value="ultrasound">Ultrasound</SelectItem>
-                            <SelectItem value="cardiology">Cardiology</SelectItem>
-                            <SelectItem value="pharmacy">Pharmacy</SelectItem>
+                            <SelectItem value="direct">Direct</SelectItem>
+                            <SelectItem value="proportional">Proportional</SelectItem>
+                            <SelectItem value="fixed">Fixed</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
 
-                      <div className="flex items-center space-x-2">
-                        <Switch 
-                          name="isCritical" 
-                          value="true"
-                          defaultChecked={editingTemplate?.isCritical}
-                        />
-                        <Label htmlFor="isCritical" className="text-sm">
-                          Critical Item (must be in stock to perform test)
-                        </Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="costCenter">Cost Center</Label>
+                      <Select name="costCenter" defaultValue={editingTemplate?.costCenter || "laboratory"}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="laboratory">Laboratory</SelectItem>
+                          <SelectItem value="radiology">Radiology</SelectItem>
+                          <SelectItem value="ultrasound">Ultrasound</SelectItem>
+                          <SelectItem value="cardiology">Cardiology</SelectItem>
+                          <SelectItem value="pharmacy">Pharmacy</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        name="isCritical" 
+                        defaultChecked={editingTemplate?.isCritical}
+                      />
+                      <Label htmlFor="isCritical" className="text-sm">
+                        Critical Item (must be in stock to perform test)
+                      </Label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Notes (Optional)</Label>
+                      <Textarea
+                        name="notes"
+                        placeholder="Additional notes about this consumption..."
+                        defaultValue={editingTemplate?.notes}
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}>
+                        <Save className="h-4 w-4 mr-2" />
+                        {editingTemplate ? "Update" : "Create"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsDialogOpen(false);
+                          setEditingTemplate(null);
+                        }}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!selectedTest ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <TestTube className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Select a test from the dropdown above to view and manage its consumption templates</p>
+            </div>
+          ) : isLoading ? (
+            <div className="text-center py-8">Loading consumption templates...</div>
+          ) : templates.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No consumption templates configured for this test</p>
+              <p className="text-sm">Click "Add Item" to configure inventory consumption</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Cost Center</TableHead>
+                  <TableHead>Critical</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {templates.map((template) => (
+                  <TableRow key={template.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{template.itemName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {template.itemCode} • {template.categoryName}
+                        </div>
                       </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="notes">Notes (Optional)</Label>
-                        <Textarea
-                          name="notes"
-                          placeholder="Additional notes about this consumption..."
-                          defaultValue={editingTemplate?.notes}
-                        />
-                      </div>
-
+                    </TableCell>
+                    <TableCell>
+                      {template.standardQuantity} {template.unitOfMeasure}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {template.consumptionType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {template.costCenter}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {template.isCritical && (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Critical
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-2">
-                        <Button type="submit" disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}>
-                          <Save className="h-4 w-4 mr-2" />
-                          {editingTemplate ? "Update" : "Create"}
-                        </Button>
                         <Button
-                          type="button"
+                          size="sm"
                           variant="outline"
                           onClick={() => {
-                            setIsDialogOpen(false);
-                            setEditingTemplate(null);
+                            setEditingTemplate(template);
+                            setIsDialogOpen(true);
                           }}
                         >
-                          <X className="h-4 w-4 mr-2" />
-                          Cancel
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (confirm("Are you sure you want to delete this consumption template?")) {
+                              deleteTemplateMutation.mutate(template.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!selectedTest ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <TestTube className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Select a test from the left panel to view and manage its consumption templates</p>
-              </div>
-            ) : isLoading ? (
-              <div className="text-center py-8">Loading consumption templates...</div>
-            ) : templates.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No consumption templates configured for this test</p>
-                <p className="text-sm">Click "Add Item" to configure inventory consumption</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Cost Center</TableHead>
-                    <TableHead>Critical</TableHead>
-                    <TableHead>Actions</TableHead>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {templates.map((template) => (
-                    <TableRow key={template.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{template.itemName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {template.itemCode} • {template.categoryName}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {template.standardQuantity} {template.unitOfMeasure}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {template.consumptionType}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {template.costCenter}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {template.isCritical && (
-                          <Badge variant="destructive" className="text-xs">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            Critical
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingTemplate(template);
-                              setIsDialogOpen(true);
-                            }}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (confirm("Are you sure you want to delete this consumption template?")) {
-                                deleteTemplateMutation.mutate(template.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
