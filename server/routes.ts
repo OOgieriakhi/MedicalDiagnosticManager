@@ -1274,17 +1274,122 @@ export function registerRoutes(app: Express): Server {
       const start = startDate ? new Date(startDate as string) : undefined;
       const end = endDate ? new Date(endDate as string) : undefined;
       
-      // Get imaging tests from paid invoices
-      const paidTests = await storage.getPatientTestsByCategory(userBranchId, 'Radiology & Imaging', 100);
-      
-      const filteredTests = paidTests.filter(test => {
+      // Get paid invoices with radiology/imaging tests
+      const paidInvoices = await db
+        .select({
+          invoiceId: invoices.id,
+          patientId: invoices.patientId,
+          patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
+          tests: invoices.tests,
+          paidAt: invoices.paidAt,
+          paymentMethod: invoices.paymentMethod,
+          totalAmount: invoices.totalAmount
+        })
+        .from(invoices)
+        .innerJoin(patients, eq(invoices.patientId, patients.id))
+        .where(
+          and(
+            eq(invoices.branchId, userBranchId),
+            eq(invoices.status, 'paid'),
+            isNotNull(invoices.paidAt)
+          )
+        )
+        .orderBy(desc(invoices.paidAt));
+
+      console.log(`Found paid invoices for radiology: ${paidInvoices.length}`);
+
+      // Extract imaging/radiology tests from paid invoices
+      let imagingTestsCount = 0;
+      const imagingStudies: any[] = [];
+
+      for (const invoice of paidInvoices) {
+        console.log(`Processing invoice: ${invoice.invoiceId} tests:`, invoice.tests);
+        
+        if (Array.isArray(invoice.tests)) {
+          const imagingTests = invoice.tests.filter((test: any) => {
+            const testName = test.name || test.testName || test.description || '';
+            return testName.toLowerCase().includes('x-ray') ||
+                   testName.toLowerCase().includes('ct') ||
+                   testName.toLowerCase().includes('mri') ||
+                   testName.toLowerCase().includes('ultrasound') ||
+                   testName.toLowerCase().includes('scan') ||
+                   testName.toLowerCase().includes('imaging') ||
+                   testName.toLowerCase().includes('echo') ||
+                   testName.toLowerCase().includes('doppler');
+          });
+          
+          imagingTestsCount += imagingTests.length;
+          
+          // Create study records
+          imagingTests.forEach((test: any) => {
+            imagingStudies.push({
+              id: `pt-${invoice.patientId}`,
+              testName: test.name || test.testName || test.description,
+              patientName: invoice.patientName,
+              status: 'completed',
+              scheduledAt: invoice.paidAt,
+              paidAt: invoice.paidAt
+            });
+          });
+        }
+      }
+
+      console.log(`Final imaging tests count: ${imagingTestsCount}`);
+
+      // If no results from invoice parsing, try direct patient tests query
+      if (imagingTestsCount === 0) {
+        console.log("No results from invoice parsing, trying direct query...");
+        
+        const directTests = await db
+          .select({
+            id: patientTests.id,
+            testName: tests.name,
+            patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
+            status: patientTests.status,
+            scheduledAt: patientTests.scheduledAt,
+            completedAt: patientTests.completedAt
+          })
+          .from(patientTests)
+          .innerJoin(tests, eq(patientTests.testId, tests.id))
+          .innerJoin(patients, eq(patientTests.patientId, patients.id))
+          .where(
+            and(
+              eq(patientTests.branchId, userBranchId),
+              or(
+                ilike(tests.name, '%x-ray%'),
+                ilike(tests.name, '%ct%'),
+                ilike(tests.name, '%mri%'),
+                ilike(tests.name, '%ultrasound%'),
+                ilike(tests.name, '%scan%'),
+                ilike(tests.name, '%imaging%'),
+                ilike(tests.name, '%echo%'),
+                ilike(tests.name, '%doppler%')
+              )
+            )
+          )
+          .limit(50);
+
+        console.log(`Direct query results: ${directTests.length}`);
+        imagingTestsCount = directTests.length;
+        imagingStudies.push(...directTests.map(test => ({
+          id: `pt-${test.id}`,
+          testName: test.testName,
+          patientName: test.patientName,
+          status: test.status,
+          scheduledAt: test.scheduledAt,
+          completedAt: test.completedAt
+        })));
+      }
+
+      // Apply date filtering
+      const filteredTests = imagingStudies.filter(test => {
         if (!start && !end) return true;
-        const testDate = new Date(test.scheduledAt);
+        const testDate = new Date(test.scheduledAt || test.paidAt);
         if (start && testDate < start) return false;
         if (end && testDate > end) return false;
         return true;
       });
-      
+
       const totalStudies = filteredTests.length;
       const completedStudies = filteredTests.filter(t => t.status === 'completed').length;
       const pendingStudies = filteredTests.filter(t => t.status === 'scheduled' || t.status === 'in_progress').length;
