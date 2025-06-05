@@ -430,10 +430,11 @@ export default function RadiologyManagement() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="workflow" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="workflow">Imaging Workflow</TabsTrigger>
           <TabsTrigger value="studies">Recent Studies</TabsTrigger>
           <TabsTrigger value="equipment">Equipment Status</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="schedule">Study Schedule</TabsTrigger>
         </TabsList>
 
@@ -606,6 +607,207 @@ export default function RadiologyManagement() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          {/* Report Generation Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Generate Radiology Reports</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="reportType">Report Type</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select report type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily Imaging Summary</SelectItem>
+                      <SelectItem value="weekly">Weekly Performance</SelectItem>
+                      <SelectItem value="monthly">Monthly Analysis</SelectItem>
+                      <SelectItem value="modality">Modality Performance</SelectItem>
+                      <SelectItem value="radiologist">Radiologist Productivity</SelectItem>
+                      <SelectItem value="equipment">Equipment Utilization</SelectItem>
+                      <SelectItem value="turnaround">Turnaround Time Analysis</SelectItem>
+                      <SelectItem value="quality">Quality Assurance</SelectItem>
+                      <SelectItem value="revenue">Revenue Analysis</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input type="date" />
+                </div>
+                <div>
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input type="date" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Generate Report
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Export PDF
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Export Excel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Report Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Report Preview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Summary Statistics */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-blue-700">Total Studies</h3>
+                    <p className="text-2xl font-bold text-blue-900">{radiologyMetrics?.totalStudies || 0}</p>
+                    <p className="text-xs text-blue-600">This period</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-green-700">Completion Rate</h3>
+                    <p className="text-2xl font-bold text-green-900">{radiologyMetrics?.completionRate || 0}%</p>
+                    <p className="text-xs text-green-600">Target: 95%</p>
+                  </div>
+                  <div className="p-4 bg-yellow-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-yellow-700">Avg Turnaround</h3>
+                    <p className="text-2xl font-bold text-yellow-900">{radiologyMetrics?.avgTurnaroundTime || 0}h</p>
+                    <p className="text-xs text-yellow-600">Target: 1h</p>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-purple-700">Quality Score</h3>
+                    <p className="text-2xl font-bold text-purple-900">{radiologyMetrics?.qualityScore || 0}%</p>
+                    <p className="text-xs text-purple-600">Target: 98%</p>
+                  </div>
+                </div>
+
+                {/* Modality Distribution */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-4">Imaging Modality Distribution</h3>
+                  <div className="space-y-2">
+                    {[
+                      { modality: 'X-Ray', count: 125, percentage: 60, icon: '📷' },
+                      { modality: 'CT Scan', count: 35, percentage: 17, icon: '🔍' },
+                      { modality: 'Ultrasound', count: 28, percentage: 13, icon: '🫀' },
+                      { modality: 'MRI', count: 15, percentage: 7, icon: '🧲' },
+                      { modality: 'Mammography', count: 6, percentage: 3, icon: '🎯' }
+                    ].map((modality) => (
+                      <div key={modality.modality} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span>{modality.icon}</span>
+                          <span className="text-sm">{modality.modality}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">{modality.count} studies</span>
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${modality.percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium">{modality.percentage}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Equipment Performance */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-4">Equipment Performance</h3>
+                  <div className="space-y-2">
+                    {[
+                      { equipment: 'X-Ray Machine 1', utilization: 95, uptime: 99, status: 'Excellent' },
+                      { equipment: 'CT Scanner', utilization: 78, uptime: 97, status: 'Good' },
+                      { equipment: 'MRI Unit', utilization: 65, uptime: 95, status: 'Good' },
+                      { equipment: 'Ultrasound Unit', utilization: 88, uptime: 100, status: 'Excellent' },
+                      { equipment: 'Mammography Unit', utilization: 45, uptime: 92, status: 'Maintenance' }
+                    ].map((equipment) => (
+                      <div key={equipment.equipment} className="flex items-center justify-between">
+                        <span className="text-sm">{equipment.equipment}</span>
+                        <div className="flex items-center gap-4">
+                          <div className="text-xs">
+                            <span className="text-gray-600">Utilization: </span>
+                            <span className="font-medium">{equipment.utilization}%</span>
+                          </div>
+                          <div className="text-xs">
+                            <span className="text-gray-600">Uptime: </span>
+                            <span className="font-medium">{equipment.uptime}%</span>
+                          </div>
+                          <div className="w-20 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                equipment.utilization >= 80 ? 'bg-green-600' :
+                                equipment.utilization >= 60 ? 'bg-yellow-600' : 'bg-red-600'
+                              }`}
+                              style={{ width: `${equipment.utilization}%` }}
+                            ></div>
+                          </div>
+                          <Badge variant={
+                            equipment.status === 'Excellent' ? 'default' :
+                            equipment.status === 'Good' ? 'secondary' : 'outline'
+                          }>
+                            {equipment.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Radiologist Performance */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-4">Radiologist Performance</h3>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Dr. Sarah Johnson', studies: 45, avgTime: '18min', accuracy: 98 },
+                      { name: 'Dr. Michael Chen', studies: 38, avgTime: '22min', accuracy: 96 },
+                      { name: 'Dr. Emily Rodriguez', studies: 42, avgTime: '19min', accuracy: 97 },
+                      { name: 'Dr. Ahmed Hassan', studies: 35, avgTime: '25min', accuracy: 95 }
+                    ].map((radiologist) => (
+                      <div key={radiologist.name} className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{radiologist.name}</span>
+                        <div className="flex items-center gap-4 text-xs">
+                          <span>{radiologist.studies} studies</span>
+                          <span>Avg: {radiologist.avgTime}</span>
+                          <span>Accuracy: {radiologist.accuracy}%</span>
+                          <div className="w-16 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-green-600 h-2 rounded-full" 
+                              style={{ width: `${radiologist.accuracy}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Weekly Trends */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-4">Weekly Performance Trends</h3>
+                  <div className="text-center py-8 text-gray-500">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                    Interactive charts will be displayed here
+                    <br />
+                    <span className="text-xs">Studies volume, turnaround times, equipment utilization over time</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

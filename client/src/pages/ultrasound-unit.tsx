@@ -21,7 +21,8 @@ import {
   Download,
   FileImage,
   Eye,
-  BarChart3
+  BarChart3,
+  FileText
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -340,13 +341,170 @@ export default function UltrasoundUnit() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6">
+          {/* Report Generation Controls */}
           <Card>
             <CardHeader>
-              <CardTitle>Ultrasound Reports</CardTitle>
+              <CardTitle>Generate Ultrasound Reports</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="reportType">Report Type</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select report type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily Summary</SelectItem>
+                      <SelectItem value="weekly">Weekly Performance</SelectItem>
+                      <SelectItem value="monthly">Monthly Analysis</SelectItem>
+                      <SelectItem value="equipment">Equipment Utilization</SelectItem>
+                      <SelectItem value="radiologist">Radiologist Performance</SelectItem>
+                      <SelectItem value="study-types">Study Type Analysis</SelectItem>
+                      <SelectItem value="turnaround">Turnaround Time Report</SelectItem>
+                      <SelectItem value="quality">Quality Metrics</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Generate Report
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Export PDF
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Export Excel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Report Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Report Preview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                Report generation and management coming soon
+              <div className="space-y-6">
+                {/* Summary Statistics */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-blue-700">Total Studies</h3>
+                    <p className="text-2xl font-bold text-blue-900">{ultrasoundMetrics?.totalStudies || 0}</p>
+                    <p className="text-xs text-blue-600">This period</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-green-700">Completion Rate</h3>
+                    <p className="text-2xl font-bold text-green-900">{ultrasoundMetrics?.completionRate || 0}%</p>
+                    <p className="text-xs text-green-600">Target: 95%</p>
+                  </div>
+                  <div className="p-4 bg-yellow-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-yellow-700">Avg Turnaround</h3>
+                    <p className="text-2xl font-bold text-yellow-900">{ultrasoundMetrics?.avgTurnaroundTime || 0}h</p>
+                    <p className="text-xs text-yellow-600">Target: 2h</p>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-purple-700">Quality Score</h3>
+                    <p className="text-2xl font-bold text-purple-900">{ultrasoundMetrics?.qualityScore || 0}%</p>
+                    <p className="text-xs text-purple-600">Target: 98%</p>
+                  </div>
+                </div>
+
+                {/* Study Type Breakdown */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-4">Study Type Distribution</h3>
+                  <div className="space-y-2">
+                    {[
+                      { type: 'Abdominal Ultrasound', count: 45, percentage: 35 },
+                      { type: 'Obstetric Ultrasound', count: 38, percentage: 30 },
+                      { type: 'Pelvic Ultrasound', count: 25, percentage: 20 },
+                      { type: 'Vascular Doppler', count: 12, percentage: 10 },
+                      { type: 'Cardiac Echo', count: 6, percentage: 5 }
+                    ].map((study) => (
+                      <div key={study.type} className="flex items-center justify-between">
+                        <span className="text-sm">{study.type}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">{study.count} studies</span>
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${study.percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium">{study.percentage}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Equipment Utilization */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-4">Equipment Utilization</h3>
+                  <div className="space-y-2">
+                    {[
+                      { equipment: 'GE Voluson E10 (Room 1)', utilization: 85, status: 'Excellent' },
+                      { equipment: 'Philips EPIQ Elite (Room 2)', utilization: 78, status: 'Good' },
+                      { equipment: 'Siemens Acuson (Room 3)', utilization: 45, status: 'Under Maintenance' },
+                      { equipment: 'Samsung RS85 (Room 4)', utilization: 92, status: 'Excellent' },
+                      { equipment: 'Canon Aplio i800 (Room 5)', utilization: 67, status: 'Good' }
+                    ].map((equipment) => (
+                      <div key={equipment.equipment} className="flex items-center justify-between">
+                        <span className="text-sm">{equipment.equipment}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                equipment.utilization >= 80 ? 'bg-green-600' :
+                                equipment.utilization >= 60 ? 'bg-yellow-600' : 'bg-red-600'
+                              }`}
+                              style={{ width: `${equipment.utilization}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium">{equipment.utilization}%</span>
+                          <Badge variant={
+                            equipment.status === 'Excellent' ? 'default' :
+                            equipment.status === 'Good' ? 'secondary' : 'outline'
+                          }>
+                            {equipment.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Performance Trends */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-4">Weekly Performance Trends</h3>
+                  <div className="text-center py-8 text-gray-500">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                    Interactive charts will be displayed here
+                    <br />
+                    <span className="text-xs">Studies completed, turnaround times, quality metrics over time</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
