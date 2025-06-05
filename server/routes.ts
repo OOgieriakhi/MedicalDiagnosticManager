@@ -1673,6 +1673,20 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get test parameters with their saved result values for a patient test
+  app.get("/api/patient-tests/:id/parameters-with-results", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const patientTestId = parseInt(req.params.id);
+      const parametersWithResults = await storage.getTestParametersWithResults(patientTestId);
+      res.json(parametersWithResults);
+    } catch (error: any) {
+      console.error("Error fetching test parameters with results:", error);
+      res.status(500).json({ message: "Failed to fetch test parameters with results" });
+    }
+  });
+
   // Save test results for later processing (printing, WhatsApp, email)
   app.post("/api/patient-tests/:id/save-results", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
