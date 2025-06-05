@@ -55,6 +55,7 @@ export default function LaboratoryManagement() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [processingTests, setProcessingTests] = useState<Set<number>>(new Set());
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
+  const [scientistSignature, setScientistSignature] = useState("");
 
   // Helper function to get test stage-based background color
   const getTestStageColor = (test: any) => {

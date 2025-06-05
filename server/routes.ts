@@ -66,7 +66,7 @@ function interpretParameterValue(parameter: any, value: string) {
 }
 
 // Helper function to generate consolidated report
-async function generateConsolidatedReport(patientId: number) {
+async function generateConsolidatedReport(patientId: number, scientistSignature?: string) {
   const patient = await storage.getPatient(patientId);
   if (!patient) throw new Error("Patient not found");
   
@@ -97,7 +97,9 @@ async function generateConsolidatedReport(patientId: number) {
     generatedAt: new Date(),
     totalTests: patientTests.length,
     completedTests: patientTests.filter((t: any) => t.status === "completed").length,
-    savedResults: patientTests.filter((t: any) => t.status === "results_saved").length
+    savedResults: patientTests.filter((t: any) => t.status === "reported_and_saved").length,
+    scientistSignature: scientistSignature || 'Laboratory Scientist',
+    signedAt: new Date()
   };
 }
 
@@ -142,7 +144,14 @@ async function generateReportPDF(consolidatedReport: any): Promise<Buffer> {
         doc.moveDown();
       });
       
+      // Scientist Signature
+      doc.moveDown();
+      doc.text('_'.repeat(50), { align: 'right' });
+      doc.text(`Signed by: ${consolidatedReport.scientistSignature}`, { align: 'right' });
+      doc.text(`Date: ${new Date(consolidatedReport.signedAt).toLocaleString()}`, { align: 'right' });
+      
       // Footer
+      doc.moveDown();
       doc.text(`Report generated on: ${new Date().toLocaleString()}`, { align: 'right' });
       
       doc.end();
@@ -165,6 +174,8 @@ ${consolidatedReport.tests.map((test: any, index: number) =>
   `${index + 1}. ${test.testName}: ${test.status}`
 ).join('\n')}
 
+Signed by: ${consolidatedReport.scientistSignature}
+Date: ${new Date(consolidatedReport.signedAt).toLocaleString()}
 Generated: ${new Date().toLocaleString()}`;
 
   // Implementation would use actual WhatsApp Business API
@@ -191,6 +202,11 @@ async function sendEmailReport(consolidatedReport: any, emailAddress: string) {
         ${test.notes ? `<p><strong>Notes:</strong> ${test.notes}</p>` : ''}
       </div>
     `).join('')}
+    
+    <div style="margin-top: 30px; border-top: 1px solid #000; padding-top: 15px;">
+      <p><strong>Signed by:</strong> ${consolidatedReport.scientistSignature}</p>
+      <p><strong>Date:</strong> ${new Date(consolidatedReport.signedAt).toLocaleString()}</p>
+    </div>
     
     <p><em>Report generated on: ${new Date().toLocaleString()}</em></p>
   `;
