@@ -29,6 +29,7 @@ import PurchaseOrders from "@/pages/purchase-orders";
 import PettyCash from "@/pages/petty-cash";
 import InventoryManagement from "@/pages/inventory-management";
 import TestConsumptionManagement from "@/pages/test-consumption-management";
+import TrainingSimulation from "@/pages/training-simulation";
 import HumanResources from "@/pages/human-resources";
 import RoleManagement from "@/pages/role-management";
 import SecurityAudit from "@/pages/security-audit";

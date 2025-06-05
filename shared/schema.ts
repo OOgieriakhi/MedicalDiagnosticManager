@@ -109,6 +109,8 @@ export const tests = pgTable("tests", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   duration: integer("duration").default(30), // minutes
   requiresConsultant: boolean("requires_consultant").default(false),
+  department: text("department").notNull().default("laboratory"), // laboratory, radiology, ultrasound, cardiology, pharmacy, nursing, physiotherapy
+  serviceUnit: text("service_unit").notNull().default("laboratory"),
   tenantId: integer("tenant_id").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
