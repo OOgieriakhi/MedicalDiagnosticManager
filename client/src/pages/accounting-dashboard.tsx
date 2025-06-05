@@ -90,6 +90,7 @@ export default function AccountingDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState("current");
   const [selectedAccountType, setSelectedAccountType] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showJournalEntryForm, setShowJournalEntryForm] = useState(false);
 
   // Financial Summary
   const { data: financialSummary, isLoading: summaryLoading } = useQuery({
