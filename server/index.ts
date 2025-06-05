@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { seedAdminUser } from "./seed-admin";
 import path from "path";
 import fs from "fs";
 
@@ -57,6 +58,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Seed admin user for authentication
+  try {
+    await seedAdminUser();
+    log("Admin user seeded successfully");
+  } catch (error) {
+    log("Admin user seeding failed, fallback authentication will be used");
+  }
+
   const server = await registerRoutes(app);
 
 
