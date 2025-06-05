@@ -54,7 +54,7 @@ const employeeSchema = z.object({
   hireDate: z.date(),
   department: z.string().min(1, "Department is required"),
   position: z.string().min(1, "Position is required"),
-  salary: z.number().min(0, "Salary must be positive"),
+  salary: z.coerce.number().min(0, "Salary must be positive"),
   employmentStatus: z.enum(["active", "terminated", "suspended"]).default("active"),
 });
 
@@ -71,7 +71,7 @@ const positionSchema = z.object({
   title: z.string().min(1, "Position title is required"),
   description: z.string().optional(),
   departmentId: z.number(),
-  baseSalary: z.number().min(0),
+  baseSalary: z.coerce.number().min(0),
   isActive: z.boolean().default(true),
 });
 
