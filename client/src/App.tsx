@@ -34,6 +34,7 @@ import HumanResources from "@/pages/human-resources";
 import RoleManagement from "@/pages/role-management";
 import SecurityAudit from "@/pages/security-audit";
 import CEODashboard from "@/pages/ceo-dashboard";
+import MarketingManagement from "@/pages/marketing-management";
 
 function Router() {
   return (
@@ -64,6 +65,7 @@ function Router() {
       <ProtectedRoute path="/role-management" component={RoleManagement} />
       <ProtectedRoute path="/security-audit" component={SecurityAudit} />
       <ProtectedRoute path="/ceo-dashboard" component={CEODashboard} />
+      <ProtectedRoute path="/marketing" component={MarketingManagement} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

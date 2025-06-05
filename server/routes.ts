@@ -8,6 +8,7 @@ import { financialStorage } from "./financial-storage";
 import { inventoryStorage } from "./inventory-storage";
 import { inventoryConsumptionService } from "./inventory-consumption";
 import { trainingStorage } from "./training-storage";
+import { marketingStorage } from "./marketing-storage";
 import { db } from "./db";
 import { 
   patients, 
@@ -3966,6 +3967,319 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ==================== MARKETING AND MESSAGING API ROUTES ====================
+
+  // Marketing campaigns
+  app.get("/api/marketing/campaigns", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { branchId } = req.query;
+      
+      const campaigns = await marketingStorage.getMarketingCampaigns(
+        user.tenantId || 1, 
+        branchId ? Number(branchId) : undefined
+      );
+      
+      res.json(campaigns);
+    } catch (error: any) {
+      console.error("Error fetching marketing campaigns:", error);
+      res.status(500).json({ message: "Failed to fetch campaigns" });
+    }
+  });
+
+  app.post("/api/marketing/campaigns", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const campaignData = {
+        ...req.body,
+        tenantId: user.tenantId || 1,
+        createdBy: user.id
+      };
+
+      const campaign = await marketingStorage.createMarketingCampaign(campaignData);
+      res.status(201).json(campaign);
+    } catch (error: any) {
+      console.error("Error creating marketing campaign:", error);
+      res.status(500).json({ message: "Failed to create campaign" });
+    }
+  });
+
+  // Marketing leads
+  app.get("/api/marketing/leads", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { branchId, status } = req.query;
+      
+      const leads = await marketingStorage.getMarketingLeads(
+        user.tenantId || 1,
+        branchId ? Number(branchId) : undefined,
+        status as string
+      );
+      
+      res.json(leads);
+    } catch (error: any) {
+      console.error("Error fetching marketing leads:", error);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  app.post("/api/marketing/leads", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const leadData = {
+        ...req.body,
+        tenantId: user.tenantId || 1
+      };
+
+      const lead = await marketingStorage.createMarketingLead(leadData);
+      res.status(201).json(lead);
+    } catch (error: any) {
+      console.error("Error creating marketing lead:", error);
+      res.status(500).json({ message: "Failed to create lead" });
+    }
+  });
+
+  // Internal messaging system
+  app.get("/api/messages", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { messageType } = req.query;
+      
+      const messages = await marketingStorage.getInternalMessages(
+        user.tenantId || 1,
+        user.id,
+        messageType as string
+      );
+      
+      res.json(messages);
+    } catch (error: any) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/messages", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const messageData = {
+        ...req.body,
+        tenantId: user.tenantId || 1,
+        senderId: user.id
+      };
+
+      const message = await marketingStorage.createInternalMessage(messageData);
+      res.status(201).json(message);
+    } catch (error: any) {
+      console.error("Error creating message:", error);
+      res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
+  app.patch("/api/messages/:id/read", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const messageId = parseInt(req.params.id);
+      
+      const message = await marketingStorage.markMessageAsRead(messageId, user.id);
+      res.json(message);
+    } catch (error: any) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ message: "Failed to mark as read" });
+    }
+  });
+
+  app.patch("/api/messages/:id/acknowledge", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const messageId = parseInt(req.params.id);
+      
+      const message = await marketingStorage.acknowledgeMessage(messageId, user.id);
+      res.json(message);
+    } catch (error: any) {
+      console.error("Error acknowledging message:", error);
+      res.status(500).json({ message: "Failed to acknowledge message" });
+    }
+  });
+
+  app.patch("/api/messages/:id/complete", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const messageId = parseInt(req.params.id);
+      const { actionDetails } = req.body;
+      
+      const message = await marketingStorage.completeMessageAction(messageId, user.id, actionDetails);
+      res.json(message);
+    } catch (error: any) {
+      console.error("Error completing message action:", error);
+      res.status(500).json({ message: "Failed to complete action" });
+    }
+  });
+
+  // Work tasks management
+  app.get("/api/tasks", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { assignedTo, status, taskType } = req.query;
+      
+      const tasks = await marketingStorage.getWorkTasks(
+        user.tenantId || 1,
+        assignedTo ? Number(assignedTo) : undefined,
+        status as string,
+        taskType as string
+      );
+      
+      res.json(tasks);
+    } catch (error: any) {
+      console.error("Error fetching tasks:", error);
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+
+  app.post("/api/tasks", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const taskData = {
+        ...req.body,
+        tenantId: user.tenantId || 1,
+        assignedBy: user.id
+      };
+
+      const task = await marketingStorage.createWorkTask(taskData);
+      res.status(201).json(task);
+    } catch (error: any) {
+      console.error("Error creating task:", error);
+      res.status(500).json({ message: "Failed to create task" });
+    }
+  });
+
+  app.patch("/api/tasks/:id/complete", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const taskId = parseInt(req.params.id);
+      const { completionNotes } = req.body;
+      
+      const task = await marketingStorage.completeWorkTask(taskId, user.id, completionNotes);
+      res.json(task);
+    } catch (error: any) {
+      console.error("Error completing task:", error);
+      res.status(500).json({ message: "Failed to complete task" });
+    }
+  });
+
+  // Marketing reports
+  app.get("/api/marketing/reports", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { reportType, status } = req.query;
+      
+      const reports = await marketingStorage.getMarketingReports(
+        user.tenantId || 1,
+        reportType as string,
+        status as string
+      );
+      
+      res.json(reports);
+    } catch (error: any) {
+      console.error("Error fetching marketing reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  app.post("/api/marketing/reports", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const reportData = {
+        ...req.body,
+        tenantId: user.tenantId || 1,
+        createdBy: user.id
+      };
+
+      const report = await marketingStorage.createMarketingReport(reportData);
+      res.status(201).json(report);
+    } catch (error: any) {
+      console.error("Error creating marketing report:", error);
+      res.status(500).json({ message: "Failed to create report" });
+    }
+  });
+
+  // Marketing metrics
+  app.get("/api/marketing/metrics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { period } = req.query;
+      
+      const metrics = await marketingStorage.getMarketingMetrics(
+        user.tenantId || 1,
+        period as string
+      );
+      
+      res.json(metrics);
+    } catch (error: any) {
+      console.error("Error fetching marketing metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
     }
   });
 
