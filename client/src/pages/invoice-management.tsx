@@ -747,6 +747,31 @@ export default function InvoiceManagement() {
                 </RadioGroup>
               </div>
 
+              {/* Receiving Bank Account for Non-Cash Payments */}
+              {paymentMethod && paymentMethod !== "cash" && (
+                <div>
+                  <Label>Receiving Bank Account</Label>
+                  <Select value={receivingBankAccountId?.toString() || ""} onValueChange={(value) => setReceivingBankAccountId(Number(value))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select receiving account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizationBankAccounts?.map((account: any) => (
+                        <SelectItem key={account.id} value={account.id.toString()}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{account.accountName}</span>
+                            <span className="text-sm text-gray-500">
+                              {account.bankName} - {account.accountNumber}
+                              {account.isDefaultReceiving && " (Default)"}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Payment Details */}
               {paymentMethod === "card" && (
                 <div className="space-y-2">
