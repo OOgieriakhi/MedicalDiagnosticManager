@@ -140,6 +140,7 @@ export default function HumanResources() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hr/departments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/hr/metrics"] });
+      departmentForm.reset();
       toast({ title: "Department created successfully" });
     },
     onError: () => {
@@ -458,11 +459,13 @@ export default function HumanResources() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {departments?.map((dept: any) => (
-                                <SelectItem key={dept.id} value={dept.name}>
-                                  {dept.name}
-                                </SelectItem>
-                              )) || (
+                              {departments && departments.length > 0 ? (
+                                departments.map((dept: any) => (
+                                  <SelectItem key={dept.id} value={dept.name}>
+                                    {dept.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
                                 <>
                                   <SelectItem value="Laboratory">Laboratory</SelectItem>
                                   <SelectItem value="Radiology">Radiology</SelectItem>
@@ -492,11 +495,13 @@ export default function HumanResources() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {positions?.map((pos: any) => (
-                                <SelectItem key={pos.id} value={pos.title}>
-                                  {pos.title}
-                                </SelectItem>
-                              )) || (
+                              {positions && positions.length > 0 ? (
+                                positions.map((pos: any) => (
+                                  <SelectItem key={pos.id} value={pos.title}>
+                                    {pos.title}
+                                  </SelectItem>
+                                ))
+                              ) : (
                                 <>
                                   <SelectItem value="Lab Technician">Lab Technician</SelectItem>
                                   <SelectItem value="Senior Lab Technician">Senior Lab Technician</SelectItem>
