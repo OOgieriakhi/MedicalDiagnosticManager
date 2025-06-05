@@ -470,7 +470,7 @@ export default function RadiologyManagement() {
                         {study.status?.replace('_', ' ').toUpperCase() || 'SCHEDULED'}
                       </Badge>
                       
-                      {(study.status === 'scheduled' || !study.paymentVerified) && (
+                      {study.status === 'scheduled' && !study.paymentVerified && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -480,6 +480,12 @@ export default function RadiologyManagement() {
                           <CheckCircle className="w-4 h-4 mr-1" />
                           Verify Payment
                         </Button>
+                      )}
+                      
+                      {study.paymentVerified && study.status === 'scheduled' && (
+                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                          Payment Verified
+                        </Badge>
                       )}
                       
                       {(study.status === 'payment_verified' || (study.status === 'scheduled' && study.paymentVerified)) && (

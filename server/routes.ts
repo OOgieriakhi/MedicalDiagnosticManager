@@ -1290,7 +1290,7 @@ export function registerRoutes(app: Express): Server {
         .where(
           and(
             eq(invoices.branchId, userBranchId),
-            sql`${invoices.status} = 'paid'`,
+            sql`status = 'paid'`,
             isNotNull(invoices.paidAt)
           )
         )
@@ -1398,10 +1398,18 @@ export function registerRoutes(app: Express): Server {
         totalStudies,
         completionRate: totalStudies > 0 ? Math.round((completedStudies / totalStudies) * 100) : 0,
         pendingStudies,
-        averageWaitTime: 0,
+        completedStudies,
+        todayStudies: filteredTests.filter(test => {
+          const testDate = new Date(test.scheduledAt || test.paidAt);
+          const today = new Date();
+          return testDate.toDateString() === today.toDateString();
+        }).length,
+        activeEquipment: 3,
+        totalEquipment: 4,
         equipmentUtilization: Math.min(totalStudies * 10, 100),
         qualityScore: 95,
-        retakeRate: 2
+        retakeRate: 2,
+        avgTurnaroundTime: 2
       });
     } catch (error: any) {
       console.error("Error fetching radiology metrics:", error);
