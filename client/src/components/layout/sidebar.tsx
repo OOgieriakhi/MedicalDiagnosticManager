@@ -30,7 +30,9 @@ import {
   Receipt,
   Package,
   Briefcase,
-  GraduationCap
+  GraduationCap,
+  Crown,
+  TrendingUp
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -67,9 +69,16 @@ export default function Sidebar() {
       ]
     },
     {
+      section: "Executive",
+      items: [
+        { icon: Crown, label: "CEO Dashboard", path: "/ceo-dashboard", active: location === "/ceo-dashboard" },
+        { icon: TrendingUp, label: "Marketing Management", path: "/marketing", active: location === "/marketing" },
+      ]
+    },
+    {
       section: "Administration",
       items: [
-        { icon: Calculator, label: "Accounting", path: "/accounting", active: location === "/accounting" },
+        { icon: Calculator, label: "Accounting", path: "/comprehensive-financial", active: location === "/comprehensive-financial" },
         { icon: Briefcase, label: "Human Resources", path: "/human-resources", active: location === "/human-resources" },
         { icon: GraduationCap, label: "Training Simulation", path: "/training-simulation", active: location === "/training-simulation" },
       ]
