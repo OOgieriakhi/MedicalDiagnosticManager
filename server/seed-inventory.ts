@@ -364,3 +364,16 @@ async function seedInventoryData() {
     throw error;
   }
 }
+
+// Execute the seeding immediately
+seedInventoryData()
+  .then(() => {
+    console.log("Inventory seeding process completed");
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("Inventory seeding failed:", error);
+    process.exit(1);
+  });
+
+export { seedInventoryData };
