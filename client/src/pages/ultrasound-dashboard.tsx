@@ -336,9 +336,9 @@ export default function UltrasoundDashboard() {
                       return 'bg-red-50 border-red-200'; // Payment pending - red
                     } else if (study.status === 'scheduled' && study.paymentVerified) {
                       return 'bg-blue-50 border-blue-200'; // Payment verified - blue
-                    } else if (study.status === 'in_progress') {
+                    } else if (study.status === 'in_progress' || study.status === 'processing') {
                       return 'bg-yellow-50 border-yellow-200'; // In progress - yellow
-                    } else if (study.status === 'completed') {
+                    } else if (study.status === 'completed' || study.status === 'reported') {
                       return 'bg-green-50 border-green-200'; // Completed - green
                     }
                     return 'bg-gray-50 border-gray-200'; // Default - gray
