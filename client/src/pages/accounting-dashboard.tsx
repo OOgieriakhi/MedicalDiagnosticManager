@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
+import { FinancialReports } from "@/components/FinancialReports";
+import { BudgetAnalysis } from "@/components/BudgetAnalysis";
 import { 
   DollarSign,
   TrendingUp,
@@ -699,18 +701,7 @@ export default function AccountingDashboard() {
         </TabsContent>
 
         <TabsContent value="budgets" className="space-y-6">
-          {/* Budget Management */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Budget vs Actual Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <Calculator className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600">Budget management and variance analysis coming soon...</p>
-              </div>
-            </CardContent>
-          </Card>
+          <BudgetAnalysis />
         </TabsContent>
       </Tabs>
 
