@@ -162,9 +162,9 @@ async function generateReportPDF(consolidatedReport: any): Promise<Buffer> {
 
 // Generate Laboratory PDF Report for individual tests
 async function generateLaboratoryReportPDF(reportData: any): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
-      const PDFDocument = require('pdfkit');
+      const PDFDocument = (await import('pdfkit')).default;
       const doc = new PDFDocument({ margin: 50 });
       const chunks: Buffer[] = [];
 
@@ -213,10 +213,11 @@ async function generateLaboratoryReportPDF(reportData: any): Promise<Buffer> {
         doc.text('─'.repeat(80));
         
         // Parse saved parameter results
-        let savedResults = {};
+        let savedResults: { [key: string]: any } = {};
         try {
           if (test.parameterResults) {
             savedResults = JSON.parse(test.parameterResults);
+            console.log('Parsed parameter results:', savedResults);
           }
         } catch (e) {
           console.error('Error parsing parameter results:', e);
@@ -225,6 +226,8 @@ async function generateLaboratoryReportPDF(reportData: any): Promise<Buffer> {
         testParameters.forEach((param: any) => {
           // Try to get result using parameter ID as both string and number
           const result = savedResults[param.id.toString()] || savedResults[param.id] || '-';
+          console.log(`Parameter ${param.parameterName} (ID: ${param.id}): Result = ${result}`);
+          
           const paramName = param.parameterName.length > 25 ? param.parameterName.substring(0, 22) + '...' : param.parameterName;
           const resultText = result.toString().length > 12 ? result.toString().substring(0, 9) + '...' : result.toString();
           
