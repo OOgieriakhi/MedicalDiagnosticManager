@@ -37,14 +37,16 @@ import {
   Layout,
   Palette,
   Zap,
-  Home
+  Home,
+  Image,
+  Upload
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 
 interface ReportComponent {
   id: string;
-  type: 'chart' | 'table' | 'metric' | 'text' | 'header' | 'filter';
+  type: 'chart' | 'table' | 'metric' | 'text' | 'header' | 'filter' | 'image';
   title: string;
   config: any;
   position: { x: number; y: number; width: number; height: number };
@@ -82,7 +84,8 @@ export default function ReportDesigner() {
     { id: 'table', icon: Table, title: 'Data Table', description: 'Tabular data display' },
     { id: 'text', icon: Type, title: 'Text Block', description: 'Custom text content' },
     { id: 'header', icon: Layout, title: 'Header', description: 'Section headers' },
-    { id: 'filter', icon: Filter, title: 'Filter Panel', description: 'Interactive filters' }
+    { id: 'filter', icon: Filter, title: 'Filter Panel', description: 'Interactive filters' },
+    { id: 'image', icon: Image, title: 'Image Attachment', description: 'Upload and attach images' }
   ];
 
   // Query templates
@@ -182,6 +185,8 @@ export default function ReportDesigner() {
         return { content: 'Section Header', fontSize: 24, color: '#111827', alignment: 'left' };
       case 'filter':
         return { filters: ['date', 'category', 'status'], orientation: 'horizontal' };
+      case 'image':
+        return { imageUrl: '', caption: '', width: 'auto', height: 'auto', alignment: 'center' };
       default:
         return {};
     }
@@ -355,6 +360,29 @@ export default function ReportDesigner() {
             >
               {component.config.content}
             </h2>
+          </div>
+        );
+      
+      case 'image':
+        return (
+          <div
+            key={component.id}
+            style={baseStyle}
+            onClick={() => handleComponentClick(component)}
+            className="flex items-center justify-center"
+          >
+            {component.config.imageUrl ? (
+              <img 
+                src={component.config.imageUrl} 
+                alt={component.config.caption || 'Ultrasound Image'}
+                className="max-w-full max-h-full object-contain rounded"
+              />
+            ) : (
+              <div className="text-center text-gray-500">
+                <Image className="w-12 h-12 mx-auto mb-2" />
+                <div className="text-sm">Click to upload image</div>
+              </div>
+            )}
           </div>
         );
       
@@ -705,6 +733,73 @@ export default function ReportDesigner() {
                           <SelectItem value="radiology-studies">Radiology Studies</SelectItem>
                           <SelectItem value="lab-tests">Laboratory Tests</SelectItem>
                           <SelectItem value="equipment-status">Equipment Status</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+
+                {selectedComponent.type === 'image' && (
+                  <>
+                    <div>
+                      <Label>Upload Image</Label>
+                      <div className="space-y-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const imageUrl = event.target?.result as string;
+                                updateComponentConfig(selectedComponent.id, { imageUrl, filename: file.name });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        {selectedComponent.config.imageUrl && (
+                          <div className="relative">
+                            <img 
+                              src={selectedComponent.config.imageUrl} 
+                              alt="Preview" 
+                              className="w-full h-32 object-cover rounded border"
+                            />
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              className="absolute top-1 right-1"
+                              onClick={() => updateComponentConfig(selectedComponent.id, { imageUrl: '', filename: '' })}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Caption</Label>
+                      <Input
+                        value={selectedComponent.config.caption || ''}
+                        onChange={(e) => updateComponentConfig(selectedComponent.id, { caption: e.target.value })}
+                        placeholder="Enter image caption"
+                      />
+                    </div>
+                    <div>
+                      <Label>Alignment</Label>
+                      <Select 
+                        value={selectedComponent.config.alignment || 'center'} 
+                        onValueChange={(value) => updateComponentConfig(selectedComponent.id, { alignment: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left</SelectItem>
+                          <SelectItem value="center">Center</SelectItem>
+                          <SelectItem value="right">Right</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
