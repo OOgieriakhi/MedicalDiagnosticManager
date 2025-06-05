@@ -1,6 +1,5 @@
 import { db } from "./db";
-import { inventoryStock, inventoryTransactions, patientTests, testConsumptionTemplates } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 export class InventoryConsumptionService {
   
@@ -18,80 +17,63 @@ export class InventoryConsumptionService {
   ) {
     try {
       // Get consumption templates for this test
-      const consumptionTemplates = await db
-        .select()
-        .from(testConsumptionTemplates)
-        .where(
-          and(
-            eq(testConsumptionTemplates.testId, testId),
-            eq(testConsumptionTemplates.tenantId, tenantId)
-          )
-        );
+      const consumptionTemplates = await db.execute(sql`
+        SELECT * FROM test_consumption_templates 
+        WHERE test_id = ${testId} AND tenant_id = ${tenantId}
+      `);
 
-      if (consumptionTemplates.length === 0) {
+      if (consumptionTemplates.rows.length === 0) {
         console.log(`No consumption templates found for test ID: ${testId}`);
         return { success: true, consumedItems: [] };
       }
 
       const consumedItems = [];
 
-      for (const template of consumptionTemplates) {
+      for (const template of consumptionTemplates.rows) {
         // Check current stock level
-        const currentStock = await db
-          .select()
-          .from(inventoryStock)
-          .where(
-            and(
-              eq(inventoryStock.itemId, template.itemId),
-              eq(inventoryStock.branchId, branchId),
-              eq(inventoryStock.tenantId, tenantId)
-            )
-          );
+        const currentStock = await db.execute(sql`
+          SELECT available_quantity FROM inventory_stock 
+          WHERE item_id = ${template.item_id} 
+            AND branch_id = ${branchId} 
+            AND tenant_id = ${tenantId}
+        `);
 
-        if (currentStock.length === 0 || currentStock[0].availableQuantity < template.standardQuantity) {
-          throw new Error(`Insufficient stock for item ID: ${template.itemId}. Required: ${template.standardQuantity}, Available: ${currentStock[0]?.availableQuantity || 0}`);
+        const availableQty = currentStock.rows[0]?.available_quantity || 0;
+        const requiredQty = parseFloat(template.standard_quantity);
+
+        if (availableQty < requiredQty) {
+          throw new Error(`Insufficient stock for item ID: ${template.item_id}. Required: ${requiredQty}, Available: ${availableQty}`);
         }
 
-        // Calculate consumption based on type
-        let consumedQuantity = template.standardQuantity;
-        
         // Record consumption transaction
-        await db.insert(inventoryTransactions).values({
-          tenantId,
-          branchId,
-          itemId: template.itemId,
-          transactionType: 'consumption',
-          quantity: -Math.abs(consumedQuantity), // Negative for consumption
-          referenceType: 'patient_test',
-          referenceId: patientTestId,
-          costCenter: template.costCenter,
-          consumptionReason: 'test_procedure',
-          patientId,
-          testId,
-          performedBy,
-          transactionDate: new Date(),
-          notes: `Automatic consumption for test completion - Test ID: ${testId}, Patient Test ID: ${patientTestId}`
-        });
+        await db.execute(sql`
+          INSERT INTO inventory_transactions (
+            tenant_id, branch_id, item_id, transaction_type, quantity,
+            reference_type, reference_id, cost_center, consumption_reason,
+            patient_id, test_id, performed_by, notes, transaction_date
+          ) VALUES (
+            ${tenantId}, ${branchId}, ${template.item_id}, 'consumption', ${-Math.abs(requiredQty)},
+            'patient_test', ${patientTestId}, ${template.cost_center}, 'test_procedure',
+            ${patientId}, ${testId}, ${performedBy}, 
+            'Automatic consumption for test completion - Test ID: ' || ${testId} || ', Patient Test ID: ' || ${patientTestId},
+            NOW()
+          )
+        `);
 
         // Update stock levels
-        await db
-          .update(inventoryStock)
-          .set({
-            availableQuantity: sql`${inventoryStock.availableQuantity} - ${consumedQuantity}`,
-            updatedAt: new Date()
-          })
-          .where(
-            and(
-              eq(inventoryStock.itemId, template.itemId),
-              eq(inventoryStock.branchId, branchId),
-              eq(inventoryStock.tenantId, tenantId)
-            )
-          );
+        await db.execute(sql`
+          UPDATE inventory_stock 
+          SET available_quantity = available_quantity - ${requiredQty},
+              updated_at = NOW()
+          WHERE item_id = ${template.item_id} 
+            AND branch_id = ${branchId} 
+            AND tenant_id = ${tenantId}
+        `);
 
         consumedItems.push({
-          itemId: template.itemId,
-          quantity: consumedQuantity,
-          costCenter: template.costCenter
+          itemId: template.item_id,
+          quantity: requiredQty,
+          costCenter: template.cost_center
         });
       }
 

@@ -6,6 +6,7 @@ import { rbacStorage } from "./rbac-storage";
 import * as RBACMiddleware from "./rbac-middleware";
 import { financialStorage } from "./financial-storage";
 import { inventoryStorage } from "./inventory-storage";
+import { inventoryConsumptionService } from "./inventory-consumption";
 import { db } from "./db";
 import { 
   patients, 
@@ -389,7 +390,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Update patient test status
+  // Update patient test status with automatic inventory consumption
   app.patch("/api/patient-tests/:id/status", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -407,7 +408,38 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Invalid status" });
       }
 
+      // Update test status
       await storage.updatePatientTestStatus(id, status);
+
+      // If test is completed, automatically consume inventory items
+      if (status === "completed") {
+        try {
+          // Get patient test details
+          const patientTest = await db.execute(sql`
+            SELECT pt.*, p.tenant_id, p.branch_id 
+            FROM patient_tests pt
+            JOIN patients p ON pt.patient_id = p.id
+            WHERE pt.id = ${id}
+          `);
+
+          if (patientTest.rows.length > 0) {
+            const testData = patientTest.rows[0];
+            await inventoryConsumptionService.consumeItemsForCompletedTest(
+              testData.test_id,
+              id,
+              testData.patient_id,
+              testData.branch_id,
+              testData.tenant_id,
+              req.user!.id
+            );
+            console.log(`Inventory automatically consumed for completed test ID: ${id}`);
+          }
+        } catch (consumptionError) {
+          console.error("Error consuming inventory for completed test:", consumptionError);
+          // Don't fail the status update if consumption fails, just log it
+        }
+      }
+
       res.json({ message: "Status updated successfully" });
     } catch (error) {
       console.error("Error updating test status:", error);

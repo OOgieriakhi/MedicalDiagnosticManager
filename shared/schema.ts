@@ -946,17 +946,80 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
   tenantId: integer("tenant_id").notNull(),
   branchId: integer("branch_id").notNull(),
   itemId: integer("item_id").notNull(),
-  transactionType: text("transaction_type").notNull(), // in, out, transfer, adjustment
-  referenceType: text("reference_type"), // purchase_order, sale, production, adjustment
+  transactionType: text("transaction_type").notNull(), // receipt, consumption, transfer, adjustment, disposal, return, stock_count
+  referenceType: text("reference_type"), // patient_test, quality_control, maintenance, purchase_order, stock_count
   referenceId: integer("reference_id"),
   quantity: integer("quantity").notNull(),
   unitCost: decimal("unit_cost", { precision: 10, scale: 2 }),
   totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
   batchNumber: text("batch_number"),
+  lotNumber: text("lot_number"),
   expiryDate: timestamp("expiry_date"),
+  supplierName: text("supplier_name"),
+  receiptNumber: text("receipt_number"),
+  costCenter: text("cost_center"), // laboratory, radiology, pharmacy, ultrasound
+  consumptionReason: text("consumption_reason"), // test_procedure, quality_control, waste, expired, damage
+  patientId: integer("patient_id"), // for consumption tracking
+  testId: integer("test_id"), // specific test that consumed the item
   serialNumbers: jsonb("serial_numbers"),
   notes: text("notes"),
   performedBy: integer("performed_by").notNull(),
+  approvedBy: integer("approved_by"),
+  transactionDate: timestamp("transaction_date").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const testConsumptionTemplates = pgTable("test_consumption_templates", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  testId: integer("test_id").notNull(),
+  itemId: integer("item_id").notNull(),
+  standardQuantity: decimal("standard_quantity", { precision: 8, scale: 2 }).notNull(),
+  consumptionType: text("consumption_type").notNull(), // direct, proportional, fixed
+  costCenter: text("cost_center").notNull(),
+  isCritical: boolean("is_critical").notNull().default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const monthlyStockCounts = pgTable("monthly_stock_counts", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  countPeriod: text("count_period").notNull(), // YYYY-MM format
+  countDate: timestamp("count_date").notNull(),
+  status: text("status").notNull().default("scheduled"), // scheduled, in_progress, completed, verified, discrepancies_found
+  countedBy: integer("counted_by").notNull(),
+  verifiedBy: integer("verified_by"),
+  totalItemsCounted: integer("total_items_counted").default(0),
+  totalDiscrepancies: integer("total_discrepancies").default(0),
+  totalValueVariance: decimal("total_value_variance", { precision: 12, scale: 2 }).default("0"),
+  countMethod: text("count_method").notNull().default("full_count"), // full_count, cycle_count, spot_check
+  notes: text("notes"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const stockCountDetails = pgTable("stock_count_details", {
+  id: serial("id").primaryKey(),
+  stockCountId: integer("stock_count_id").notNull(),
+  itemId: integer("item_id").notNull(),
+  systemQuantity: integer("system_quantity").notNull(),
+  countedQuantity: integer("counted_quantity").notNull(),
+  variance: integer("variance").notNull(),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }).notNull(),
+  valueVariance: decimal("value_variance", { precision: 12, scale: 2 }).notNull(),
+  batchNumber: text("batch_number"),
+  expiryDate: timestamp("expiry_date"),
+  location: text("location"),
+  conditionNotes: text("condition_notes"),
+  countedBy: integer("counted_by").notNull(),
+  countTimestamp: timestamp("count_timestamp").notNull().defaultNow(),
+  adjustmentRequired: boolean("adjustment_required").notNull().default(false),
+  adjustmentReason: text("adjustment_reason"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
