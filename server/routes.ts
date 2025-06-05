@@ -4126,6 +4126,169 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Initialize Standard Test Consumption Templates
+  app.post("/api/inventory/initialize-standard-templates", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const user = req.user!;
+      const { testConsumptionStandardsService } = await import("./test-consumption-standards");
+      
+      await testConsumptionStandardsService.initializeStandardConsumptionTemplates(user.tenantId);
+      
+      res.json({
+        success: true,
+        message: "Standard consumption templates initialized successfully"
+      });
+    } catch (error) {
+      console.error("Error initializing standard templates:", error);
+      res.status(500).json({ message: "Failed to initialize standard templates" });
+    }
+  });
+
+  // Get Test Consumption Requirements
+  app.get("/api/inventory/test-consumption-requirements/:testId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const testId = parseInt(req.params.testId);
+      const user = req.user!;
+      const { testConsumptionStandardsService } = await import("./test-consumption-standards");
+      
+      const requirements = await testConsumptionStandardsService.getTestConsumptionRequirements(
+        testId, 
+        user.tenantId
+      );
+      
+      res.json(requirements);
+    } catch (error) {
+      console.error("Error getting test consumption requirements:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get Stock Levels for Dashboard
+  app.get("/api/inventory/stock-levels", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const user = req.user!;
+      const stockLevels = await db.execute(sql`
+        SELECT 
+          is.id,
+          is.item_id as "itemId",
+          ii.name as "itemName",
+          ii.item_code as "itemCode",
+          is.available_quantity as "availableQuantity",
+          ii.reorder_level as "reorderLevel",
+          ii.minimum_stock as "minimumStock",
+          ii.maximum_stock as "maximumStock",
+          CASE 
+            WHEN is.available_quantity <= ii.minimum_stock THEN 'critical'
+            WHEN is.available_quantity <= ii.reorder_level THEN 'low'
+            WHEN is.available_quantity >= ii.maximum_stock THEN 'high'
+            ELSE 'normal'
+          END as "stockStatus",
+          is.last_updated as "lastUpdated"
+        FROM inventory_stock is
+        JOIN inventory_items ii ON is.item_id = ii.id
+        WHERE is.tenant_id = ${user.tenantId} 
+          AND is.branch_id = ${user.branchId || 1}
+          AND ii.is_active = true
+        ORDER BY 
+          CASE 
+            WHEN is.available_quantity <= ii.minimum_stock THEN 1
+            WHEN is.available_quantity <= ii.reorder_level THEN 2
+            ELSE 3
+          END,
+          ii.name
+      `);
+
+      res.json(stockLevels.rows);
+    } catch (error) {
+      console.error("Error getting stock levels:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get Recent Inventory Transactions
+  app.get("/api/inventory/recent-transactions", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const user = req.user!;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const transactions = await db.execute(sql`
+        SELECT 
+          it.id,
+          it.transaction_type as type,
+          ii.name as "itemName",
+          it.quantity,
+          ii.unit_of_measure as "unitOfMeasure",
+          it.reason,
+          it.created_at as "createdAt",
+          CONCAT(u.first_name, ' ', u.last_name) as "performedBy"
+        FROM inventory_transactions it
+        JOIN inventory_items ii ON it.item_id = ii.id
+        JOIN users u ON it.performed_by = u.id
+        WHERE it.tenant_id = ${user.tenantId} 
+          AND it.branch_id = ${user.branchId || 1}
+        ORDER BY it.created_at DESC
+        LIMIT ${limit}
+      `);
+
+      res.json(transactions.rows);
+    } catch (error) {
+      console.error("Error getting recent transactions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get All Test Consumption Templates for Dashboard
+  app.get("/api/inventory/test-consumption-templates", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const user = req.user!;
+      
+      const templates = await db.execute(sql`
+        SELECT 
+          tct.id,
+          tct.test_id as "testId",
+          t.name as "testName",
+          tct.item_id as "itemId",
+          ii.name as "itemName",
+          ii.item_code as "itemCode",
+          tct.standard_quantity as "standardQuantity",
+          tct.consumption_type as "consumptionType",
+          tct.cost_center as "costCenter",
+          tct.is_critical as "isCritical",
+          ii.unit_of_measure as "unitOfMeasure"
+        FROM test_consumption_templates tct
+        JOIN tests t ON tct.test_id = t.id
+        JOIN inventory_items ii ON tct.item_id = ii.id
+        WHERE tct.tenant_id = ${user.tenantId}
+        ORDER BY t.name, tct.is_critical DESC, ii.name
+      `);
+
+      res.json(templates.rows);
+    } catch (error) {
+      console.error("Error getting consumption templates:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Purchase Orders API
   app.post("/api/purchase-orders", async (req, res) => {
     if (!req.isAuthenticated()) {

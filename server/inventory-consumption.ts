@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { testConsumptionStandardsService } from "./test-consumption-standards";
 
 export class InventoryConsumptionService {
   
