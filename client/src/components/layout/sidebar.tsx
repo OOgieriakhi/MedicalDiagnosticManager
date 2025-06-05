@@ -29,7 +29,8 @@ import {
   Heart,
   Receipt,
   Package,
-  Briefcase
+  Briefcase,
+  GraduationCap
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -70,6 +71,7 @@ export default function Sidebar() {
       items: [
         { icon: Calculator, label: "Accounting", path: "/accounting", active: location === "/accounting" },
         { icon: Briefcase, label: "Human Resources", path: "/human-resources", active: location === "/human-resources" },
+        { icon: GraduationCap, label: "Training Simulation", path: "/training-simulation", active: location === "/training-simulation" },
       ]
     },
     {
