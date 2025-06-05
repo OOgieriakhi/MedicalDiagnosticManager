@@ -938,6 +938,76 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Reference Ranges Management API endpoints
+  app.get("/api/reference-ranges", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const tenantId = req.user?.tenantId || 1;
+      const parameters = await storage.getTestParameters(tenantId);
+      
+      // Enhance with test names
+      const testCategories = await storage.getTestCategories(tenantId);
+      const parametersWithTestNames = parameters.map((param: any) => ({
+        ...param,
+        testName: testCategories.find((test: any) => test.id === param.testId)?.name || `Test ID: ${param.testId}`
+      }));
+      
+      res.json(parametersWithTestNames);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/reference-ranges", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const tenantId = req.user?.tenantId || 1;
+      const data = {
+        ...req.body,
+        tenantId
+      };
+      
+      const parameter = await storage.createTestParameter(data);
+      res.status(201).json(parameter);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/reference-ranges/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const id = parseInt(req.params.id);
+      const parameter = await storage.updateTestParameter(id, req.body);
+      res.json(parameter);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/reference-ranges/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteTestParameter(id);
+      res.json({ message: "Reference range deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Complete test with structured results
   app.post("/api/patient-tests/:id/complete-structured", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -2844,6 +2914,23 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: 'Failed to fetch cardiology studies' });
     }
   });
+
+  // Helper function to interpret parameter values
+  function interpretParameterValue(parameter: any, value: string) {
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) return { status: "text", flag: "" };
+
+    if (parameter.normalRangeMin !== null && parameter.normalRangeMax !== null) {
+      if (numericValue < parameter.normalRangeMin) {
+        return { status: "low", flag: "L" };
+      } else if (numericValue > parameter.normalRangeMax) {
+        return { status: "high", flag: "H" };
+      } else {
+        return { status: "normal", flag: "N" };
+      }
+    }
+    return { status: "normal", flag: "N" };
+  }
 
   // Enhanced Financial Management API endpoints
   app.get("/api/financial/expenses", async (req, res) => {
