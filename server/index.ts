@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import path from "path";
+import fs from "fs";
 
 const app = express();
 app.use(express.json());
@@ -38,6 +40,17 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+
+  // Serve our direct HTML file instead of going through Vite
+  app.get('/', (req, res) => {
+    const htmlPath = path.resolve(import.meta.dirname, "..", "client", "index.html");
+    try {
+      const html = fs.readFileSync(htmlPath, 'utf-8');
+      res.type('html').send(html);
+    } catch (error) {
+      res.status(500).send('Error loading page');
+    }
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
