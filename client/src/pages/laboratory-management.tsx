@@ -32,12 +32,7 @@ import {
   CreditCard,
   Syringe,
   Play,
-  FileCheck,
-  BarChart3,
-  TrendingUp,
-  PieChart,
-  LineChart,
-  Zap
+  FileCheck
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -74,24 +69,6 @@ export default function LaboratoryManagement() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [processingTests, setProcessingTests] = useState<Set<number>>(new Set());
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
-  const [showQualityControl, setShowQualityControl] = useState(false);
-  const [showLabAnalytics, setShowLabAnalytics] = useState(false);
-  const [selectedPriority, setSelectedPriority] = useState("normal");
-  const [turnaroundTime, setTurnaroundTime] = useState("");
-  const [qcLevel, setQcLevel] = useState("");
-  const [batchSize, setBatchSize] = useState(1);
-  const [instrumentId, setInstrumentId] = useState("");
-  const [technician, setTechnician] = useState("");
-  const [showBatchProcessing, setShowBatchProcessing] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState<any[]>([]);
-  const [showWorkloadDistribution, setShowWorkloadDistribution] = useState(false);
-  const [showParameterVisualization, setShowParameterVisualization] = useState(false);
-  const [selectedVisualizationType, setSelectedVisualizationType] = useState("trends");
-  const [selectedParameterGroup, setSelectedParameterGroup] = useState("all");
-  const [visualizationTimeRange, setVisualizationTimeRange] = useState("7d");
-  const [showParameterComparison, setShowParameterComparison] = useState(false);
-  const [comparisonParameters, setComparisonParameters] = useState<string[]>([]);
-  const [visualizationMode, setVisualizationMode] = useState("interactive");
 
   // Function to interpret result value
   const interpretResult = (parameter: any, value: string) => {
@@ -134,51 +111,6 @@ export default function LaboratoryManagement() {
     }
   };
 
-  // Calculate priority score for laboratory workflow optimization
-  const calculatePriorityScore = (test: any) => {
-    let score = 0;
-    if (test.urgency === "urgent") score += 50;
-    if (test.urgency === "stat") score += 100;
-    if (test.category?.toLowerCase().includes("cardiac")) score += 30;
-    if (test.category?.toLowerCase().includes("critical")) score += 40;
-    const hoursSinceRequest = Math.floor((new Date().getTime() - new Date(test.createdAt).getTime()) / (1000 * 60 * 60));
-    score += Math.min(hoursSinceRequest * 2, 20);
-    return score;
-  };
-
-  // Batch processing functions
-  const addToBatch = (test: any) => {
-    if (selectedBatch.length < batchSize) {
-      setSelectedBatch(prev => [...prev, test]);
-    }
-  };
-
-  const removeFromBatch = (testId: number) => {
-    setSelectedBatch(prev => prev.filter(test => test.id !== testId));
-  };
-
-  const processBatch = async () => {
-    if (selectedBatch.length === 0) return;
-    
-    try {
-      for (const test of selectedBatch) {
-        await startProcessingMutation.mutateAsync(test.id);
-      }
-      setSelectedBatch([]);
-      setShowBatchProcessing(false);
-      toast({
-        title: "Batch Processed",
-        description: `Successfully processed ${selectedBatch.length} tests in batch.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Batch Processing Failed",
-        description: "Some tests in the batch could not be processed.",
-        variant: "destructive",
-      });
-    }
-  };
-
   // Query for test parameters (structured reporting)
   const { data: testParameters, isLoading: parametersLoading } = useQuery({
     queryKey: ["/api/test-parameters", selectedTest?.testId],
@@ -191,7 +123,7 @@ export default function LaboratoryManagement() {
     enabled: !!selectedTest?.testId,
   });
 
-  // Query for laboratory workflow metrics - completely disabled for initial load
+  // Query for laboratory workflow metrics
   const { data: labMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery({
     queryKey: ["/api/laboratory/metrics", user?.branchId, startDate, endDate],
     queryFn: async () => {
@@ -200,23 +132,28 @@ export default function LaboratoryManagement() {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
+      console.log('Frontend metrics query:', { branchId: user?.branchId, startDate, endDate, url: `/api/laboratory/metrics?${params}` });
+      
       const response = await fetch(`/api/laboratory/metrics?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab metrics");
       return response.json();
     },
-    enabled: false, // Completely disabled - only load manually when needed
+    enabled: !!user?.branchId,
     refetchOnWindowFocus: false,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0, // Always refetch when query key changes
   });
 
-  // Query for laboratory tests - manual load only to improve initial page performance
-  const { data: labTests, isLoading: labTestsLoading, refetch: refetchLabTests } = useQuery({
-    queryKey: ["/api/patient-tests", user?.branchId, "paid"],
+  // Query for laboratory tests - only show paid requests
+  const { data: labTests, isLoading: labTestsLoading } = useQuery({
+    queryKey: ["/api/patient-tests", user?.branchId, "paid", startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('branchId', user?.branchId?.toString() || '');
       params.append('paidOnly', 'true');
-      params.append('limit', '10'); // Further reduced for faster loading
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      console.log('Frontend tests query:', { branchId: user?.branchId, startDate, endDate, url: `/api/patient-tests?${params}` });
       
       const response = await fetch(`/api/patient-tests?${params}`);
       if (!response.ok) throw new Error("Failed to fetch lab tests");
@@ -231,20 +168,19 @@ export default function LaboratoryManagement() {
         test.category?.toLowerCase().includes('pathology')
       );
     },
-    enabled: false, // Disabled by default - load manually
-    staleTime: 5 * 60 * 1000,
+    enabled: !!user?.branchId,
+    staleTime: 0, // Always refetch when query key changes
   });
 
-  // Query for test categories - disabled for instant page load
-  const { data: testCategories, refetch: refetchCategories } = useQuery({
+  // Query for test categories
+  const { data: testCategories } = useQuery({
     queryKey: ["/api/test-categories", user?.tenantId],
     queryFn: async () => {
       const response = await fetch(`/api/test-categories?tenantId=${user?.tenantId}`);
       if (!response.ok) throw new Error("Failed to fetch categories");
       return response.json();
     },
-    enabled: false, // Disabled to eliminate loading delays
-    staleTime: 15 * 60 * 1000,
+    enabled: !!user?.tenantId,
   });
 
   // Update test results mutation
@@ -804,7 +740,7 @@ export default function LaboratoryManagement() {
                     <tr>
                       <td>${param.parameterName}</td>
                       <td>${savedResult || param.resultValue || '-'}</td>
-                      <td>${param.normalRangeText || (param.normalRangeMin !== null && param.normalRangeMax !== null ? `${param.normalRangeMin}-${param.normalRangeMax}` : 'Not established')}</td>
+                      <td>${param.referenceRange || '-'}</td>
                       <td>${param.unit || '-'}</td>
                     </tr>
                   `;
@@ -960,83 +896,9 @@ export default function LaboratoryManagement() {
         <MessageNotification />
       </div>
 
-      {/* Enhanced Laboratory Operations Control Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <Button
-          onClick={() => setShowQualityControl(true)}
-          className="bg-purple-600 hover:bg-purple-700 text-white"
-        >
-          <Target className="w-4 h-4 mr-2" />
-          Quality Control
-        </Button>
-        <Button
-          onClick={() => setShowBatchProcessing(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white"
-        >
-          <FileCheck className="w-4 h-4 mr-2" />
-          Batch Processing
-        </Button>
-        <Button
-          onClick={() => setShowLabAnalytics(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-        >
-          <Activity className="w-4 h-4 mr-2" />
-          Lab Analytics
-        </Button>
-        <Button
-          onClick={() => setShowWorkloadDistribution(true)}
-          className="bg-orange-600 hover:bg-orange-700 text-white"
-        >
-          <User className="w-4 h-4 mr-2" />
-          Workload Distribution
-        </Button>
-        <Button
-          onClick={() => setShowParameterVisualization(true)}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white"
-        >
-          <BarChart3 className="w-4 h-4 mr-2" />
-          Parameter Visualization
-        </Button>
-      </div>
-
-      {/* Instant Loading Control Panel */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-6 rounded-lg mb-6 border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Data Loading Control Center</h3>
-            <p className="text-gray-600 dark:text-gray-300">Load specific data modules on demand for optimal performance</p>
-          </div>
-          <div className="flex gap-3">
-            <Button
-              onClick={() => refetchLabTests()}
-              disabled={labTestsLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {labTestsLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Flask className="w-4 h-4 mr-2" />}
-              {labTestsLoading ? "Loading Tests..." : "Load Test Data"}
-            </Button>
-            <Button
-              onClick={() => refetchMetrics()}
-              disabled={metricsLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {metricsLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BarChart3 className="w-4 h-4 mr-2" />}
-              {metricsLoading ? "Loading Metrics..." : "Load Analytics"}
-            </Button>
-            <Button
-              onClick={() => refetchCategories()}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Load Categories
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Laboratory Workflow Metrics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -1045,13 +907,8 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Awaiting Payment Verification</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {labMetrics ? (
-                    labMetrics.awaitingPaymentVerification || 0
-                  ) : (
-                    <span className="text-gray-400">Click "Load Analytics" to view</span>
-                  )}
+                  {metricsLoading ? "..." : labMetrics?.awaitingPaymentVerification || 0}
                 </p>
-                <p className="text-xs text-gray-500">Priority: High</p>
               </div>
             </div>
           </CardContent>
@@ -1066,11 +923,7 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Awaiting Specimen Collection</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {labMetrics ? (
-                    labMetrics.awaitingSpecimenCollection || 0
-                  ) : (
-                    <span className="text-gray-400 text-sm">Load Analytics</span>
-                  )}
+                  {metricsLoading ? "..." : labMetrics?.awaitingSpecimenCollection || 0}
                 </p>
               </div>
             </div>
@@ -1086,11 +939,7 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">In Processing</p>
                 <p className="text-2xl font-bold text-yellow-600">
-                  {labMetrics ? (
-                    labMetrics.inProcessing || 0
-                  ) : (
-                    <span className="text-gray-400 text-sm">Load Analytics</span>
-                  )}
+                  {metricsLoading ? "..." : labMetrics?.inProcessing || 0}
                 </p>
               </div>
             </div>
@@ -1106,11 +955,7 @@ export default function LaboratoryManagement() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Completed Today</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {labMetrics ? (
-                    labMetrics.completedToday || 0
-                  ) : (
-                    <span className="text-gray-400 text-sm">Load Analytics</span>
-                  )}
+                  {metricsLoading ? "..." : labMetrics?.completedToday || 0}
                 </p>
               </div>
             </div>
@@ -2064,930 +1909,6 @@ export default function LaboratoryManagement() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-      {/* Quality Control Dialog */}
-      <Dialog open={showQualityControl} onOpenChange={setShowQualityControl}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-purple-600" />
-              Laboratory Quality Control System
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            {/* QC Level Selection */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center">
-                    <div className="p-3 bg-green-100 rounded-full inline-block mb-2">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    </div>
-                    <h3 className="font-semibold">Level 1 QC</h3>
-                    <p className="text-sm text-gray-600">Daily Controls</p>
-                    <Button 
-                      onClick={() => setQcLevel("level1")}
-                      className="mt-2 w-full"
-                      variant={qcLevel === "level1" ? "default" : "outline"}
-                    >
-                      Select
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center">
-                    <div className="p-3 bg-yellow-100 rounded-full inline-block mb-2">
-                      <AlertCircle className="w-6 h-6 text-yellow-600" />
-                    </div>
-                    <h3 className="font-semibold">Level 2 QC</h3>
-                    <p className="text-sm text-gray-600">Weekly Validation</p>
-                    <Button 
-                      onClick={() => setQcLevel("level2")}
-                      className="mt-2 w-full"
-                      variant={qcLevel === "level2" ? "default" : "outline"}
-                    >
-                      Select
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center">
-                    <div className="p-3 bg-red-100 rounded-full inline-block mb-2">
-                      <XCircle className="w-6 h-6 text-red-600" />
-                    </div>
-                    <h3 className="font-semibold">Level 3 QC</h3>
-                    <p className="text-sm text-gray-600">Monthly Audit</p>
-                    <Button 
-                      onClick={() => setQcLevel("level3")}
-                      className="mt-2 w-full"
-                      variant={qcLevel === "level3" ? "default" : "outline"}
-                    >
-                      Select
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* QC Configuration */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="instrument">Instrument ID</Label>
-                <Input
-                  id="instrument"
-                  value={instrumentId}
-                  onChange={(e) => setInstrumentId(e.target.value)}
-                  placeholder="e.g., CHEM-001, HEMA-002"
-                />
-              </div>
-              <div>
-                <Label htmlFor="technician">Technician</Label>
-                <Input
-                  id="technician"
-                  value={technician}
-                  onChange={(e) => setTechnician(e.target.value)}
-                  placeholder="Technician name"
-                />
-              </div>
-            </div>
-
-            {/* QC Metrics Display */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quality Control Metrics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 border rounded">
-                    <div className="text-xl font-bold text-green-600">99.2%</div>
-                    <div className="text-sm">Accuracy</div>
-                  </div>
-                  <div className="text-center p-3 border rounded">
-                    <div className="text-xl font-bold text-blue-600">2.1%</div>
-                    <div className="text-sm">CV</div>
-                  </div>
-                  <div className="text-center p-3 border rounded">
-                    <div className="text-xl font-bold text-orange-600">0.98</div>
-                    <div className="text-sm">R²</div>
-                  </div>
-                  <div className="text-center p-3 border rounded">
-                    <div className="text-xl font-bold text-purple-600">1.5σ</div>
-                    <div className="text-sm">Deviation</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Batch Processing Dialog */}
-      <Dialog open={showBatchProcessing} onOpenChange={setShowBatchProcessing}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileCheck className="w-5 h-5 text-indigo-600" />
-              Laboratory Batch Processing System
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            {/* Batch Configuration */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="batchSize">Batch Size</Label>
-                <Input
-                  id="batchSize"
-                  type="number"
-                  value={batchSize}
-                  onChange={(e) => setBatchSize(parseInt(e.target.value) || 1)}
-                  min="1"
-                  max="50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="priority">Priority Level</Label>
-                <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stat">STAT</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="routine">Routine</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="turnaround">Expected TAT (hours)</Label>
-                <Input
-                  id="turnaround"
-                  value={turnaroundTime}
-                  onChange={(e) => setTurnaroundTime(e.target.value)}
-                  placeholder="e.g., 2, 24, 48"
-                />
-              </div>
-            </div>
-
-            {/* Current Batch */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Current Batch ({selectedBatch.length}/{batchSize})
-                  <Button
-                    onClick={processBatch}
-                    disabled={selectedBatch.length === 0}
-                    className="bg-indigo-600 hover:bg-indigo-700"
-                  >
-                    Process Batch
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {selectedBatch.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No tests in current batch</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {selectedBatch.map((test) => (
-                      <div key={test.id} className="flex items-center justify-between p-3 border rounded">
-                        <div>
-                          <p className="font-medium">{test.testName}</p>
-                          <p className="text-sm text-gray-600">{test.patientName}</p>
-                        </div>
-                        <Button
-                          onClick={() => removeFromBatch(test.id)}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Available Tests for Batching */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Available Tests for Batch Processing</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
-                  {filteredTests
-                    .filter(test => test.status === "specimen_collected" || test.paymentVerified)
-                    .filter(test => !selectedBatch.find(b => b.id === test.id))
-                    .slice(0, 20)
-                    .map((test) => (
-                      <div key={test.id} className="flex items-center justify-between p-3 border rounded">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{test.testName}</p>
-                          <p className="text-xs text-gray-600">{test.patientName}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              Priority: {calculatePriorityScore(test)}
-                            </Badge>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={() => addToBatch(test)}
-                          disabled={selectedBatch.length >= batchSize}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Laboratory Analytics Dialog */}
-      <Dialog open={showLabAnalytics} onOpenChange={setShowLabAnalytics}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-emerald-600" />
-              Laboratory Analytics & Performance Metrics
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            {/* Performance Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {labMetrics?.totalRequests || filteredTests.length}
-                  </div>
-                  <div className="text-sm text-gray-600">Total Requests</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {labMetrics?.completedToday || filteredTests.filter(t => t.status === "completed").length}
-                  </div>
-                  <div className="text-sm text-gray-600">Completed Today</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-orange-600">18.5h</div>
-                  <div className="text-sm text-gray-600">Avg TAT</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">96.8%</div>
-                  <div className="text-sm text-gray-600">On-Time Rate</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Department Performance */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Department Performance Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 border rounded">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-red-100 rounded">
-                        <TestTube className="w-4 h-4 text-red-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Hematology</p>
-                        <p className="text-sm text-gray-600">Blood cell analysis</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{filteredTests.filter(t => t.category?.toLowerCase().includes('blood')).length} tests</p>
-                      <p className="text-sm text-green-600">+12% efficiency</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 border rounded">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded">
-                        <Beaker className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Clinical Chemistry</p>
-                        <p className="text-sm text-gray-600">Biochemical analysis</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{filteredTests.filter(t => t.category?.toLowerCase().includes('chemistry')).length} tests</p>
-                      <p className="text-sm text-green-600">+8% efficiency</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 border rounded">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 rounded">
-                        <Microscope className="w-4 h-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Microbiology</p>
-                        <p className="text-sm text-gray-600">Culture & sensitivity</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{filteredTests.filter(t => t.category?.toLowerCase().includes('microbiology')).length} tests</p>
-                      <p className="text-sm text-orange-600">-3% efficiency</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Trend Analysis */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Weekly Trend Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 flex items-center justify-center border rounded bg-gray-50">
-                  <div className="text-center">
-                    <Activity className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500">Performance trend chart visualization</p>
-                    <p className="text-sm text-gray-400">Real-time analytics dashboard</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Workload Distribution Dialog */}
-      <Dialog open={showWorkloadDistribution} onOpenChange={setShowWorkloadDistribution}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="w-5 h-5 text-orange-600" />
-              Staff Workload Distribution
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            {/* Staff Performance Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full">
-                      <User className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Dr. Sarah Johnson</p>
-                      <p className="text-sm text-gray-600">Senior Lab Technician</p>
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500">Today: 24 tests</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '80%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <User className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Michael Chen</p>
-                      <p className="text-sm text-gray-600">Lab Technician</p>
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500">Today: 18 tests</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '60%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-full">
-                      <User className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Emily Rodriguez</p>
-                      <p className="text-sm text-gray-600">Junior Technician</p>
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500">Today: 12 tests</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                          <div className="bg-orange-600 h-2 rounded-full" style={{ width: '40%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Workload Assignment */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Intelligent Workload Assignment</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">STAT Tests Queue</p>
-                      <p className="text-sm text-gray-600">High priority urgent tests</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="destructive">URGENT</Badge>
-                      <Button size="sm">Auto-Assign</Button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">Chemistry Panel Batch</p>
-                      <p className="text-sm text-gray-600">15 tests ready for processing</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">BATCH</Badge>
-                      <Button size="sm">Assign to Team</Button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">Routine Screening</p>
-                      <p className="text-sm text-gray-600">Standard workflow tests</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">ROUTINE</Badge>
-                      <Button size="sm">Balance Load</Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Interactive Test Parameter Visualization Dialog */}
-      <Dialog open={showParameterVisualization} onOpenChange={setShowParameterVisualization}>
-        <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-cyan-600" />
-              Interactive Test Parameter Visualization
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            {/* Visualization Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-              <div>
-                <Label htmlFor="vizType">Visualization Type</Label>
-                <Select value={selectedVisualizationType} onValueChange={setSelectedVisualizationType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="trends">Trend Analysis</SelectItem>
-                    <SelectItem value="distribution">Distribution Charts</SelectItem>
-                    <SelectItem value="correlation">Parameter Correlation</SelectItem>
-                    <SelectItem value="realtime">Real-time Monitoring</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="paramGroup">Parameter Group</Label>
-                <Select value={selectedParameterGroup} onValueChange={setSelectedParameterGroup}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Parameters</SelectItem>
-                    <SelectItem value="hematology">Hematology</SelectItem>
-                    <SelectItem value="chemistry">Clinical Chemistry</SelectItem>
-                    <SelectItem value="microbiology">Microbiology</SelectItem>
-                    <SelectItem value="immunology">Immunology</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="timeRange">Time Range</Label>
-                <Select value={visualizationTimeRange} onValueChange={setVisualizationTimeRange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">Last 24 Hours</SelectItem>
-                    <SelectItem value="7d">Last 7 Days</SelectItem>
-                    <SelectItem value="30d">Last 30 Days</SelectItem>
-                    <SelectItem value="90d">Last 3 Months</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="vizMode">Visualization Mode</Label>
-                <Select value={visualizationMode} onValueChange={setVisualizationMode}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="interactive">Interactive</SelectItem>
-                    <SelectItem value="static">Static View</SelectItem>
-                    <SelectItem value="animation">Animated</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Visualization Type: Trend Analysis */}
-            {selectedVisualizationType === "trends" && (
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-blue-600" />
-                      Parameter Trend Analysis
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Hemoglobin Trend */}
-                      <div className="p-4 border rounded-lg">
-                        <h4 className="font-semibold mb-3 text-red-600">Hemoglobin Levels (g/dL)</h4>
-                        <div className="h-48 bg-gradient-to-br from-red-50 to-red-100 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <LineChart className="w-12 h-12 text-red-600 mx-auto mb-2" />
-                            <div className="text-sm space-y-1">
-                              <p className="font-medium">Trend: Stable</p>
-                              <p className="text-xs">Range: 12.5-15.2 g/dL</p>
-                              <p className="text-xs">Samples: 156 tests</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Glucose Trend */}
-                      <div className="p-4 border rounded-lg">
-                        <h4 className="font-semibold mb-3 text-blue-600">Glucose Levels (mg/dL)</h4>
-                        <div className="h-48 bg-gradient-to-br from-blue-50 to-blue-100 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <TrendingUp className="w-12 h-12 text-blue-600 mx-auto mb-2" />
-                            <div className="text-sm space-y-1">
-                              <p className="font-medium">Trend: Increasing</p>
-                              <p className="text-xs">Range: 85-140 mg/dL</p>
-                              <p className="text-xs">Samples: 243 tests</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Cholesterol Trend */}
-                      <div className="p-4 border rounded-lg">
-                        <h4 className="font-semibold mb-3 text-green-600">Total Cholesterol (mg/dL)</h4>
-                        <div className="h-48 bg-gradient-to-br from-green-50 to-green-100 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <LineChart className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                            <div className="text-sm space-y-1">
-                              <p className="font-medium">Trend: Decreasing</p>
-                              <p className="text-xs">Range: 160-220 mg/dL</p>
-                              <p className="text-xs">Samples: 189 tests</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Creatinine Trend */}
-                      <div className="p-4 border rounded-lg">
-                        <h4 className="font-semibold mb-3 text-purple-600">Creatinine (mg/dL)</h4>
-                        <div className="h-48 bg-gradient-to-br from-purple-50 to-purple-100 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <Activity className="w-12 h-12 text-purple-600 mx-auto mb-2" />
-                            <div className="text-sm space-y-1">
-                              <p className="font-medium">Trend: Normal</p>
-                              <p className="text-xs">Range: 0.7-1.3 mg/dL</p>
-                              <p className="text-xs">Samples: 134 tests</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Visualization Type: Distribution Charts */}
-            {selectedVisualizationType === "distribution" && (
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <PieChart className="w-5 h-5 text-indigo-600" />
-                      Parameter Distribution Analysis
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Normal vs Abnormal Distribution */}
-                      <div className="p-4 border rounded-lg">
-                        <h4 className="font-semibold mb-3">Test Result Distribution</h4>
-                        <div className="h-48 bg-gradient-to-br from-green-50 to-red-50 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <PieChart className="w-12 h-12 text-indigo-600 mx-auto mb-2" />
-                            <div className="text-sm space-y-1">
-                              <p className="text-green-600 font-medium">Normal: 78%</p>
-                              <p className="text-yellow-600 font-medium">Borderline: 15%</p>
-                              <p className="text-red-600 font-medium">Abnormal: 7%</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Test Volume by Department */}
-                      <div className="p-4 border rounded-lg">
-                        <h4 className="font-semibold mb-3">Volume by Department</h4>
-                        <div className="h-48 bg-gradient-to-br from-blue-50 to-cyan-50 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <BarChart3 className="w-12 h-12 text-blue-600 mx-auto mb-2" />
-                            <div className="text-sm space-y-1">
-                              <p className="text-blue-600">Chemistry: 45%</p>
-                              <p className="text-red-600">Hematology: 30%</p>
-                              <p className="text-green-600">Microbiology: 25%</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Turnaround Time Distribution */}
-                      <div className="p-4 border rounded-lg">
-                        <h4 className="font-semibold mb-3">Turnaround Time</h4>
-                        <div className="h-48 bg-gradient-to-br from-orange-50 to-yellow-50 rounded flex items-center justify-center">
-                          <div className="text-center">
-                            <Clock className="w-12 h-12 text-orange-600 mx-auto mb-2" />
-                            <div className="text-sm space-y-1">
-                              <p className="text-green-600">≤2h: 35%</p>
-                              <p className="text-blue-600">2-6h: 40%</p>
-                              <p className="text-orange-600">6-24h: 20%</p>
-                              <p className="text-red-600">&gt;24h: 5%</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Visualization Type: Parameter Correlation */}
-            {selectedVisualizationType === "correlation" && (
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-yellow-600" />
-                      Parameter Correlation Matrix
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Strong Correlations */}
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-green-600">Strong Positive Correlations</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 bg-green-50 rounded">
-                            <span className="text-sm">Total Cholesterol ↔ LDL</span>
-                            <Badge className="bg-green-600">r = 0.89</Badge>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-green-50 rounded">
-                            <span className="text-sm">Creatinine ↔ BUN</span>
-                            <Badge className="bg-green-600">r = 0.76</Badge>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-green-50 rounded">
-                            <span className="text-sm">Hemoglobin ↔ Hematocrit</span>
-                            <Badge className="bg-green-600">r = 0.94</Badge>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Weak/Negative Correlations */}
-                      <div className="space-y-4">
-                        <h4 className="font-semibold text-orange-600">Notable Inverse Correlations</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
-                            <span className="text-sm">HDL ↔ Triglycerides</span>
-                            <Badge variant="secondary">r = -0.45</Badge>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
-                            <span className="text-sm">Albumin ↔ CRP</span>
-                            <Badge variant="secondary">r = -0.38</Badge>
-                          </div>
-                          <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
-                            <span className="text-sm">eGFR ↔ Creatinine</span>
-                            <Badge variant="secondary">r = -0.92</Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Correlation Heatmap Placeholder */}
-                    <div className="mt-6 p-6 border rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50">
-                      <h4 className="font-semibold mb-4 text-center">Interactive Correlation Heatmap</h4>
-                      <div className="grid grid-cols-5 gap-2 text-xs">
-                        {['Hgb', 'Glu', 'Chol', 'Crea', 'ALT'].map((param, i) => (
-                          <div key={i} className="text-center font-medium p-2">{param}</div>
-                        ))}
-                        {Array.from({ length: 25 }, (_, i) => (
-                          <div
-                            key={i}
-                            className={`h-8 rounded ${
-                              i % 6 === 0 ? 'bg-green-500' :
-                              i % 5 === 0 ? 'bg-blue-400' :
-                              i % 4 === 0 ? 'bg-yellow-400' :
-                              i % 3 === 0 ? 'bg-orange-400' : 'bg-red-400'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Visualization Type: Real-time Monitoring */}
-            {selectedVisualizationType === "realtime" && (
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-green-600" />
-                      Real-time Parameter Monitoring
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {/* Live Parameter Monitors */}
-                      <div className="p-4 border rounded-lg bg-green-50">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Active Tests</span>
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        </div>
-                        <div className="text-2xl font-bold text-green-600">
-                          {filteredTests.filter(t => t.status === "in_progress").length}
-                        </div>
-                        <p className="text-xs text-gray-600">Currently processing</p>
-                      </div>
-
-                      <div className="p-4 border rounded-lg bg-blue-50">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Avg TAT</span>
-                          <TrendingUp className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="text-2xl font-bold text-blue-600">4.2h</div>
-                        <p className="text-xs text-gray-600">Last 24 hours</p>
-                      </div>
-
-                      <div className="p-4 border rounded-lg bg-purple-50">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">QC Passed</span>
-                          <CheckCircle className="w-4 h-4 text-purple-600" />
-                        </div>
-                        <div className="text-2xl font-bold text-purple-600">98.5%</div>
-                        <p className="text-xs text-gray-600">Today's rate</p>
-                      </div>
-
-                      <div className="p-4 border rounded-lg bg-orange-50">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Alerts</span>
-                          <AlertCircle className="w-4 h-4 text-orange-600" />
-                        </div>
-                        <div className="text-2xl font-bold text-orange-600">3</div>
-                        <p className="text-xs text-gray-600">Requires attention</p>
-                      </div>
-                    </div>
-
-                    {/* Real-time Activity Feed */}
-                    <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-                      <h4 className="font-semibold mb-3">Live Activity Feed</h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        <div className="flex items-center gap-3 p-2 bg-white rounded">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-sm">CBC test completed - Patient ID: 12345</span>
-                          <span className="text-xs text-gray-500 ml-auto">Just now</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-2 bg-white rounded">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="text-sm">Chemistry panel started - Batch #B2025-001</span>
-                          <span className="text-xs text-gray-500 ml-auto">2 min ago</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-2 bg-white rounded">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                          <span className="text-sm">QC check required - Analyzer CH-001</span>
-                          <span className="text-xs text-gray-500 ml-auto">5 min ago</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-2 bg-white rounded">
-                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                          <span className="text-sm">Report signed - Dr. Sarah Johnson</span>
-                          <span className="text-xs text-gray-500 ml-auto">8 min ago</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Parameter Comparison Tool */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Parameter Comparison Tool
-                  <Button
-                    onClick={() => setShowParameterComparison(!showParameterComparison)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    {showParameterComparison ? "Hide" : "Show"} Comparison
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              {showParameterComparison && (
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label>Select Parameters to Compare</Label>
-                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-3">
-                        {['Hemoglobin', 'Glucose', 'Cholesterol', 'Creatinine', 'ALT', 'AST', 'Bilirubin', 'Albumin'].map((param) => (
-                          <label key={param} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={comparisonParameters.includes(param)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setComparisonParameters([...comparisonParameters, param]);
-                                } else {
-                                  setComparisonParameters(comparisonParameters.filter(p => p !== param));
-                                }
-                              }}
-                              className="rounded"
-                            />
-                            <span className="text-sm">{param}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="md:col-span-2">
-                      <Label>Comparison Visualization</Label>
-                      <div className="h-64 border rounded bg-gray-50 flex items-center justify-center">
-                        {comparisonParameters.length > 0 ? (
-                          <div className="text-center">
-                            <BarChart3 className="w-16 h-16 text-cyan-600 mx-auto mb-4" />
-                            <p className="font-medium">Comparing {comparisonParameters.length} parameters</p>
-                            <p className="text-sm text-gray-600 mt-2">
-                              Selected: {comparisonParameters.join(', ')}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="text-center text-gray-500">
-                            <PieChart className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                            <p>Select parameters to compare</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-          </div>
         </DialogContent>
       </Dialog>
     </div>

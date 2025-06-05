@@ -5,7 +5,6 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { fallbackStorage } from "./database-fallback";
 import { User as SelectUser } from "@shared/schema";
 
 declare global {
@@ -31,7 +30,7 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || 'dev-session-secret-key-2024-medical-diagnostic-center',
+    secret: process.env.SESSION_SECRET!,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
@@ -44,86 +43,19 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
-      // Simple hardcoded authentication for immediate functionality
-      if (username === 'admin' && password === 'admin123') {
-        const adminUser = {
-          id: 1,
-          username: 'admin',
-          email: 'admin@orient-medical.com',
-          firstName: 'System',
-          lastName: 'Administrator',
-          role: 'admin',
-          tenantId: 1,
-          branchId: 1,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        return done(null, adminUser);
+      const user = await storage.getUserByUsername(username);
+      if (!user || !(await comparePasswords(password, user.password))) {
+        return done(null, false);
+      } else {
+        return done(null, user);
       }
-      
-      try {
-        // Try database authentication
-        const user = await storage.getUserByUsername(username);
-        if (user && (await comparePasswords(password, user.password))) {
-          return done(null, user);
-        }
-      } catch (error) {
-        console.warn('Database authentication failed:', error.message);
-      }
-      
-      // Try fallback storage
-      try {
-        const isValid = await fallbackStorage.validatePassword(username, password);
-        if (isValid) {
-          const fallbackUser = await fallbackStorage.getUserByUsername(username);
-          return done(null, fallbackUser);
-        }
-      } catch (fallbackError) {
-        console.warn('Fallback authentication failed:', fallbackError.message);
-      }
-      
-      return done(null, false);
     }),
   );
 
-  passport.serializeUser((user, done) => {
-    console.log('Serializing user:', user.id);
-    done(null, user.id);
-  });
-  
+  passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
-    console.log('Deserializing user ID:', id);
-    // For hardcoded admin user, return directly
-    if (id === 1) {
-      const adminUser = {
-        id: 1,
-        username: 'admin',
-        email: 'admin@orient-medical.com',
-        firstName: 'System',
-        lastName: 'Administrator',
-        role: 'admin',
-        tenantId: 1,
-        branchId: 1,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      return done(null, adminUser);
-    }
-    
-    try {
-      const user = await storage.getUser(id);
-      if (user) {
-        done(null, user);
-      } else {
-        const fallbackUser = await fallbackStorage.getUser(id);
-        done(null, fallbackUser);
-      }
-    } catch (error) {
-      console.warn('User deserialization failed:', error);
-      done(null, null);
-    }
+    const user = await storage.getUser(id);
+    done(null, user);
   });
 
   app.post("/api/register", async (req, res, next) => {
@@ -144,12 +76,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    // Send success response with redirect instruction
-    res.status(200).json({ 
-      success: true, 
-      user: req.user,
-      redirect: '/dashboard'
-    });
+    res.status(200).json(req.user);
   });
 
   app.post("/api/logout", (req, res, next) => {

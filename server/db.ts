@@ -3,10 +3,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
-// Configure WebSocket for Neon database connectivity
-if (typeof globalThis.WebSocket === 'undefined') {
-  neonConfig.webSocketConstructor = ws;
-}
+neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(

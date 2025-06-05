@@ -165,29 +165,10 @@ export class DatabaseStorage implements IStorage {
   private static persistentEmployees: any[] = [];
 
   constructor() {
-    // Use simple memory store for session management
-    const MemoryStore = (session: any) => {
-      return class extends session.Store {
-        sessions: Map<string, any> = new Map();
-        
-        get(sid: string, callback: (err?: any, session?: any) => void) {
-          const session = this.sessions.get(sid);
-          setImmediate(callback, null, session);
-        }
-        
-        set(sid: string, session: any, callback?: (err?: any) => void) {
-          this.sessions.set(sid, session);
-          if (callback) setImmediate(callback);
-        }
-        
-        destroy(sid: string, callback?: (err?: any) => void) {
-          this.sessions.delete(sid);
-          if (callback) setImmediate(callback);
-        }
-      };
-    };
-    
-    this.sessionStore = new (MemoryStore(session))();
+    this.sessionStore = new PostgresSessionStore({ 
+      pool, 
+      createTableIfMissing: true 
+    });
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -2695,120 +2676,21 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Get test parameters with their current result values for a specific patient test
-  async getTestParametersWithResults(patientTestId: number): Promise<any[]> {
-    try {
-      const test = await this.getPatientTest(patientTestId);
-      if (!test) return [];
-
-      const parameters = await this.getTestParameters(test.testId);
-      if (!parameters || parameters.length === 0) return [];
-
-      // Parse parameter results from the saved JSON
-      let parameterValues = {};
-      if (test.parameterResults) {
-        try {
-          parameterValues = JSON.parse(test.parameterResults);
-        } catch (error) {
-          console.warn('Error parsing parameter results:', error);
-        }
-      }
-
-      // Combine parameters with their values
-      return parameters.map((param: any) => ({
-        ...param,
-        value: parameterValues[param.id] || null,
-        status: parameterValues[param.id] ? this.interpretParameterValue(param, parameterValues[param.id]).status : 'pending'
-      }));
-    } catch (error) {
-      console.error('Error fetching test parameters with results:', error);
-      return [];
-    }
-  }
-
-  // Interpret parameter value against normal ranges
-  private interpretParameterValue(parameter: any, value: string): { status: string; flag: string } {
-    if (!value || value.trim() === '') {
-      return { status: 'pending', flag: '' };
-    }
-
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) {
-      return { status: 'text', flag: '' };
-    }
-
-    const min = parameter.normal_range_min;
-    const max = parameter.normal_range_max;
-
-    if (min !== null && max !== null) {
-      if (numericValue < min) {
-        return { status: 'low', flag: 'L' };
-      } else if (numericValue > max) {
-        return { status: 'high', flag: 'H' };
-      } else {
-        return { status: 'normal', flag: 'N' };
-      }
-    }
-
-    return { status: 'normal', flag: '' };
-  }
-
-  // Get a specific patient test by ID
-  async getPatientTest(testId: number): Promise<any> {
-    try {
-      const result = await db
-        .select({
-          id: patientTests.id,
-          testId: patientTests.testId,
-          patientId: patientTests.patientId,
-          testName: tests.name,
-          testCode: tests.code,
-          results: patientTests.results,
-          notes: patientTests.notes,
-          parameterResults: patientTests.parameterResults,
-          scientistSignature: patientTests.scientistSignature,
-          status: patientTests.status,
-          completedAt: patientTests.completedAt,
-          category: testCategories.name
-        })
-        .from(patientTests)
-        .innerJoin(tests, eq(patientTests.testId, tests.id))
-        .leftJoin(testCategories, eq(tests.categoryId, testCategories.id))
-        .where(eq(patientTests.id, testId))
-        .limit(1);
-
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error fetching patient test:', error);
-      return null;
-    }
-  }
-
   // Mark results as processed (after printing, WhatsApp, email)
   async markResultsAsProcessed(patientId: number, deliveryMethod: string, processedBy: number): Promise<void> {
     await db
       .update(patientTests)
       .set({
         status: 'completed',
+        reportReleasedAt: new Date(),
         updatedAt: new Date()
       })
-      .where(eq(patientTests.patientId, patientId));
-  }
-
-  // Get referral provider by ID
-  async getReferralProvider(providerId: number): Promise<any> {
-    try {
-      const result = await db
-        .select()
-        .from(referralProviders)
-        .where(eq(referralProviders.id, providerId))
-        .limit(1);
-
-      return result[0] || null;
-    } catch (error) {
-      console.error('Error fetching referral provider:', error);
-      return null;
-    }
+      .where(
+        and(
+          eq(patientTests.patientId, patientId),
+          eq(patientTests.status, 'results_saved')
+        )
+      );
   }
 
   // Get individual patient test for detailed access
@@ -2823,8 +2705,6 @@ export class DatabaseStorage implements IStorage {
           testCode: tests.code,
           results: patientTests.results,
           notes: patientTests.notes,
-          parameterResults: patientTests.parameterResults,
-          scientistSignature: patientTests.scientistSignature,
           status: patientTests.status,
           completedAt: patientTests.completedAt,
           category: testCategories.name

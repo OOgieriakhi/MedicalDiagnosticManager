@@ -1,36 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { seedAdminUser } from "./seed-admin";
-import path from "path";
-import fs from "fs";
 
 const app = express();
-
-// Serve our direct HTML file FIRST before any other middleware
-app.get('/', (req, res) => {
-  // If user is authenticated, redirect to dashboard
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    return res.redirect('/dashboard');
-  }
-  
-  const htmlPath = path.resolve(import.meta.dirname, "..", "client", "index.html");
-  try {
-    const html = fs.readFileSync(htmlPath, 'utf-8');
-    // Add cache-busting headers
-    res.set({
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
-    });
-    res.type('html').send(html);
-  } catch (error) {
-    res.status(500).send('Error loading page');
-  }
-});
-
-
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -65,17 +37,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Seed admin user for authentication
-  try {
-    await seedAdminUser();
-    log("Admin user seeded successfully");
-  } catch (error) {
-    log("Admin user seeding failed, fallback authentication will be used");
-  }
-
   const server = await registerRoutes(app);
-
-
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -85,12 +47,14 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // TEMPORARILY DISABLE VITE to serve direct HTML
-  // if (app.get("env") === "development") {
-  //   await setupVite(app, server);
-  // } else {
-  //   serveStatic(app);
-  // }
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
