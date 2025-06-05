@@ -991,7 +991,7 @@ export class DatabaseStorage implements IStorage {
         paymentVerified: true,
         paymentVerifiedBy: verifiedBy,
         paymentVerifiedAt: new Date(),
-        status: 'payment_verified',
+        status: 'specimen_collected', // Advance to next workflow stage
         updatedAt: new Date()
       })
       .where(eq(patientTests.id, testId));

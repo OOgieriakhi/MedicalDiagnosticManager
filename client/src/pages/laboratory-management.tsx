@@ -813,10 +813,10 @@ export default function LaboratoryManagement() {
       matchesStatus = true;
     } else if (statusFilter === "payment_verification") {
       // Tests that need payment verification - paid but not yet verified by lab staff
-      matchesStatus = test.paymentStatus === "paid" && test.paymentVerified !== true;
+      matchesStatus = test.status === "scheduled" && !test.paymentVerified;
     } else if (statusFilter === "specimen_collection") {
       // Tests with verified payment but no specimen collected yet
-      matchesStatus = test.paymentVerified === true && test.specimenCollected !== true;
+      matchesStatus = test.status === "payment_verified" || (test.paymentVerified === true && test.status !== "specimen_collected");
     } else if (statusFilter === "in_progress") {
       // Tests that are actively being processed
       matchesStatus = test.status === "processing" || test.processingStarted === true;
