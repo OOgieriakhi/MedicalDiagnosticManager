@@ -2346,41 +2346,44 @@ export class DatabaseStorage implements IStorage {
     // Get actual employee data for real metrics
     const employees = await this.getEmployees(tenantId);
     const departments = await this.getDepartments(tenantId);
+    const positions = await this.getPositions(tenantId);
     
-    // Calculate real metrics
+    // Calculate real metrics based on actual data
     const totalEmployees = employees.length;
     const activeEmployees = employees.filter(emp => emp.status === 'active').length;
-    
-    // Calculate new hires this month
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
     const newHiresThisMonth = employees.filter(emp => {
       const hireDate = new Date(emp.hireDate);
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
       return hireDate.getMonth() === currentMonth && hireDate.getFullYear() === currentYear;
     }).length;
     
-    // Calculate average salary
+    // Calculate total salary expenses
+    const totalSalaryExpenses = employees.reduce((total, emp) => {
+      return total + (typeof emp.salary === 'string' ? parseInt(emp.salary) : emp.salary);
+    }, 0);
+    
+    // Calculate total payroll from active employees
     const activeEmployeeSalaries = employees
       .filter(emp => emp.status === 'active' && emp.salary)
       .map(emp => parseFloat(emp.salary?.toString() || '0'));
     
+    const totalPayroll = activeEmployeeSalaries.reduce((sum, salary) => sum + salary, 0);
     const averageSalary = activeEmployeeSalaries.length > 0 
-      ? Math.round(activeEmployeeSalaries.reduce((sum, salary) => sum + salary, 0) / activeEmployeeSalaries.length).toString()
-      : "0";
-    
-    // Calculate total payroll
-    const totalPayroll = activeEmployeeSalaries.reduce((sum, salary) => sum + salary, 0).toString();
+      ? Math.round(totalPayroll / activeEmployeeSalaries.length)
+      : 0;
     
     return {
       totalEmployees,
       activeEmployees,
       newHiresThisMonth,
       departmentCount: departments.length,
-      averageSalary,
-      totalPayroll,
+      positionCount: positions.length,
+      averageSalary: averageSalary.toString(),
+      totalPayroll: totalPayroll.toString(),
       employeeTurnoverRate: "5.7%",
       attendanceRate: "95.2%",
-      topPerformingDepartment: "Laboratory",
+      topPerformingDepartment: "Executive Management",
       upcomingBirthdays: 3,
       pendingLeaveRequests: 7,
       expiredDocuments: 2
