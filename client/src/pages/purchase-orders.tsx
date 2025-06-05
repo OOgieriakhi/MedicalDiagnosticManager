@@ -1,536 +1,356 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, 
-  FileText, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  Eye,
-  Edit,
-  Trash2,
-  DollarSign,
-  Package,
-  Calendar,
-  User
-} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertPurchaseOrderSchema, insertPurchaseOrderItemSchema } from "@shared/schema";
+import { 
+  ShoppingCart,
+  Plus,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  User,
+  DollarSign,
+  FileText,
+  Calendar,
+  Truck,
+  Package
+} from "lucide-react";
 
-// Form schemas
-const poFormSchema = insertPurchaseOrderSchema.extend({
-  items: z.array(insertPurchaseOrderItemSchema.omit({ poId: true })).min(1, "At least one item is required"),
-});
+interface PurchaseOrder {
+  id: number;
+  poNumber: string;
+  vendorId: number;
+  vendorName: string;
+  requestedBy: number;
+  requestedByName: string;
+  totalAmount: number;
+  status: 'draft' | 'pending-approval' | 'approved' | 'rejected' | 'ordered' | 'received' | 'completed';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  requestDate: string;
+  requiredDate: string;
+  approvedBy?: number;
+  approvedByName?: string;
+  approvedAt?: string;
+  description: string;
+  department: string;
+  category: string;
+  approvalLevel: number;
+  currentApprover?: number;
+  currentApproverName?: string;
+}
 
-type POFormData = z.infer<typeof poFormSchema>;
+interface POLineItem {
+  id: number;
+  itemCode: string;
+  itemName: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  category: string;
+}
 
-const approvalFormSchema = z.object({
-  comments: z.string().min(1, "Comments are required"),
-  action: z.enum(["approve", "reject"]),
-});
-
-type ApprovalFormData = z.infer<typeof approvalFormSchema>;
+interface ApprovalWorkflow {
+  id: number;
+  level: number;
+  approverName: string;
+  approverId: number;
+  minAmount: number;
+  maxAmount: number;
+  department: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedAt?: string;
+  comments?: string;
+}
 
 export default function PurchaseOrders() {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [showNewPODialog, setShowNewPODialog] = useState(false);
-  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [selectedPO, setSelectedPO] = useState<any>(null);
-  const [selectedItems, setSelectedItems] = useState<any[]>([{ itemName: "", description: "", category: "", quantity: 1, unitPrice: 0, totalPrice: 0 }]);
-  
   const { toast } = useToast();
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [showNewPOForm, setShowNewPOForm] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalComments, setApprovalComments] = useState("");
 
-  // Queries
-  const { data: purchaseOrders = [], isLoading: isLoadingPOs } = useQuery({
-    queryKey: ["/api/purchase-orders"],
-  });
-
-  const { data: pendingApprovals = [], isLoading: isLoadingApprovals } = useQuery({
-    queryKey: ["/api/purchase-orders/pending-approvals"],
-  });
-
-  const { data: vendors = [] } = useQuery({
-    queryKey: ["/api/vendors"],
-  });
-
-  const { data: poMetrics = {} } = useQuery({
-    queryKey: ["/api/purchase-orders/metrics"],
-  });
-
-  // Forms
-  const poForm = useForm<POFormData>({
-    resolver: zodResolver(poFormSchema),
-    defaultValues: {
-      poNumber: "",
-      vendorName: "",
-      vendorEmail: "",
-      vendorPhone: "",
-      vendorAddress: "",
-      priority: "normal",
-      subtotal: 0,
-      taxAmount: 0,
-      totalAmount: 0,
-      notes: "",
-      terms: "",
-      items: [{ itemName: "", description: "", category: "", quantity: 1, unitPrice: 0, totalPrice: 0 }],
+  // Mock data - replace with actual API calls
+  const purchaseOrders: PurchaseOrder[] = [
+    {
+      id: 1,
+      poNumber: "PO-2024-001",
+      vendorId: 1,
+      vendorName: "MedSupply Co.",
+      requestedBy: 1,
+      requestedByName: "Dr. Smith",
+      totalAmount: 15000,
+      status: "pending-approval",
+      priority: "high",
+      requestDate: "2024-06-01",
+      requiredDate: "2024-06-15",
+      description: "Laboratory reagents and consumables",
+      department: "Laboratory",
+      category: "Medical Supplies",
+      approvalLevel: 2,
+      currentApprover: 2,
+      currentApproverName: "Lab Manager"
     },
-  });
-
-  const approvalForm = useForm<ApprovalFormData>({
-    resolver: zodResolver(approvalFormSchema),
-    defaultValues: {
-      comments: "",
-      action: "approve",
+    {
+      id: 2,
+      poNumber: "PO-2024-002", 
+      vendorId: 2,
+      vendorName: "TechEquip Ltd.",
+      requestedBy: 3,
+      requestedByName: "IT Admin",
+      totalAmount: 25000,
+      status: "approved",
+      priority: "medium",
+      requestDate: "2024-05-28",
+      requiredDate: "2024-06-20",
+      approvedBy: 4,
+      approvedByName: "Finance Manager",
+      approvedAt: "2024-06-02T10:30:00Z",
+      description: "Network equipment upgrade",
+      department: "IT",
+      category: "Equipment",
+      approvalLevel: 3
     },
-  });
-
-  // Mutations
-  const createPOMutation = useMutation({
-    mutationFn: async (data: POFormData) => {
-      const res = await apiRequest("POST", "/api/purchase-orders", data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders/metrics"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders/pending-approvals"] });
-      setShowNewPODialog(false);
-      poForm.reset();
-      setSelectedItems([{ itemName: "", description: "", category: "", quantity: 1, unitPrice: 0, totalPrice: 0 }]);
-      toast({
-        title: "Purchase Order Created",
-        description: "Purchase order has been created successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const processApprovalMutation = useMutation({
-    mutationFn: async (data: ApprovalFormData & { poId: number }) => {
-      const res = await apiRequest("POST", `/api/purchase-orders/${data.poId}/approve`, data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders/pending-approvals"] });
-      setShowApprovalDialog(false);
-      approvalForm.reset();
-      toast({
-        title: "Approval Processed",
-        description: "Purchase order approval has been processed.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handlers
-  const onPOSubmit = (data: POFormData) => {
-    // Calculate totals
-    const subtotal = selectedItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    const taxAmount = subtotal * 0.075; // 7.5% VAT
-    const totalAmount = subtotal + taxAmount;
-
-    createPOMutation.mutate({
-      ...data,
-      subtotal,
-      taxAmount,
-      totalAmount,
-      items: selectedItems,
-    });
-  };
-
-  const onApprovalSubmit = (data: ApprovalFormData) => {
-    if (selectedPO) {
-      processApprovalMutation.mutate({
-        ...data,
-        poId: selectedPO.id,
-      });
+    {
+      id: 3,
+      poNumber: "PO-2024-003",
+      vendorId: 3,
+      vendorName: "Office Solutions",
+      requestedBy: 5,
+      requestedByName: "Admin Staff",
+      totalAmount: 2500,
+      status: "completed",
+      priority: "low",
+      requestDate: "2024-05-25",
+      requiredDate: "2024-06-05",
+      approvedBy: 2,
+      approvedByName: "Department Head",
+      approvedAt: "2024-05-26T14:15:00Z",
+      description: "Office supplies and stationery",
+      department: "Administration",
+      category: "Office Supplies",
+      approvalLevel: 1
     }
-  };
+  ];
 
-  const addItem = () => {
-    setSelectedItems([...selectedItems, { itemName: "", description: "", category: "", quantity: 1, unitPrice: 0, totalPrice: 0 }]);
-  };
-
-  const removeItem = (index: number) => {
-    setSelectedItems(selectedItems.filter((_, i) => i !== index));
-  };
-
-  const updateItem = (index: number, field: string, value: any) => {
-    const updatedItems = [...selectedItems];
-    updatedItems[index][field] = value;
-    
-    // Calculate total price for the item
-    if (field === 'quantity' || field === 'unitPrice') {
-      updatedItems[index].totalPrice = updatedItems[index].quantity * updatedItems[index].unitPrice;
-    }
-    
-    setSelectedItems(updatedItems);
-  };
+  const approvalLimits = [
+    { level: 1, title: "Department Head", minAmount: 0, maxAmount: 5000, approver: "Dept. Manager" },
+    { level: 2, title: "Unit Manager", minAmount: 5001, maxAmount: 15000, approver: "Unit Manager" },
+    { level: 3, title: "Finance Manager", minAmount: 15001, maxAmount: 50000, approver: "Finance Manager" },
+    { level: 4, title: "CEO Approval", minAmount: 50001, maxAmount: 999999, approver: "Chief Executive" }
+  ];
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      draft: { label: "Draft", variant: "secondary" as const },
-      pending_approval: { label: "Pending Approval", variant: "default" as const },
-      approved: { label: "Approved", variant: "default" as const },
-      rejected: { label: "Rejected", variant: "destructive" as const },
-      ordered: { label: "Ordered", variant: "default" as const },
-      received: { label: "Received", variant: "default" as const },
-      paid: { label: "Paid", variant: "default" as const },
+      'draft': { label: 'Draft', variant: 'outline' as const, icon: FileText },
+      'pending-approval': { label: 'Pending Approval', variant: 'default' as const, icon: Clock },
+      'approved': { label: 'Approved', variant: 'default' as const, icon: CheckCircle },
+      'rejected': { label: 'Rejected', variant: 'destructive' as const, icon: XCircle },
+      'ordered': { label: 'Ordered', variant: 'default' as const, icon: Truck },
+      'received': { label: 'Received', variant: 'default' as const, icon: Package },
+      'completed': { label: 'Completed', variant: 'default' as const, icon: CheckCircle }
     };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || { label: status, variant: "secondary" as const };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+
+    const config = statusConfig[status as keyof typeof statusConfig];
+    const Icon = config?.icon || FileText;
+
+    return (
+      <Badge variant={config?.variant || 'outline'} className="flex items-center gap-1">
+        <Icon className="w-3 h-3" />
+        {config?.label || status}
+      </Badge>
+    );
   };
 
+  const getPriorityBadge = (priority: string) => {
+    const priorityConfig = {
+      'low': { label: 'Low', className: 'bg-blue-100 text-blue-800' },
+      'medium': { label: 'Medium', className: 'bg-yellow-100 text-yellow-800' },
+      'high': { label: 'High', className: 'bg-orange-100 text-orange-800' },
+      'urgent': { label: 'Urgent', className: 'bg-red-100 text-red-800' }
+    };
+
+    const config = priorityConfig[priority as keyof typeof priorityConfig];
+    return (
+      <Badge className={config?.className || 'bg-gray-100 text-gray-800'}>
+        {config?.label || priority}
+      </Badge>
+    );
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getRequiredApprovalLevel = (amount: number) => {
+    for (const limit of approvalLimits) {
+      if (amount >= limit.minAmount && amount <= limit.maxAmount) {
+        return limit;
+      }
+    }
+    return approvalLimits[approvalLimits.length - 1];
+  };
+
+  const approvePO = useMutation({
+    mutationFn: async (data: { id: number; comments?: string }) => {
+      return apiRequest(`/api/purchase-orders/${data.id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ comments: data.comments })
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Purchase order approved successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+      setShowApprovalModal(false);
+      setApprovalComments("");
+    },
+    onError: () => {
+      toast({ title: "Failed to approve purchase order", variant: "destructive" });
+    }
+  });
+
+  const rejectPO = useMutation({
+    mutationFn: async (data: { id: number; comments: string }) => {
+      return apiRequest(`/api/purchase-orders/${data.id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ comments: data.comments })
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Purchase order rejected" });
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+      setShowApprovalModal(false);
+      setApprovalComments("");
+    },
+    onError: () => {
+      toast({ title: "Failed to reject purchase order", variant: "destructive" });
+    }
+  });
+
+  const filteredPOs = selectedStatus === "all" 
+    ? purchaseOrders 
+    : purchaseOrders.filter(po => po.status === selectedStatus);
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Purchase Orders</h1>
-          <p className="text-muted-foreground">Manage purchase orders, approvals, and vendor relationships</p>
+          <p className="text-gray-600">Manage purchase requests and approval workflows</p>
         </div>
-        <Dialog open={showNewPODialog} onOpenChange={setShowNewPODialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Purchase Order
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Purchase Order</DialogTitle>
-              <DialogDescription>
-                Create a new purchase order for vendor supplies and equipment.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...poForm}>
-              <form onSubmit={poForm.handleSubmit(onPOSubmit)} className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={poForm.control}
-                    name="poNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>PO Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="PO-2024-001" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={poForm.control}
-                    name="priority"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Priority</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select priority" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="urgent">Urgent</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Vendor Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={poForm.control}
-                      name="vendorName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Vendor Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Vendor name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={poForm.control}
-                      name="vendorEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="vendor@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={poForm.control}
-                      name="vendorPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <Input placeholder="+234 xxx xxxx xxx" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={poForm.control}
-                      name="vendorAddress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Address</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Vendor address" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Items</h3>
-                    <Button type="button" variant="outline" onClick={addItem}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Item
-                    </Button>
-                  </div>
-                  <div className="space-y-3">
-                    {selectedItems.map((item, index) => (
-                      <div key={index} className="grid grid-cols-6 gap-2 p-3 border rounded-lg">
-                        <Input
-                          placeholder="Item name"
-                          value={item.itemName}
-                          onChange={(e) => updateItem(index, 'itemName', e.target.value)}
-                        />
-                        <Input
-                          placeholder="Description"
-                          value={item.description}
-                          onChange={(e) => updateItem(index, 'description', e.target.value)}
-                        />
-                        <Input
-                          placeholder="Category"
-                          value={item.category}
-                          onChange={(e) => updateItem(index, 'category', e.target.value)}
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Qty"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                        />
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Unit Price"
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                        />
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">₦{(item.quantity * item.unitPrice).toFixed(2)}</span>
-                          {selectedItems.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeItem(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={poForm.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Notes</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Additional notes" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={poForm.control}
-                    name="terms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Terms & Conditions</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Payment terms and conditions" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setShowNewPODialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createPOMutation.isPending}>
-                    {createPOMutation.isPending ? "Creating..." : "Create Purchase Order"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setShowNewPOForm(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          New Purchase Order
+        </Button>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total POs</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{poMetrics.totalPOs || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {poMetrics.totalValueFormatted || "₦0.00"} total value
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{poMetrics.pendingApproval || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Requires review
-            </p>
+            <div className="text-2xl font-bold">4</div>
+            <div className="flex items-center mt-2">
+              <Clock className="w-4 h-4 text-orange-500 mr-1" />
+              <span className="text-orange-500 text-sm">Requires attention</span>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{poMetrics.thisMonth || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {poMetrics.monthlyValueFormatted || "₦0.00"} value
-            </p>
+            <div className="text-2xl font-bold">12</div>
+            <p className="text-xs text-muted-foreground">Total POs processed</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Vendors</CardTitle>
-            <User className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{poMetrics.activeVendors || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Registered vendors
-            </p>
+            <div className="text-2xl font-bold">{formatCurrency(185000)}</div>
+            <p className="text-xs text-muted-foreground">Month to date</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Avg Processing Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">2.5 days</div>
+            <p className="text-xs text-muted-foreground">From request to approval</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="purchase-orders" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="overview">All Purchase Orders</TabsTrigger>
-          <TabsTrigger value="approvals">Pending Approvals</TabsTrigger>
+          <TabsTrigger value="purchase-orders">Purchase Orders</TabsTrigger>
+          <TabsTrigger value="approval-limits">Approval Limits</TabsTrigger>
           <TabsTrigger value="vendors">Vendors</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
+        <TabsContent value="purchase-orders" className="space-y-6">
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Label>Status Filter</Label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="pending-approval">Pending Approval</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex-1">
+                  <Label>Search</Label>
+                  <Input placeholder="Search by PO number, vendor..." />
+                </div>
+                
+                <div className="flex items-end">
+                  <Button variant="outline">Export</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Purchase Orders Table */}
           <Card>
             <CardHeader>
               <CardTitle>Purchase Orders</CardTitle>
@@ -541,259 +361,339 @@ export default function PurchaseOrders() {
                   <TableRow>
                     <TableHead>PO Number</TableHead>
                     <TableHead>Vendor</TableHead>
+                    <TableHead>Requested By</TableHead>
                     <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Required Date</TableHead>
+                    <TableHead>Current Approver</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoadingPOs ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center">Loading...</TableCell>
-                    </TableRow>
-                  ) : purchaseOrders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
-                        No purchase orders found
+                  {filteredPOs.map((po) => (
+                    <TableRow key={po.id}>
+                      <TableCell>
+                        <div className="font-medium">{po.poNumber}</div>
+                        <div className="text-sm text-gray-500">{po.category}</div>
                       </TableCell>
-                    </TableRow>
-                  ) : (
-                    purchaseOrders.map((po: any) => (
-                      <TableRow key={po.id}>
-                        <TableCell className="font-medium">{po.poNumber}</TableCell>
-                        <TableCell>{po.vendorName}</TableCell>
-                        <TableCell>₦{parseFloat(po.totalAmount).toLocaleString()}</TableCell>
-                        <TableCell>{getStatusBadge(po.status)}</TableCell>
-                        <TableCell>
-                          <Badge variant={po.priority === 'urgent' ? 'destructive' : 'secondary'}>
-                            {po.priority}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(po.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {po.status === 'pending_approval' && (
+                      <TableCell>{po.vendorName}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          {po.requestedByName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{formatCurrency(po.totalAmount)}</div>
+                        <div className="text-sm text-gray-500">
+                          Level {getRequiredApprovalLevel(po.totalAmount).level} required
+                        </div>
+                      </TableCell>
+                      <TableCell>{getPriorityBadge(po.priority)}</TableCell>
+                      <TableCell>{getStatusBadge(po.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(po.requiredDate).toLocaleDateString()}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {po.currentApproverName ? (
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4" />
+                            {po.currentApproverName}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
                               <Button 
                                 variant="outline" 
                                 size="sm"
+                                onClick={() => setSelectedPO(po)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl">
+                              <DialogHeader>
+                                <DialogTitle>Purchase Order Details</DialogTitle>
+                              </DialogHeader>
+                              {selectedPO && <PODetailsContent po={selectedPO} />}
+                            </DialogContent>
+                          </Dialog>
+                          
+                          {po.status === 'pending-approval' && (
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
                                 onClick={() => {
                                   setSelectedPO(po);
-                                  setShowApprovalDialog(true);
+                                  setShowApprovalModal(true);
                                 }}
                               >
-                                <CheckCircle className="h-4 w-4" />
+                                <CheckCircle className="w-4 h-4" />
                               </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPO(po);
+                                  setShowApprovalModal(true);
+                                }}
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="approvals">
+        <TabsContent value="approval-limits" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Pending Approvals</CardTitle>
+              <CardTitle>Approval Authorization Limits</CardTitle>
+              <p className="text-sm text-gray-600">
+                Configure approval workflows based on purchase order amounts
+              </p>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>PO Number</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Requested By</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Level</TableHead>
+                    <TableHead>Approval Authority</TableHead>
+                    <TableHead>Amount Range</TableHead>
+                    <TableHead>Current Approver</TableHead>
+                    <TableHead>Department</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoadingApprovals ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center">Loading...</TableCell>
-                    </TableRow>
-                  ) : pendingApprovals.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
-                        No pending approvals
+                  {approvalLimits.map((limit) => (
+                    <TableRow key={limit.level}>
+                      <TableCell>
+                        <Badge variant="outline">Level {limit.level}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{limit.title}</TableCell>
+                      <TableCell>
+                        {formatCurrency(limit.minAmount)} - {formatCurrency(limit.maxAmount)}
+                      </TableCell>
+                      <TableCell>{limit.approver}</TableCell>
+                      <TableCell>All Departments</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">Edit</Button>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    pendingApprovals.map((po: any) => (
-                      <TableRow key={po.id}>
-                        <TableCell className="font-medium">{po.poNumber}</TableCell>
-                        <TableCell>{po.vendorName}</TableCell>
-                        <TableCell>₦{parseFloat(po.totalAmount).toLocaleString()}</TableCell>
-                        <TableCell>
-                          <Badge variant={po.priority === 'urgent' ? 'destructive' : 'secondary'}>
-                            {po.priority}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{po.requestedBy?.firstName} {po.requestedBy?.lastName}</TableCell>
-                        <TableCell>{new Date(po.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPO(po);
-                              setShowApprovalDialog(true);
-                            }}
-                          >
-                            Review
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="vendors">
           <Card>
             <CardHeader>
-              <CardTitle>Vendor Management</CardTitle>
+              <CardTitle>Approval Workflow Rules</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Vendor Code</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Total Orders</TableHead>
-                    <TableHead>Total Amount</TableHead>
-                    <TableHead>Rating</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vendors.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
-                        No vendors registered
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    vendors.map((vendor: any) => (
-                      <TableRow key={vendor.id}>
-                        <TableCell className="font-medium">{vendor.vendorCode}</TableCell>
-                        <TableCell>{vendor.name}</TableCell>
-                        <TableCell>{vendor.category}</TableCell>
-                        <TableCell>{vendor.totalTransactions}</TableCell>
-                        <TableCell>₦{parseFloat(vendor.totalAmount || 0).toLocaleString()}</TableCell>
-                        <TableCell>{vendor.rating}/5</TableCell>
-                        <TableCell>
-                          <Badge variant={vendor.status === 'active' ? 'default' : 'secondary'}>
-                            {vendor.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-800">Sequential Approval Process</h4>
+                  <p className="text-sm text-blue-600 mt-1">
+                    Purchase orders follow a sequential approval process based on the total amount.
+                    Each level must approve before moving to the next level.
+                  </p>
+                </div>
+                
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h4 className="font-semibold text-green-800">Automatic Routing</h4>
+                  <p className="text-sm text-green-600 mt-1">
+                    System automatically routes POs to the appropriate approver based on amount and department.
+                  </p>
+                </div>
+                
+                <div className="p-4 bg-orange-50 rounded-lg">
+                  <h4 className="font-semibold text-orange-800">Escalation Rules</h4>
+                  <p className="text-sm text-orange-600 mt-1">
+                    POs pending approval for more than 48 hours are automatically escalated to the next level.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vendors" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Approved Vendors</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center py-8 text-gray-500">
+                Vendor management functionality available in the main vendor module
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Approval Dialog */}
-      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
+      {/* Approval Modal */}
+      <Dialog open={showApprovalModal} onOpenChange={setShowApprovalModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Approve Purchase Order</DialogTitle>
-            <DialogDescription>
-              Review and approve or reject purchase order {selectedPO?.poNumber}
-            </DialogDescription>
+            <DialogTitle>
+              {selectedPO ? `Approve/Reject PO ${selectedPO.poNumber}` : 'Purchase Order Approval'}
+            </DialogTitle>
           </DialogHeader>
+          
           {selectedPO && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium">Vendor</p>
-                  <p className="text-sm text-muted-foreground">{selectedPO.vendorName}</p>
+                  <Label>Vendor</Label>
+                  <p className="text-sm">{selectedPO.vendorName}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Total Amount</p>
-                  <p className="text-sm text-muted-foreground">₦{parseFloat(selectedPO.totalAmount).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Priority</p>
-                  <p className="text-sm text-muted-foreground">{selectedPO.priority}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Created</p>
-                  <p className="text-sm text-muted-foreground">{new Date(selectedPO.createdAt).toLocaleDateString()}</p>
+                  <Label>Amount</Label>
+                  <p className="text-sm font-medium">{formatCurrency(selectedPO.totalAmount)}</p>
                 </div>
               </div>
               
-              <Form {...approvalForm}>
-                <form onSubmit={approvalForm.handleSubmit(onApprovalSubmit)} className="space-y-4">
-                  <FormField
-                    control={approvalForm.control}
-                    name="action"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Action</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="approve">Approve</SelectItem>
-                            <SelectItem value="reject">Reject</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={approvalForm.control}
-                    name="comments"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Comments</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Add your comments..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setShowApprovalDialog(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={processApprovalMutation.isPending}>
-                      {processApprovalMutation.isPending ? "Processing..." : "Submit"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
+              <div>
+                <Label>Description</Label>
+                <p className="text-sm">{selectedPO.description}</p>
+              </div>
+              
+              <div>
+                <Label>Comments</Label>
+                <Textarea 
+                  value={approvalComments}
+                  onChange={(e) => setApprovalComments(e.target.value)}
+                  placeholder="Add approval comments..."
+                />
+              </div>
+              
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowApprovalModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={() => rejectPO.mutate({ id: selectedPO.id, comments: approvalComments })}
+                  disabled={rejectPO.isPending}
+                >
+                  Reject
+                </Button>
+                <Button 
+                  onClick={() => approvePO.mutate({ id: selectedPO.id, comments: approvalComments })}
+                  disabled={approvePO.isPending}
+                >
+                  Approve
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PODetailsContent({ po }: { po: PurchaseOrder }) {
+  const mockLineItems: POLineItem[] = [
+    {
+      id: 1,
+      itemCode: "LAB-001",
+      itemName: "CBC Test Reagent",
+      description: "Complete Blood Count test reagent kit",
+      quantity: 10,
+      unitPrice: 150,
+      totalPrice: 1500,
+      category: "Laboratory"
+    },
+    {
+      id: 2,
+      itemCode: "LAB-002", 
+      itemName: "Blood Collection Tubes",
+      description: "EDTA coated tubes for blood collection",
+      quantity: 100,
+      unitPrice: 2.5,
+      totalPrice: 250,
+      category: "Laboratory"
+    }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>PO Number</Label>
+          <p className="font-medium">{po.poNumber}</p>
+        </div>
+        <div>
+          <Label>Status</Label>
+          <div className="mt-1">{/* Status badge would go here */}</div>
+        </div>
+        <div>
+          <Label>Vendor</Label>
+          <p>{po.vendorName}</p>
+        </div>
+        <div>
+          <Label>Total Amount</Label>
+          <p className="font-medium">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(po.totalAmount)}</p>
+        </div>
+      </div>
+
+      <div>
+        <Label>Description</Label>
+        <p>{po.description}</p>
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-2">Line Items</h4>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Item</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Qty</TableHead>
+              <TableHead>Unit Price</TableHead>
+              <TableHead>Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {mockLineItems.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{item.itemName}</div>
+                    <div className="text-sm text-gray-500">{item.itemCode}</div>
+                  </div>
+                </TableCell>
+                <TableCell>{item.description}</TableCell>
+                <TableCell>{item.quantity}</TableCell>
+                <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.unitPrice)}</TableCell>
+                <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.totalPrice)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

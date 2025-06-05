@@ -83,6 +83,7 @@ function Router() {
       <ProtectedRoute path="/predictive-recommendations" component={PredictiveRecommendations} />
       <ProtectedRoute path="/waiting-room-queue" component={WaitingRoomQueue} />
       <ProtectedRoute path="/accounting-dashboard" component={AccountingDashboard} />
+      <ProtectedRoute path="/purchase-orders" component={PurchaseOrders} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
