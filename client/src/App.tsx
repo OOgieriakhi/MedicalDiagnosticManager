@@ -58,6 +58,7 @@ function Router() {
       <ProtectedRoute path="/petty-cash" component={PettyCash} />
       <ProtectedRoute path="/inventory-management" component={InventoryManagement} />
       <ProtectedRoute path="/test-consumption-management" component={TestConsumptionManagement} />
+      <ProtectedRoute path="/training-simulation" component={TrainingSimulation} />
       <ProtectedRoute path="/human-resources" component={HumanResources} />
       <ProtectedRoute path="/role-management" component={RoleManagement} />
       <ProtectedRoute path="/security-audit" component={SecurityAudit} />

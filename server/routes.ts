@@ -7,6 +7,7 @@ import * as RBACMiddleware from "./rbac-middleware";
 import { financialStorage } from "./financial-storage";
 import { inventoryStorage } from "./inventory-storage";
 import { inventoryConsumptionService } from "./inventory-consumption";
+import { trainingStorage } from "./training-storage";
 import { db } from "./db";
 import { 
   patients, 
