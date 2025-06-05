@@ -9,6 +9,11 @@ const app = express();
 
 // Serve our direct HTML file FIRST before any other middleware
 app.get('/', (req, res) => {
+  // If user is authenticated, redirect to dashboard
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return res.redirect('/dashboard');
+  }
+  
   const htmlPath = path.resolve(import.meta.dirname, "..", "client", "index.html");
   try {
     const html = fs.readFileSync(htmlPath, 'utf-8');
@@ -21,6 +26,20 @@ app.get('/', (req, res) => {
     res.type('html').send(html);
   } catch (error) {
     res.status(500).send('Error loading page');
+  }
+});
+
+// Serve dashboard for authenticated users
+app.get('/dashboard', (req, res) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.redirect('/');
+  }
+  
+  const dashboardPath = path.join(process.cwd(), 'dashboard.html');
+  if (fs.existsSync(dashboardPath)) {
+    res.sendFile(dashboardPath);
+  } else {
+    res.status(404).send('Dashboard not found');
   }
 });
 

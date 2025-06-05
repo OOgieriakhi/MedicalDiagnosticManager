@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orient Medical Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo {
+            width: 50px;
+            height: 50px;
+            background: #2563EB;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .company-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2563EB;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logout-btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+        
+        .logout-btn:hover {
+            background: #b91c1c;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #1f2937;
+        }
+        
+        .card-description {
+            color: #6b7280;
+            line-height: 1.5;
+        }
+        
+        .patients { background: #10b981; }
+        .financial { background: #f59e0b; }
+        .inventory { background: #8b5cf6; }
+        .reports { background: #ef4444; }
+        .hr { background: #06b6d4; }
+        .settings { background: #6b7280; }
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2563EB;
+        }
+        
+        .stat-label {
+            color: #6b7280;
+            margin-top: 0.5rem;
+        }
+        
+        .welcome-banner {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .welcome-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #2563EB;
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-section">
+            <div class="logo">OM</div>
+            <div class="company-name">Orient Medical Diagnostic Center</div>
+        </div>
+        <div class="user-info">
+            <span>Welcome, Administrator</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="welcome-banner">
+            <div class="welcome-title">Welcome to Orient Medical ERP System</div>
+            <div class="welcome-subtitle">Comprehensive management for your medical diagnostic center</div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-number">247</div>
+                <div class="stat-label">Patients Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">₦2.4M</div>
+                <div class="stat-label">Revenue This Month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">89%</div>
+                <div class="stat-label">Test Completion Rate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">12</div>
+                <div class="stat-label">Pending Results</div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="card" onclick="openModule('patients')">
+                <div class="card-icon patients">👥</div>
+                <div class="card-title">Patient Management</div>
+                <div class="card-description">Register patients, manage appointments, track test results and handle patient communications</div>
+            </div>
+
+            <div class="card" onclick="openModule('financial')">
+                <div class="card-icon financial">💰</div>
+                <div class="card-title">Financial Management</div>
+                <div class="card-description">Billing, payments, accounting, purchase orders and financial reporting</div>
+            </div>
+
+            <div class="card" onclick="openModule('inventory')">
+                <div class="card-icon inventory">📦</div>
+                <div class="card-title">Inventory Management</div>
+                <div class="card-description">Track medical supplies, reagents, equipment and automate reordering</div>
+            </div>
+
+            <div class="card" onclick="openModule('reports')">
+                <div class="card-icon reports">📊</div>
+                <div class="card-title">Reports & Analytics</div>
+                <div class="card-description">Generate comprehensive reports, view analytics and business intelligence</div>
+            </div>
+
+            <div class="card" onclick="openModule('hr')">
+                <div class="card-icon hr">👨‍⚕️</div>
+                <div class="card-title">Human Resources</div>
+                <div class="card-description">Staff management, scheduling, payroll and performance tracking</div>
+            </div>
+
+            <div class="card" onclick="openModule('settings')">
+                <div class="card-icon settings">⚙️</div>
+                <div class="card-title">System Settings</div>
+                <div class="card-description">Configure system settings, user roles, branding and integrations</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function logout() {
+            fetch('/api/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(() => {
+                window.location.href = '/';
+            })
+            .catch(error => {
+                console.error('Logout error:', error);
+                window.location.href = '/';
+            });
+        }
+
+        function openModule(module) {
+            alert(`${module.charAt(0).toUpperCase() + module.slice(1)} module will be implemented soon!`);
+        }
+
+        // Check authentication status
+        fetch('/api/user')
+            .then(response => {
+                if (!response.ok) {
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => {
+                window.location.href = '/';
+            });
+    </script>
+</body>
+</html>

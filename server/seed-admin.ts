@@ -30,6 +30,7 @@ export async function seedAdminUser() {
       .values({
         tenantId: tenant?.id || 1,
         name: "Main Branch",
+        code: "MAIN",
         address: "Lagos, Nigeria",
         phone: "+234-123-456-7890",
         isActive: true,
