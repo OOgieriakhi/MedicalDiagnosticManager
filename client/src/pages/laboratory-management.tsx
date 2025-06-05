@@ -462,7 +462,25 @@ export default function LaboratoryManagement() {
     const matchesSearch = test.testName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          test.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          test.testCode?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || test.status === statusFilter;
+    
+    // Handle actual test statuses used in the system
+    let matchesStatus = false;
+    if (statusFilter === "all") {
+      matchesStatus = true;
+    } else if (statusFilter === "pending") {
+      matchesStatus = test.status === "pending" || test.status === "scheduled" || (!test.paymentVerified && test.paymentStatus === "paid");
+    } else if (statusFilter === "in_progress") {
+      matchesStatus = test.status === "in_progress" || test.status === "processing" || test.status === "specimen_collected" || test.processingStarted;
+    } else if (statusFilter === "completed") {
+      matchesStatus = test.status === "completed" || test.status === "delivered";
+    } else if (statusFilter === "payment_verification") {
+      matchesStatus = !test.paymentVerified && test.paymentStatus === "paid";
+    } else if (statusFilter === "specimen_collection") {
+      matchesStatus = test.paymentVerified && !test.specimenCollected;
+    } else {
+      matchesStatus = test.status === statusFilter;
+    }
+    
     return matchesSearch && matchesStatus;
   });
 
@@ -750,10 +768,11 @@ export default function LaboratoryManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="payment_verification">Awaiting Payment Verification</SelectItem>
+                      <SelectItem value="specimen_collection">Awaiting Specimen Collection</SelectItem>
+                      <SelectItem value="in_progress">In Processing</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="pending">Other Pending</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
