@@ -47,8 +47,12 @@ export function MessageNotification({ className = "" }: MessageNotificationProps
     },
   });
 
-  const unreadCount = messageMetrics?.[0]?.unreadMessages || 0;
-  const actionRequiredCount = messageMetrics?.[0]?.actionRequired || 0;
+  const unreadCount = Array.isArray(messageMetrics) && messageMetrics[0] 
+    ? messageMetrics[0].unreadMessages || 0 
+    : 0;
+  const actionRequiredCount = Array.isArray(messageMetrics) && messageMetrics[0] 
+    ? messageMetrics[0].actionRequired || 0 
+    : 0;
 
   return (
     <>

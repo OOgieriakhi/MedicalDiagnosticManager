@@ -7,6 +7,7 @@ import RecentPatients from "@/components/dashboard/recent-patients";
 import BranchStatus from "@/components/dashboard/branch-status";
 import QuickActions from "@/components/dashboard/quick-actions";
 import SystemAlerts from "@/components/dashboard/system-alerts";
+import { MessageNotification } from "@/components/message-notification";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -21,10 +22,13 @@ export default function Dashboard() {
       <Sidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          selectedBranchId={selectedBranchId} 
-          onBranchChange={setSelectedBranchId}
-        />
+        <div className="flex items-center justify-between p-4 border-b bg-white">
+          <Header 
+            selectedBranchId={selectedBranchId} 
+            onBranchChange={setSelectedBranchId}
+          />
+          <MessageNotification />
+        </div>
         
         <main className="flex-1 overflow-y-auto p-6">
           <MetricsCards branchId={selectedBranchId} />
