@@ -5429,6 +5429,103 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Predictive Recommendations API Routes
+  app.get("/api/predictive-recommendations", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { timeframe, category, priority } = req.query;
+      
+      const recommendations = await predictiveEngine.getPredictiveRecommendations(
+        user.tenantId,
+        user.branchId || undefined,
+        {
+          timeframe: timeframe as string,
+          category: category as string,
+          priority: priority as string
+        }
+      );
+
+      res.json(recommendations);
+    } catch (error: any) {
+      console.error("Error fetching predictive recommendations:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/predictive-recommendations/analytics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const analytics = await predictiveEngine.getAnalytics(
+        user.tenantId,
+        user.branchId || undefined
+      );
+
+      res.json(analytics);
+    } catch (error: any) {
+      console.error("Error fetching recommendation analytics:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/predictive-recommendations/generate", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      if (!user.branchId) {
+        return res.status(400).json({ message: "Branch ID required" });
+      }
+
+      const result = await predictiveEngine.generateRecommendations(
+        user.tenantId,
+        user.branchId
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error generating recommendations:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/predictive-recommendations/:id/status", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { id } = req.params;
+      const { status, notes } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const result = await predictiveEngine.updateRecommendationStatus(
+        parseInt(id),
+        status,
+        user.id,
+        notes
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error updating recommendation status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Execute fund transfer
   app.post("/api/ged/fund-transfer", async (req, res) => {
     try {

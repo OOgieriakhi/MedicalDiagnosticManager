@@ -1285,6 +1285,82 @@ export const organizationBankAccounts = pgTable("organization_bank_accounts", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Predictive Recommendations for AI-powered follow-up insights
+export const predictiveRecommendations = pgTable("predictive_recommendations", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  patientId: integer("patient_id").notNull(),
+  recommendationType: text("recommendation_type").notNull(), // urgent, routine, preventive, monitoring
+  category: text("category").notNull(), // cardiovascular, diabetes, oncology, general, nephrology, hepatic
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  suggestedAction: text("suggested_action").notNull(),
+  riskScore: integer("risk_score").notNull(), // 0-100
+  confidence: integer("confidence").notNull(), // 0-100
+  priority: text("priority").notNull(), // high, medium, low
+  timeframe: text("timeframe").notNull(),
+  nextDueDate: timestamp("next_due_date").notNull(),
+  lastTestDate: timestamp("last_test_date"),
+  factors: jsonb("factors").notNull(), // array of risk factors
+  basedOnTests: jsonb("based_on_tests").notNull(), // array of test names
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default("active"), // active, scheduled, completed, dismissed
+  scheduledBy: integer("scheduled_by"),
+  scheduledAt: timestamp("scheduled_at"),
+  completedBy: integer("completed_by"),
+  completedAt: timestamp("completed_at"),
+  dismissedBy: integer("dismissed_by"),
+  dismissedAt: timestamp("dismissed_at"),
+  dismissalReason: text("dismissal_reason"),
+  followUpNotes: text("follow_up_notes"),
+  aiModelVersion: text("ai_model_version").notNull().default("1.0"),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Recommendation Analytics and Metrics
+export const recommendationAnalytics = pgTable("recommendation_analytics", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  date: timestamp("date").notNull(),
+  totalRecommendations: integer("total_recommendations").notNull().default(0),
+  highPriority: integer("high_priority").notNull().default(0),
+  mediumPriority: integer("medium_priority").notNull().default(0),
+  lowPriority: integer("low_priority").notNull().default(0),
+  scheduledRecommendations: integer("scheduled_recommendations").notNull().default(0),
+  completedRecommendations: integer("completed_recommendations").notNull().default(0),
+  dismissedRecommendations: integer("dismissed_recommendations").notNull().default(0),
+  avgRiskScore: real("avg_risk_score"),
+  avgConfidence: real("avg_confidence"),
+  categoryBreakdown: jsonb("category_breakdown"),
+  successRate: real("success_rate"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Patient Risk Profiles for AI modeling
+export const patientRiskProfiles = pgTable("patient_risk_profiles", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  patientId: integer("patient_id").notNull(),
+  overallRiskScore: integer("overall_risk_score").notNull().default(0),
+  cardiovascularRisk: integer("cardiovascular_risk").notNull().default(0),
+  diabetesRisk: integer("diabetes_risk").notNull().default(0),
+  oncologyRisk: integer("oncology_risk").notNull().default(0),
+  nephrologyRisk: integer("nephrology_risk").notNull().default(0),
+  hepaticRisk: integer("hepatic_risk").notNull().default(0),
+  riskFactors: jsonb("risk_factors").notNull(),
+  testHistory: jsonb("test_history"),
+  familyHistory: jsonb("family_history"),
+  lifestyle: jsonb("lifestyle"),
+  medications: jsonb("medications"),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Payment Vouchers
 export const paymentVouchers = pgTable("payment_vouchers", {
   id: serial("id").primaryKey(),
