@@ -1452,12 +1452,39 @@ export default function LaboratoryManagement() {
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          // Print report functionality
-                          window.print();
+                        onClick={async () => {
+                          // Generate and download PDF report
+                          try {
+                            const response = await apiRequest("POST", "/api/generate-lab-report", {
+                              testId: selectedTest?.id
+                            });
+                            
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `Lab-Report-${selectedTest?.patient?.firstName}-${selectedTest?.patient?.lastName}-${new Date().toISOString().split('T')[0]}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              window.URL.revokeObjectURL(url);
+                              document.body.removeChild(a);
+                              
+                              toast({
+                                title: "Report Generated",
+                                description: "Laboratory report has been downloaded successfully.",
+                              });
+                            }
+                          } catch (error) {
+                            toast({
+                              title: "Report Generation Failed",
+                              description: "Unable to generate the laboratory report.",
+                              variant: "destructive",
+                            });
+                          }
                         }}
                       >
-                        Print Report
+                        Download Report
                       </Button>
                       <Button
                         variant="outline"
