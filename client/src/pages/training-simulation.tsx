@@ -132,6 +132,44 @@ export default function TrainingSimulation() {
     },
   });
 
+  // Handle starting a training module
+  const handleStartModule = async (moduleId: number) => {
+    try {
+      // Get scenarios for this module
+      const scenariosResponse = await fetch(`/api/training/scenarios/${moduleId}`);
+      if (!scenariosResponse.ok) {
+        throw new Error('Failed to fetch scenarios');
+      }
+      const scenarios = await scenariosResponse.json();
+      
+      if (scenarios.length === 0) {
+        toast({
+          title: "No Scenarios Available",
+          description: "This module doesn't have any training scenarios yet.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Start with the first scenario
+      const firstScenario = scenarios[0];
+      setCurrentScenario(firstScenario);
+      
+      // Start the training session
+      startSessionMutation.mutate({
+        scenarioId: firstScenario.id,
+        mode: simulationMode,
+      });
+    } catch (error: any) {
+      console.error('Error starting module:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start training module",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Timer effect for active sessions
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -149,6 +187,75 @@ export default function TrainingSimulation() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleCompleteStep = () => {
+    if (currentStep < (currentScenario?.requiredActions.length || 0) - 1) {
+      setCurrentStep(currentStep + 1);
+      toast({
+        title: "Step Completed",
+        description: `Good work! Moving to step ${currentStep + 2}`,
+      });
+    }
+  };
+
+  const handleFinishSession = async () => {
+    if (!activeSession) return;
+    
+    try {
+      await apiRequest("PATCH", `/api/training/sessions/${activeSession.id}`, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      });
+      
+      setActiveSession(null);
+      setCurrentScenario(null);
+      setIsSessionActive(false);
+      setCurrentStep(0);
+      setSessionTimer(0);
+      
+      toast({
+        title: "Training Completed",
+        description: "Congratulations! You've completed this training module.",
+      });
+      
+      // Refresh progress data
+      progressQuery.refetch();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to complete session",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEndSession = async () => {
+    if (!activeSession) return;
+    
+    try {
+      await apiRequest("PATCH", `/api/training/sessions/${activeSession.id}`, {
+        status: 'abandoned',
+        completedAt: new Date().toISOString(),
+      });
+      
+      setActiveSession(null);
+      setCurrentScenario(null);
+      setIsSessionActive(false);
+      setCurrentStep(0);
+      setSessionTimer(0);
+      
+      toast({
+        title: "Session Ended",
+        description: "Training session has been ended",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to end session",
+        variant: "destructive",
+      });
+    }
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -323,8 +430,14 @@ export default function TrainingSimulation() {
                           </ul>
                         </div>
 
-                        <Button className="w-full" size="sm">
-                          {module.progressPercentage ? 'Continue' : 'Start'} Module
+                        <Button 
+                          className="w-full" 
+                          size="sm"
+                          onClick={() => handleStartModule(module.id)}
+                          disabled={startSessionMutation.isPending}
+                        >
+                          {startSessionMutation.isPending ? 'Starting...' : 
+                           module.progressPercentage ? 'Continue' : 'Start'} Module
                         </Button>
                       </div>
                     </CardContent>

@@ -3953,6 +3953,32 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // PATCH endpoint for session updates
+  app.patch("/api/training/sessions/:sessionId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const sessionId = parseInt(req.params.sessionId);
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+
+      const updates = req.body;
+      const session = await trainingStorage.updateTrainingSession(sessionId, updates);
+
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      res.json(session);
+    } catch (error: any) {
+      console.error("Error updating training session:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get user's certificates
   app.get("/api/training/certificates", async (req, res) => {
     try {
