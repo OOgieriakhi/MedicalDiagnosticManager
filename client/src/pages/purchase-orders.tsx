@@ -150,9 +150,7 @@ export default function PurchaseOrders() {
 
   const confirmExecution = useMutation({
     mutationFn: (poId: number) => 
-      apiRequest(`/api/purchase-orders/${poId}/confirm-execution`, {
-        method: 'POST'
-      }),
+      apiRequest('POST', `/api/purchase-orders/${poId}/confirm-execution`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
       toast({ title: "Purchase order execution confirmed" });
@@ -167,10 +165,7 @@ export default function PurchaseOrders() {
 
   const confirmDelivery = useMutation({
     mutationFn: ({ poId, confirmationType }: { poId: number, confirmationType: string }) => 
-      apiRequest(`/api/purchase-orders/${poId}/confirm-delivery`, {
-        method: 'POST',
-        body: JSON.stringify({ confirmationType })
-      }),
+      apiRequest('POST', `/api/purchase-orders/${poId}/confirm-delivery`, { confirmationType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
       toast({ title: "Delivery confirmation successful" });
