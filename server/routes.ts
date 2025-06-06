@@ -796,58 +796,83 @@ export function registerRoutes(app: Express): Server {
       // Calculate commission amount with corrected per-service rebate logic
       let calculatedCommission = 0;
       
-      if (invoiceData.referralProviderId && invoiceData.tests) {
-        try {
-          // Get referral provider details using the ID from invoice data
-          const provider = await db
-            .select({
-              id: referralProviders.id,
-              name: referralProviders.name,
-              commissionRate: referralProviders.commissionRate
-            })
-            .from(referralProviders)
-            .where(eq(referralProviders.id, parseInt(invoiceData.referralProviderId)))
-            .limit(1);
+      // Validate patient eligibility for referral commissions
+      const patient = await db
+        .select({
+          id: patients.id,
+          pathway: patients.pathway,
+          referralProviderId: patients.referralProviderId
+        })
+        .from(patients)
+        .where(eq(patients.id, invoiceData.patientId))
+        .limit(1);
 
-          if (provider.length > 0 && provider[0].commissionRate) {
-            const commissionRate = parseFloat(provider[0].commissionRate);
-            console.log(`Processing commission calculation for ${provider[0].name} at ${commissionRate}%`);
-            
-            // Calculate rebate per service with individual caps
-            for (const test of invoiceData.tests) {
-              if (test.testId && test.price) {
-                // Get test details including max rebate amount
-                const testDetails = await db
-                  .select({
-                    id: tests.id,
-                    name: tests.name,
-                    maxRebateAmount: tests.maxRebateAmount
-                  })
-                  .from(tests)
-                  .where(eq(tests.id, parseInt(test.testId)))
-                  .limit(1);
+      if (patient.length > 0) {
+        const patientData = patient[0];
+        
+        // Only calculate commissions for properly referred patients
+        if (patientData.pathway === 'referral' && 
+            patientData.referralProviderId && 
+            invoiceData.referralProviderId && 
+            patientData.referralProviderId === parseInt(invoiceData.referralProviderId) &&
+            invoiceData.tests) {
+          
+          try {
+            // Get referral provider details
+            const provider = await db
+              .select({
+                id: referralProviders.id,
+                name: referralProviders.name,
+                commissionRate: referralProviders.commissionRate
+              })
+              .from(referralProviders)
+              .where(eq(referralProviders.id, patientData.referralProviderId))
+              .limit(1);
 
-                if (testDetails.length > 0) {
-                  const price = parseFloat(test.price) || 0;
-                  const maxRebateAmount = parseFloat(String(testDetails[0].maxRebateAmount || "0")) || 0;
-                  
-                  // Calculate percentage-based rebate
-                  const percentageRebate = (price * commissionRate) / 100;
-                  
-                  // Apply the lower of percentage rebate or service maximum
-                  const serviceRebate = Math.min(percentageRebate, maxRebateAmount);
-                  calculatedCommission += serviceRebate;
-                  
-                  console.log(`Service: ${testDetails[0].name}, Price: ₦${price}, Max Rebate: ₦${maxRebateAmount}, Applied: ₦${serviceRebate.toFixed(2)}`);
+            if (provider.length > 0 && provider[0].commissionRate) {
+              const commissionRate = parseFloat(provider[0].commissionRate);
+              console.log(`Processing commission calculation for ${provider[0].name} at ${commissionRate}%`);
+              
+              // Calculate rebate per service with individual caps
+              for (const test of invoiceData.tests) {
+                if (test.testId && test.price) {
+                  // Get test details including max rebate amount
+                  const testDetails = await db
+                    .select({
+                      id: tests.id,
+                      name: tests.name,
+                      maxRebateAmount: tests.maxRebateAmount
+                    })
+                    .from(tests)
+                    .where(eq(tests.id, parseInt(test.testId)))
+                    .limit(1);
+
+                  if (testDetails.length > 0) {
+                    const price = parseFloat(test.price) || 0;
+                    const maxRebateAmount = parseFloat(String(testDetails[0].maxRebateAmount || "0")) || 0;
+                    
+                    // Calculate percentage-based rebate
+                    const percentageRebate = (price * commissionRate) / 100;
+                    
+                    // Apply the lower of percentage rebate or service maximum
+                    const serviceRebate = Math.min(percentageRebate, maxRebateAmount);
+                    calculatedCommission += serviceRebate;
+                    
+                    console.log(`Service: ${testDetails[0].name}, Price: ₦${price}, Max Rebate: ₦${maxRebateAmount}, Applied: ₦${serviceRebate.toFixed(2)}`);
+                  }
                 }
               }
+              
+              console.log(`Total calculated commission: ₦${calculatedCommission.toFixed(2)} for provider ${provider[0].name}`);
             }
-            
-            console.log(`Total calculated commission: ₦${calculatedCommission.toFixed(2)} for provider ${provider[0].name}`);
+          } catch (commissionError) {
+            console.error("Error calculating commission:", commissionError);
+            // Continue with invoice creation even if commission calculation fails
           }
-        } catch (commissionError) {
-          console.error("Error calculating commission:", commissionError);
-          // Continue with invoice creation even if commission calculation fails
+        } else if (patientData.pathway === 'self') {
+          console.log(`Walk-in patient detected - no commission will be applied`);
+        } else {
+          console.log(`Patient pathway: ${patientData.pathway}, Provider ID mismatch - no commission applied`);
         }
       }
 
