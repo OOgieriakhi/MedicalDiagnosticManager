@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import {
   Building2, Plus, Upload, AlertTriangle, Check, X, Eye,
   Calendar, DollarSign, CreditCard, FileText, Banknote,
-  ChevronDown, Filter, Search, Download, TrendingUp
+  ChevronDown, Filter, Search, Download, TrendingUp, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -216,14 +216,27 @@ export default function BankDepositRecording() {
           <h1 className="text-3xl font-bold">Bank Deposit Recording</h1>
           <p className="text-muted-foreground">Record and manage bank deposits from verified cash collections</p>
         </div>
-        <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Record Deposit
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/verified-cash-summary"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/cash-variance-metrics"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/bank-deposits"] });
+            }}
+            className="gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+          <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" />
+                Record Deposit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Record Bank Deposit</DialogTitle>
               <DialogDescription>
@@ -844,6 +857,8 @@ export default function BankDepositRecording() {
           )}
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   );
 }
