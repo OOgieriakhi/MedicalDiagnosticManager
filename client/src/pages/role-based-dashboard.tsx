@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Grid } from "@/components/ui/grid";
+
 import { 
   Users, TestTube, Activity, Package, DollarSign, Shield, 
   FileText, Stethoscope, Pill, Building, Settings, UserCheck,
@@ -10,18 +10,33 @@ import {
   AlertTriangle, CheckCircle, Clock, Eye
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { usePermissions } from "@/components/PermissionGuard";
-import { PERMISSIONS, ROLE_TEMPLATES, getUserRoleInfo } from "@/lib/rbac-utils";
 
 interface ModuleCard {
   title: string;
   description: string;
   icon: any;
   href: string;
-  permissions: any[];
+  allowedRoles: string[];
   color: string;
   level: 'basic' | 'advanced' | 'admin';
 }
+
+// Role-based access control mapping
+const ROLE_PERMISSIONS = {
+  'admin': ['all'], // Admin has access to everything
+  'doctor': ['patients', 'laboratory', 'radiology', 'quality'],
+  'nurse': ['patients', 'laboratory'],
+  'lab_technician': ['laboratory', 'inventory'],
+  'lab_supervisor': ['laboratory', 'inventory', 'quality'],
+  'pathologist': ['laboratory', 'quality'],
+  'radiologist': ['radiology', 'patients'],
+  'pharmacist': ['pharmacy', 'inventory', 'patients'],
+  'receptionist': ['patients'],
+  'cashier': ['patients', 'finance'],
+  'accountant': ['finance', 'inventory'],
+  'procurement_officer': ['inventory', 'finance'],
+  'branch_manager': ['patients', 'laboratory', 'inventory', 'finance', 'admin'],
+};
 
 const MODULE_CARDS: ModuleCard[] = [
   {
@@ -29,7 +44,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Patient intake, registration, and records management",
     icon: Users,
     href: "/patient-management",
-    permissions: [PERMISSIONS.PATIENT_VIEW],
+    allowedRoles: ['admin', 'doctor', 'nurse', 'receptionist', 'cashier', 'radiologist', 'pharmacist', 'branch_manager'],
     color: "bg-blue-500",
     level: 'basic'
   },
@@ -38,7 +53,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Test processing, results, and quality control",
     icon: TestTube,
     href: "/laboratory-management",
-    permissions: [PERMISSIONS.LAB_VIEW_TESTS],
+    allowedRoles: ['admin', 'doctor', 'nurse', 'lab_technician', 'lab_supervisor', 'pathologist', 'branch_manager'],
     color: "bg-green-500",
     level: 'basic'
   },
@@ -47,7 +62,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Imaging services and radiological examinations",
     icon: Activity,
     href: "/radiology-management",
-    permissions: [PERMISSIONS.RADIOLOGY_VIEW],
+    allowedRoles: ['admin', 'doctor', 'radiologist', 'branch_manager'],
     color: "bg-purple-500",
     level: 'basic'
   },
@@ -56,7 +71,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Medication dispensing and inventory management",
     icon: Pill,
     href: "/pharmacy-management",
-    permissions: [PERMISSIONS.PHARMACY_VIEW],
+    allowedRoles: ['admin', 'pharmacist', 'branch_manager'],
     color: "bg-orange-500",
     level: 'basic'
   },
@@ -65,7 +80,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Real-time stock tracking and consumption monitoring",
     icon: Package,
     href: "/inventory-dashboard",
-    permissions: [PERMISSIONS.INVENTORY_VIEW],
+    allowedRoles: ['admin', 'lab_technician', 'lab_supervisor', 'pharmacist', 'procurement_officer', 'accountant', 'branch_manager'],
     color: "bg-teal-500",
     level: 'advanced'
   },
@@ -74,7 +89,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Billing, payments, and financial reporting",
     icon: DollarSign,
     href: "/financial-management",
-    permissions: [PERMISSIONS.FINANCE_VIEW],
+    allowedRoles: ['admin', 'cashier', 'accountant', 'procurement_officer', 'branch_manager'],
     color: "bg-yellow-500",
     level: 'basic'
   },
@@ -83,7 +98,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Procurement and supplier management",
     icon: ClipboardList,
     href: "/purchase-orders",
-    permissions: [PERMISSIONS.INVENTORY_PURCHASE],
+    allowedRoles: ['admin', 'procurement_officer', 'accountant', 'branch_manager'],
     color: "bg-indigo-500",
     level: 'advanced'
   },
@@ -92,7 +107,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Chart of accounts and financial analytics",
     icon: BarChart3,
     href: "/accounting-dashboard",
-    permissions: [PERMISSIONS.FINANCE_ACCOUNTING],
+    allowedRoles: ['admin', 'accountant', 'branch_manager'],
     color: "bg-red-500",
     level: 'advanced'
   },
@@ -101,7 +116,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Quality control and compliance monitoring",
     icon: Shield,
     href: "/quality-assurance",
-    permissions: [PERMISSIONS.QA_VIEW],
+    allowedRoles: ['admin', 'doctor', 'lab_supervisor', 'pathologist', 'branch_manager'],
     color: "bg-emerald-500",
     level: 'advanced'
   },
@@ -110,7 +125,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "User roles and permission administration",
     icon: UserCheck,
     href: "/role-management",
-    permissions: [PERMISSIONS.ADMIN_ROLE_MANAGEMENT],
+    allowedRoles: ['admin', 'branch_manager'],
     color: "bg-gray-500",
     level: 'admin'
   },
@@ -119,7 +134,7 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "System configuration and management",
     icon: Settings,
     href: "/administrative-management",
-    permissions: [PERMISSIONS.ADMIN_SYSTEM_CONFIG],
+    allowedRoles: ['admin', 'branch_manager'],
     color: "bg-slate-500",
     level: 'admin'
   },
@@ -128,15 +143,46 @@ const MODULE_CARDS: ModuleCard[] = [
     description: "Security monitoring and audit trails",
     icon: Eye,
     href: "/security-audit",
-    permissions: [PERMISSIONS.ADMIN_AUDIT_LOGS],
+    allowedRoles: ['admin', 'branch_manager'],
     color: "bg-cyan-500",
     level: 'admin'
   }
 ];
 
+// Helper function to check if user has access to a module
+const hasAccess = (userRole: string, allowedRoles: string[]): boolean => {
+  return allowedRoles.includes(userRole) || userRole === 'admin';
+};
+
+// Helper function to get access level from role
+const getAccessLevel = (role: string): 'basic' | 'advanced' | 'admin' => {
+  if (role === 'admin' || role === 'branch_manager') return 'admin';
+  if (['lab_supervisor', 'pathologist', 'procurement_officer', 'accountant'].includes(role)) return 'advanced';
+  return 'basic';
+};
+
+// Helper function to get role display name
+const getRoleDisplayName = (role: string): string => {
+  const roleNames = {
+    'admin': 'System Administrator',
+    'doctor': 'Doctor',
+    'nurse': 'Nurse',
+    'lab_technician': 'Laboratory Technician',
+    'lab_supervisor': 'Laboratory Supervisor',
+    'pathologist': 'Pathologist',
+    'radiologist': 'Radiologist',
+    'pharmacist': 'Pharmacist',
+    'receptionist': 'Receptionist',
+    'cashier': 'Cashier',
+    'accountant': 'Accountant',
+    'procurement_officer': 'Procurement Officer',
+    'branch_manager': 'Branch Manager',
+  };
+  return roleNames[role as keyof typeof roleNames] || role;
+};
+
 export default function RoleBasedDashboard() {
   const { user } = useAuth();
-  const { hasAnyPermission, canAccessModule } = usePermissions();
 
   if (!user) {
     return (
@@ -151,13 +197,13 @@ export default function RoleBasedDashboard() {
     );
   }
 
-  // Get user role information
-  const userPermissions = user.permissions || [];
-  const { role, level } = getUserRoleInfo(userPermissions);
+  const userRole = user.role || 'receptionist';
+  const level = getAccessLevel(userRole);
+  const roleDisplayName = getRoleDisplayName(userRole);
 
-  // Filter modules based on user permissions
+  // Filter modules based on user role
   const accessibleModules = MODULE_CARDS.filter(module => 
-    hasAnyPermission(module.permissions)
+    hasAccess(userRole, module.allowedRoles)
   );
 
   // Group modules by access level
@@ -174,6 +220,15 @@ export default function RoleBasedDashboard() {
     }
   };
 
+  // Calculate department access
+  const departmentModules = ['patients', 'laboratory', 'radiology', 'pharmacy', 'finance'];
+  const accessibleDepartments = departmentModules.filter(dept => {
+    return accessibleModules.some(module => 
+      module.href.includes(dept.replace('patients', 'patient')) || 
+      module.href.includes(dept)
+    );
+  });
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -189,11 +244,9 @@ export default function RoleBasedDashboard() {
             <Badge variant={getLevelBadgeColor(level) as any}>
               {level.toUpperCase()} ACCESS
             </Badge>
-            {role && (
-              <Badge variant="outline">
-                {role.name}
-              </Badge>
-            )}
+            <Badge variant="outline">
+              {roleDisplayName}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Welcome, {user.firstName || user.username}
@@ -224,7 +277,7 @@ export default function RoleBasedDashboard() {
           <CardContent>
             <div className="text-2xl font-bold capitalize">{level}</div>
             <p className="text-xs text-muted-foreground">
-              {userPermissions.length} permissions granted
+              Role-based permissions
             </p>
           </CardContent>
         </Card>
@@ -236,9 +289,7 @@ export default function RoleBasedDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {['patients', 'laboratory', 'radiology', 'pharmacy', 'finance'].filter(dept => 
-                canAccessModule(dept)
-              ).length}
+              {accessibleDepartments.length}
             </div>
             <p className="text-xs text-muted-foreground">
               departments available
@@ -252,11 +303,9 @@ export default function RoleBasedDashboard() {
             <UserCheck className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {role ? 'Assigned' : 'Custom'}
-            </div>
+            <div className="text-2xl font-bold">Active</div>
             <p className="text-xs text-muted-foreground">
-              {role?.description || 'Custom role configuration'}
+              {roleDisplayName} role assigned
             </p>
           </CardContent>
         </Card>
