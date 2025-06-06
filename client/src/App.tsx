@@ -49,6 +49,7 @@ import PredictiveRecommendations from "@/pages/predictive-recommendations";
 import WaitingRoomQueue from "@/pages/waiting-room-queue";
 import AccountingDashboard from "@/pages/accounting-dashboard";
 import RoleBasedDashboard from "@/pages/role-based-dashboard";
+import SidebarDashboard from "@/pages/sidebar-dashboard";
 import ApprovalTracking from "@/pages/approval-tracking";
 import AccountantDashboard from "@/pages/accountant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
@@ -62,7 +63,7 @@ import BankDepositRecording from "@/pages/bank-deposit-recording";
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={() => <RoleBasedDashboard />} />
+      <ProtectedRoute path="/" component={() => <SidebarDashboard />} />
       <ProtectedRoute path="/dashboard" component={Dashboard} />
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
