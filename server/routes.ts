@@ -3562,36 +3562,70 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.patch("/api/purchase-orders/:id/approve", async (req, res) => {
+  // Get purchase orders
+  app.get("/api/purchase-orders", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const orders = await financialStorage.getPurchaseOrders(user.tenantId, user.branchId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching purchase orders:", error);
+      res.status(500).json({ message: "Failed to fetch purchase orders" });
+    }
+  });
+
+  // Approve purchase order
+  app.post("/api/purchase-orders/:id/approve", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       const { id } = req.params;
-      const { status, comments } = req.body;
+      const { comments } = req.body;
+      const user = req.user!;
 
-      const updatedOrder = await financialStorage.updatePurchaseOrderStatus(
+      const result = await financialStorage.approvePurchaseOrder(
         Number(id), 
-        status, 
-        req.user.id
+        user.id,
+        comments
       );
 
-      // Create audit trail entry
-      await financialStorage.createAuditEntry({
-        tenantId: req.body.tenantId,
-        branchId: req.body.branchId,
-        userId: req.user.id,
-        action: `${status}_purchase_order`,
-        resourceType: "purchase_order",
-        resourceId: Number(id),
-        details: `${status} PO with comments: ${comments || 'No comments'}`
-      });
-
-      res.json(updatedOrder);
+      res.json({ success: true, message: "Purchase order approved successfully", ...result });
     } catch (error) {
-      console.error("Error updating purchase order:", error);
-      res.status(500).json({ message: "Failed to update purchase order" });
+      console.error("Error approving purchase order:", error);
+      res.status(500).json({ message: "Failed to approve purchase order" });
+    }
+  });
+
+  // Reject purchase order
+  app.post("/api/purchase-orders/:id/reject", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { comments } = req.body;
+      const user = req.user!;
+
+      await financialStorage.updatePurchaseOrderStatus(Number(id), "rejected", user.id);
+      
+      // Create rejection record
+      await db.execute(sql`
+        INSERT INTO purchase_order_approvals 
+        (purchase_order_id, approver_id, approval_level, status, approved_at, comments, created_at)
+        VALUES (${Number(id)}, ${user.id}, 1, 'rejected', NOW(), ${comments || 'Rejected'}, NOW())
+      `);
+
+      res.json({ success: true, message: "Purchase order rejected successfully" });
+    } catch (error) {
+      console.error("Error rejecting purchase order:", error);
+      res.status(500).json({ message: "Failed to reject purchase order" });
     }
   });
 
