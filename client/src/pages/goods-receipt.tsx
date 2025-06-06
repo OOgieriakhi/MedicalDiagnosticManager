@@ -73,6 +73,7 @@ export default function GoodsReceipt() {
       setSelectedPO(null);
       setReceivedItems([]);
       setReceiptNotes("");
+      setSupplierReceiptUrl("");
     },
     onError: (error: any) => {
       toast({ 
