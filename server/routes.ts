@@ -8121,28 +8121,56 @@ Medical System Procurement Team
       const invoiceId = parseInt(req.params.id);
       const { status, notes } = req.body;
 
-      const updateFields = ['status = $2', 'updated_at = NOW()'];
-      const params = [invoiceId, status];
-
+      let result;
       if (status === 'paid') {
-        updateFields.push(`paid_by = $${params.length + 1}`);
-        params.push(req.user?.id || 1);
-        updateFields.push(`paid_at = NOW()`);
+        if (notes) {
+          result = await db.execute(sql`
+            UPDATE referral_invoices 
+            SET status = ${status}, paid_by = ${req.user?.id || 1}, paid_at = NOW(), notes = ${notes}, updated_at = NOW()
+            WHERE id = ${invoiceId}
+            RETURNING *
+          `);
+        } else {
+          result = await db.execute(sql`
+            UPDATE referral_invoices 
+            SET status = ${status}, paid_by = ${req.user?.id || 1}, paid_at = NOW(), updated_at = NOW()
+            WHERE id = ${invoiceId}
+            RETURNING *
+          `);
+        }
       } else if (status === 'pending') {
-        updateFields.push('paid_by = NULL', 'paid_at = NULL');
+        if (notes) {
+          result = await db.execute(sql`
+            UPDATE referral_invoices 
+            SET status = ${status}, paid_by = NULL, paid_at = NULL, notes = ${notes}, updated_at = NOW()
+            WHERE id = ${invoiceId}
+            RETURNING *
+          `);
+        } else {
+          result = await db.execute(sql`
+            UPDATE referral_invoices 
+            SET status = ${status}, paid_by = NULL, paid_at = NULL, updated_at = NOW()
+            WHERE id = ${invoiceId}
+            RETURNING *
+          `);
+        }
+      } else {
+        if (notes) {
+          result = await db.execute(sql`
+            UPDATE referral_invoices 
+            SET status = ${status}, notes = ${notes}, updated_at = NOW()
+            WHERE id = ${invoiceId}
+            RETURNING *
+          `);
+        } else {
+          result = await db.execute(sql`
+            UPDATE referral_invoices 
+            SET status = ${status}, updated_at = NOW()
+            WHERE id = ${invoiceId}
+            RETURNING *
+          `);
+        }
       }
-
-      if (notes) {
-        updateFields.push(`notes = $${params.length + 1}`);
-        params.push(notes);
-      }
-
-      const result = await db.execute(sql`
-        UPDATE referral_invoices 
-        SET ${updateFields.join(', ')}
-        WHERE id = $1
-        RETURNING *
-      `);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ message: "Referral invoice not found" });
