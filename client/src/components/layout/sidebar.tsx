@@ -72,6 +72,7 @@ export default function Sidebar() {
       section: "Executive",
       items: [
         { icon: Crown, label: "CEO Dashboard", path: "/ceo-dashboard", active: location === "/ceo-dashboard" },
+        { icon: DollarSign, label: "Finance Director", path: "/finance-director-dashboard", active: location === "/finance-director-dashboard" },
         { icon: Shield, label: "Group Executive Director", path: "/ged-dashboard", active: location === "/ged-dashboard" },
         { icon: TrendingUp, label: "Marketing Management", path: "/marketing", active: location === "/marketing" },
       ]
