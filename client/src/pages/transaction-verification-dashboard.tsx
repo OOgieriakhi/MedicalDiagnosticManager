@@ -476,42 +476,70 @@ export default function TransactionVerificationDashboard() {
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleVerifyTransaction(transaction.id, 'verified')}
-                                  disabled={verifyTransactionMutation.isPending}
-                                  className="text-green-600 hover:bg-green-50 border-green-200"
-                                >
-                                  <CheckCircle2 className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleVerifyTransaction(transaction.id, 'flagged')}
-                                  disabled={verifyTransactionMutation.isPending}
-                                  className="text-red-600 hover:bg-red-50 border-red-200"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleVerifyTransaction(transaction.id, 'pending')}
-                                  disabled={verifyTransactionMutation.isPending}
-                                  className="text-yellow-600 hover:bg-yellow-50 border-yellow-200"
-                                >
-                                  <Clock className="w-4 h-4" />
-                                </Button>
-                                <Dialog>
-                                  <DialogTrigger asChild>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => setSelectedTransaction(transaction)}
+                                      onClick={() => handleVerifyTransaction(transaction.id, 'verified')}
+                                      disabled={verifyTransactionMutation.isPending}
+                                      className="text-green-600 hover:bg-green-50 border-green-200"
                                     >
-                                      <Eye className="w-4 h-4" />
+                                      <CheckCircle2 className="w-4 h-4" />
                                     </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Mark transaction as verified</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleVerifyTransaction(transaction.id, 'flagged')}
+                                      disabled={verifyTransactionMutation.isPending}
+                                      className="text-red-600 hover:bg-red-50 border-red-200"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Flag transaction for review</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleVerifyTransaction(transaction.id, 'pending')}
+                                      disabled={verifyTransactionMutation.isPending}
+                                      className="text-yellow-600 hover:bg-yellow-50 border-yellow-200"
+                                    >
+                                      <Clock className="w-4 h-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Mark as pending review</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => setSelectedTransaction(transaction)}
+                                        >
+                                          <Eye className="w-4 h-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>View transaction details</p>
+                                      </TooltipContent>
+                                    </Tooltip>
                                   </DialogTrigger>
                                   <DialogContent>
                                     <DialogHeader>
