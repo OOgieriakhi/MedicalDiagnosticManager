@@ -212,6 +212,10 @@ export const invoices = pgTable("invoices", {
   tenantId: integer("tenant_id").notNull().references(() => tenants.id),
   branchId: integer("branch_id").notNull().references(() => branches.id),
   
+  // Referral information (visit-specific, not patient-specific)
+  referralProviderId: integer("referral_provider_id").references(() => referralProviders.id),
+  referralType: text("referral_type").default("none"), // 'none', 'referral', 'self'
+  
   // Test details
   tests: json("tests").notNull(), // Array of {testId, quantity, unitPrice, totalPrice}
   
