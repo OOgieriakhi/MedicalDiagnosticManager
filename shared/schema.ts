@@ -1037,6 +1037,12 @@ export const insertBankDepositSchema = createInsertSchema(bankDeposits).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  depositAmount: z.union([z.string(), z.number()]).transform(val => String(val)),
+  depositDate: z.union([z.string(), z.date()]).transform(val => 
+    typeof val === 'string' ? new Date(val) : val
+  ),
+  linkedCashAmount: z.union([z.string(), z.number()]).transform(val => String(val)).optional(),
 });
 
 export const insertCashReconciliationSchema = createInsertSchema(cashReconciliation).omit({
