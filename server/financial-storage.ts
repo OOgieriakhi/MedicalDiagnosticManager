@@ -617,14 +617,26 @@ export class FinancialStorage {
   }
 
   async getPendingPurchaseOrderApprovals(tenantId: number, branchId: number) {
-    const result = await db.select()
-      .from(purchaseOrders)
-      .where(and(
-        eq(purchaseOrders.tenantId, tenantId),
-        eq(purchaseOrders.branchId, branchId),
-        eq(purchaseOrders.status, 'pending_approval')
-      ))
-      .orderBy(desc(purchaseOrders.createdAt));
+    const result = await db.select({
+      id: purchaseOrders.id,
+      transactionNumber: purchaseOrders.poNumber,
+      amount: purchaseOrders.totalAmount,
+      purpose: purchaseOrders.vendorName,
+      category: sql<string>`'Procurement'`,
+      priority: purchaseOrders.priority,
+      requestedBy: purchaseOrders.requestedBy,
+      createdAt: purchaseOrders.createdAt,
+      status: purchaseOrders.status,
+      vendorName: purchaseOrders.vendorName,
+      notes: purchaseOrders.notes
+    })
+    .from(purchaseOrders)
+    .where(and(
+      eq(purchaseOrders.tenantId, tenantId),
+      eq(purchaseOrders.branchId, branchId),
+      eq(purchaseOrders.status, 'pending')
+    ))
+    .orderBy(desc(purchaseOrders.createdAt));
 
     return result;
   }
