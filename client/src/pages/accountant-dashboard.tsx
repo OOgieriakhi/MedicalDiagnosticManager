@@ -139,7 +139,7 @@ export default function AccountantDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/accounting/pending-entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/accounting/metrics"] });
-      toast({ title: "Successfully posted to Accounts Payable" });
+      toast({ title: "Posted to accounts payable successfully" });
       setSelectedEntry(null);
       setGlAccount("");
       setCostCenter("");
@@ -148,46 +148,6 @@ export default function AccountantDashboard() {
     onError: (error: any) => {
       toast({ 
         title: "Posting failed", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    }
-  });
-
-  // Immediate payment processing mutation
-  const immediatePaymentMutation = useMutation({
-    mutationFn: async ({ id, glAccount, costCenter, postingNotes, paymentMethod, bankAccount, amount }: { 
-      id: number; 
-      glAccount: string; 
-      costCenter: string; 
-      postingNotes: string;
-      paymentMethod: string;
-      bankAccount: string;
-      amount: string;
-    }) => {
-      const response = await fetch(`/api/accounting/process-immediate-payment/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ glAccount, costCenter, postingNotes, paymentMethod, bankAccount, amount }),
-      });
-      if (!response.ok) throw new Error("Failed to process immediate payment");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/accounting/pending-entries"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/accounting/metrics"] });
-      toast({ 
-        title: "Payment processed immediately", 
-        description: `Receipt: ${data.journalEntry?.receiptNumber}` 
-      });
-      setSelectedEntry(null);
-      setGlAccount("");
-      setCostCenter("");
-      setPostingNotes("");
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Payment processing failed", 
         description: error.message,
         variant: "destructive" 
       });
@@ -220,8 +180,6 @@ export default function AccountantDashboard() {
     }
   });
 
-
-
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-NG', {
@@ -248,7 +206,7 @@ export default function AccountantDashboard() {
   };
 
   const getPriorityBadge = (priority: string) => {
-    switch (priority.toLowerCase()) {
+    switch (priority) {
       case 'urgent':
         return <Badge variant="destructive">Urgent</Badge>;
       case 'high':
@@ -258,116 +216,163 @@ export default function AccountantDashboard() {
       case 'low':
         return <Badge className="bg-gray-100 text-gray-800">Low</Badge>;
       default:
-        return <Badge variant="outline">Normal</Badge>;
+        return <Badge variant="outline">{priority}</Badge>;
     }
   };
 
+  const handlePostToAP = () => {
+    if (!selectedEntry) return;
+    
+    postToAPMutation.mutate({
+      id: selectedEntry.id,
+      glAccount,
+      costCenter,
+      postingNotes
+    });
+  };
+
+  const pendingCount = accountingEntries?.filter(entry => entry.status === 'pending_posting').length || 0;
+  const readyForPaymentCount = accountingEntries?.filter(entry => entry.status === 'ready_for_payment').length || 0;
+
   if (isLoading) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="text-center">Loading accounting entries...</div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Accounting & Financial Management</h1>
+            <p className="text-muted-foreground">Comprehensive financial oversight and reporting</p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Loading...</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link href="/dashboard">
-            <Button variant="outline" size="sm">
-              <Building className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Accountant Dashboard</h1>
-            <p className="text-gray-600">Accounts payable posting and journal entries</p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">Accounting & Financial Management</h1>
+          <p className="text-muted-foreground">Comprehensive financial oversight and reporting</p>
         </div>
-        <div className="flex items-center space-x-3">
-          <Link href="/cashier-dashboard">
-            <Button variant="outline" size="sm">
-              <Wallet className="w-4 h-4 mr-2" />
-              Cashier Dashboard
-            </Button>
-          </Link>
-          <Button variant="outline" size="sm" onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/accounting/pending-entries"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/accounting/metrics"] });
-            toast({ title: "Dashboard refreshed successfully" });
-          }}>
-            <Activity className="w-4 h-4 mr-2" />
-            Refresh
+        <div className="flex space-x-2">
+          <Select>
+            <SelectTrigger>
+              <SelectValue placeholder="Current Period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Current Period</SelectItem>
+              <SelectItem value="previous">Previous Period</SelectItem>
+              <SelectItem value="ytd">Year to Date</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline">
+            <FileText className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button>
+            <DollarSign className="w-4 h-4 mr-2" />
+            New Entry
           </Button>
         </div>
       </div>
 
-      {/* Key Metrics */}
-      {accountingMetrics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Pending Postings</p>
-                  <p className="text-2xl font-bold text-yellow-600">{accountingMetrics.pendingPostings}</p>
-                  <p className="text-xs text-yellow-600">Awaiting GL posting</p>
-                </div>
-                <div className="p-3 bg-yellow-100 rounded-lg">
-                  <Calculator className="w-6 h-6 text-yellow-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Metrics Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
+            <Building className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₦650,000.00</div>
+            <p className="text-xs text-muted-foreground">
+              +12.5% from last month
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₦1,132,000.00</div>
+            <p className="text-xs text-muted-foreground">
+              +8.3% from last month
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₦792,400.00</div>
+            <p className="text-xs text-muted-foreground">
+              +3.1% from last month
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net Income</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₦339,600.00</div>
+            <p className="text-xs text-muted-foreground">
+              +15.2% from last month
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Actions</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingCount + readyForPaymentCount}</div>
+            <p className="text-xs text-muted-foreground">
+              {pendingCount} postings, {readyForPaymentCount} payments
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Posted Today</p>
-                  <p className="text-2xl font-bold text-green-600">{accountingMetrics.postedToday}</p>
-                  <p className="text-xs text-green-600">Journal entries created</p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <BookOpen className="w-6 h-6 text-green-600" />
-                </div>
+      {/* Action Required Section */}
+      {(pendingCount > 0 || readyForPaymentCount > 0) && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <Activity className="w-5 h-5 text-yellow-600" />
+            <h3 className="font-semibold text-yellow-800">Action Required</h3>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            {pendingCount > 0 && (
+              <div className="flex items-center justify-between bg-white rounded p-3">
+                <span className="text-sm">Pending Postings</span>
+                <Badge variant="secondary">{pendingCount}</Badge>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">A/P Value</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(accountingMetrics.totalApValue)}
-                  </p>
-                  <p className="text-xs text-blue-600">Total accounts payable</p>
-                </div>
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <DollarSign className="w-6 h-6 text-blue-600" />
-                </div>
+            )}
+            {readyForPaymentCount > 0 && (
+              <div className="flex items-center justify-between bg-white rounded p-3">
+                <span className="text-sm">Ready for Payment</span>
+                <Badge variant="secondary">{readyForPaymentCount}</Badge>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Ready for Payment</p>
-                  <p className="text-2xl font-bold text-purple-600">{accountingMetrics.pendingPayments}</p>
-                  <p className="text-xs text-purple-600">For cashier processing</p>
-                </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Wallet className="w-6 h-6 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </div>
       )}
 
@@ -436,7 +441,7 @@ export default function AccountantDashboard() {
             Accounts Payable Posting Queue
           </CardTitle>
           <CardDescription>
-            Authorized payments requiring GL posting and A/P setup
+            Authorized payments requiring GL account posting
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -446,9 +451,8 @@ export default function AccountantDashboard() {
                 <TableHead>Type</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Authorized By</TableHead>
+                <TableHead>Requested By</TableHead>
+                <TableHead>Approved By</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Status</TableHead>
@@ -458,8 +462,8 @@ export default function AccountantDashboard() {
             <TableBody>
               {!accountingEntries || accountingEntries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    No accounting entries available for posting
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    No accounting entries pending posting
                   </TableCell>
                 </TableRow>
               ) : (
@@ -468,186 +472,133 @@ export default function AccountantDashboard() {
                     <TableCell className="font-medium">{entry.type}</TableCell>
                     <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
                     <TableCell className="font-bold">{formatCurrency(entry.amount)}</TableCell>
-                    <TableCell>{entry.vendorDetails || "N/A"}</TableCell>
-                    <TableCell>{entry.invoiceNumber || "N/A"}</TableCell>
-                    <TableCell>{entry.authorizedBy}</TableCell>
+                    <TableCell>{entry.requestedBy}</TableCell>
+                    <TableCell>{entry.approvedBy}</TableCell>
                     <TableCell>{getPriorityBadge(entry.priority)}</TableCell>
                     <TableCell>{new Date(entry.dueDate).toLocaleDateString()}</TableCell>
                     <TableCell>{getStatusBadge(entry.status)}</TableCell>
                     <TableCell>
-                      {entry.status === 'pending_posting' && (
-                        <div className="flex space-x-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button 
-                                size="sm" 
-                                onClick={() => setSelectedEntry(entry)}
-                              >
-                                <BookOpen className="w-4 h-4 mr-1" />
-                                Post to A/P
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Post to Accounts Payable</DialogTitle>
-                                <DialogDescription>
-                                  Create journal entry and setup accounts payable record
-                                </DialogDescription>
-                              </DialogHeader>
+                      <div className="flex space-x-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => setSelectedEntry(entry)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Payment Entry Details</DialogTitle>
+                              <DialogDescription>
+                                Review and post to accounts payable
+                              </DialogDescription>
+                            </DialogHeader>
+                            {selectedEntry && (
                               <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
-                                    <Label htmlFor="glAccount">GL Account</Label>
-                                    <Select value={glAccount} onValueChange={setGlAccount}>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select GL account" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="5100-Equipment">5100 - Equipment Expense</SelectItem>
-                                        <SelectItem value="5200-Training">5200 - Training & Development</SelectItem>
-                                        <SelectItem value="5300-Software">5300 - Software Licenses</SelectItem>
-                                        <SelectItem value="5400-Facilities">5400 - Facilities Expense</SelectItem>
-                                        <SelectItem value="5500-Marketing">5500 - Marketing Expense</SelectItem>
-                                        <SelectItem value="5600-Professional">5600 - Professional Services</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                    <Label className="text-sm font-medium">Type</Label>
+                                    <p className="text-sm">{selectedEntry.type}</p>
                                   </div>
                                   <div>
-                                    <Label htmlFor="costCenter">Cost Center</Label>
-                                    <Select value={costCenter} onValueChange={setCostCenter}>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select cost center" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="CC001-Admin">CC001 - Administration</SelectItem>
-                                        <SelectItem value="CC002-Lab">CC002 - Laboratory</SelectItem>
-                                        <SelectItem value="CC003-Radiology">CC003 - Radiology</SelectItem>
-                                        <SelectItem value="CC004-Cardiology">CC004 - Cardiology</SelectItem>
-                                        <SelectItem value="CC005-IT">CC005 - Information Technology</SelectItem>
-                                        <SelectItem value="CC006-Marketing">CC006 - Marketing</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                    <Label className="text-sm font-medium">Amount</Label>
+                                    <p className="text-sm font-bold">{formatCurrency(selectedEntry.amount)}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Requested By</Label>
+                                    <p className="text-sm">{selectedEntry.requestedBy}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Approved By</Label>
+                                    <p className="text-sm">{selectedEntry.approvedBy}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Department</Label>
+                                    <p className="text-sm">{selectedEntry.department}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Payment Method</Label>
+                                    <p className="text-sm">{selectedEntry.paymentMethod}</p>
                                   </div>
                                 </div>
                                 <div>
-                                  <Label htmlFor="postingNotes">Posting Notes</Label>
-                                  <Textarea 
-                                    id="postingNotes"
-                                    value={postingNotes}
-                                    onChange={(e) => setPostingNotes(e.target.value)}
-                                    placeholder="Add journal entry description and notes..."
-                                  />
+                                  <Label className="text-sm font-medium">Description</Label>
+                                  <p className="text-sm">{selectedEntry.description}</p>
                                 </div>
                                 
-                                {/* Payment Options */}
                                 <div className="border-t pt-4">
-                                  <h4 className="font-medium mb-3">Payment Processing Options:</h4>
-                                  
-                                  <div className="bg-blue-50 p-3 rounded-lg mb-3">
-                                    <h5 className="font-medium text-blue-800 mb-2">Option 1: Post to Accounts Payable</h5>
-                                    <div className="text-sm space-y-1">
-                                      <div className="flex justify-between">
-                                        <span>Dr. {glAccount || "Expense Account"}</span>
-                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>Cr. Accounts Payable</span>
-                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
-                                      </div>
+                                  <h4 className="font-medium mb-3">Posting Information</h4>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <Label htmlFor="glAccount">GL Account *</Label>
+                                      <Input
+                                        id="glAccount"
+                                        value={glAccount}
+                                        onChange={(e) => setGlAccount(e.target.value)}
+                                        placeholder="e.g., 2100-001"
+                                      />
                                     </div>
-                                    <p className="text-xs text-blue-600 mt-2">Creates A/P liability for later payment processing by Cashier</p>
+                                    <div>
+                                      <Label htmlFor="costCenter">Cost Center</Label>
+                                      <Input
+                                        id="costCenter"
+                                        value={costCenter}
+                                        onChange={(e) => setCostCenter(e.target.value)}
+                                        placeholder="e.g., LAB-001"
+                                      />
+                                    </div>
                                   </div>
-                                  
-                                  <div className="bg-green-50 p-3 rounded-lg mb-3">
-                                    <h5 className="font-medium text-green-800 mb-2">Option 2: Pay Immediately</h5>
-                                    <div className="text-sm space-y-1">
-                                      <div className="flex justify-between">
-                                        <span>Dr. {glAccount || "Expense Account"}</span>
-                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>Cr. Cash/Bank Account</span>
-                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
-                                      </div>
-                                    </div>
-                                    <p className="text-xs text-green-600 mt-2">Immediate payment with proper documentation and receipt recording</p>
+                                  <div className="mt-4">
+                                    <Label htmlFor="postingNotes">Posting Notes</Label>
+                                    <Textarea
+                                      id="postingNotes"
+                                      value={postingNotes}
+                                      onChange={(e) => setPostingNotes(e.target.value)}
+                                      placeholder="Additional notes for this posting..."
+                                    />
                                   </div>
                                 </div>
-                                
-                                <div className="flex justify-end space-x-2">
+
+                                <div className="flex justify-end space-x-2 pt-4">
                                   <Button
                                     variant="outline"
                                     onClick={() => {
-                                      setSelectedEntry(null);
-                                      setGlAccount("");
-                                      setCostCenter("");
-                                      setPostingNotes("");
+                                      rejectPostingMutation.mutate({
+                                        id: selectedEntry.id,
+                                        reason: "Rejected by accountant"
+                                      });
                                     }}
                                   >
-                                    Cancel
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Reject
                                   </Button>
                                   <Button
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                    onClick={() => {
-                                      if (selectedEntry && glAccount && costCenter) {
-                                        postToAPMutation.mutate({
-                                          id: selectedEntry.id,
-                                          glAccount,
-                                          costCenter,
-                                          postingNotes: postingNotes + " - Posted to Accounts Payable"
-                                        });
-                                      }
-                                    }}
-                                    disabled={!glAccount || !costCenter || postToAPMutation.isPending}
+                                    onClick={handlePostToAP}
+                                    disabled={!glAccount || postToAPMutation.isPending}
                                   >
-                                    <CreditCard className="w-4 h-4 mr-2" />
-                                    {postToAPMutation.isPending ? "Processing..." : "PROCESS"}
-                                  </Button>
-                                  <Button
-                                    className="bg-green-600 hover:bg-green-700"
-                                    onClick={() => {
-                                      if (selectedEntry && glAccount && costCenter) {
-                                        immediatePaymentMutation.mutate({
-                                          id: selectedEntry.id,
-                                          glAccount,
-                                          costCenter,
-                                          postingNotes: postingNotes + " - Immediate payment processed",
-                                          paymentMethod: selectedEntry.paymentMethod === 'immediate' ? 'bank_transfer' : 'cash',
-                                          bankAccount: selectedEntry.bankAccount || 'main_account',
-                                          amount: selectedEntry.amount
-                                        });
-                                      }
-                                    }}
-                                    disabled={!glAccount || !costCenter || immediatePaymentMutation.isPending}
-                                  >
-                                    <Banknote className="w-4 h-4 mr-2" />
-                                    {immediatePaymentMutation.isPending ? "Processing..." : "Pay Immediately"}
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    {postToAPMutation.isPending ? "Posting..." : "Post to A/P"}
                                   </Button>
                                 </div>
                               </div>
-                            </DialogContent>
-                          </Dialog>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                        
+                        {entry.status === 'pending_posting' && (
                           <Button 
-                            size="sm" 
-                            variant="destructive"
-                            onClick={() => {
-                              const reason = prompt("Enter rejection reason:");
-                              if (reason) {
-                                rejectPostingMutation.mutate({ id: entry.id, reason });
-                              }
-                            }}
+                            size="sm"
+                            onClick={() => setSelectedEntry(entry)}
                           >
-                            <XCircle className="w-4 h-4 mr-1" />
-                            Reject
+                            <Calculator className="w-4 h-4 mr-1" />
+                            Post
                           </Button>
-                        </div>
-                      )}
-                      {entry.status !== 'pending_posting' && (
-                        <Button size="sm" variant="outline">
-                          <Eye className="w-4 h-4 mr-1" />
-                          View Entry
-                        </Button>
-                      )}
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
