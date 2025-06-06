@@ -3600,10 +3600,15 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { tenantId, branchId } = req.query;
+      const userTenantId = req.user?.tenantId || 1;
+      const userBranchId = req.user?.branchId;
+      const { branchId } = req.query;
+      
+      const effectiveBranchId = branchId ? parseInt(branchId as string) : userBranchId;
+      
       const funds = await financialStorage.getPettyCashFunds(
-        Number(tenantId), 
-        branchId ? Number(branchId) : undefined
+        userTenantId, 
+        effectiveBranchId
       );
       
       res.json(funds);
