@@ -84,68 +84,15 @@ export default function PurchaseOrders() {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalComments, setApprovalComments] = useState("");
 
-  // Mock data - replace with actual API calls
-  const purchaseOrders: PurchaseOrder[] = [
-    {
-      id: 1,
-      poNumber: "PO-2024-001",
-      vendorId: 1,
-      vendorName: "MedSupply Co.",
-      requestedBy: 1,
-      requestedByName: "Dr. Smith",
-      totalAmount: 15000,
-      status: "pending-approval",
-      priority: "high",
-      requestDate: "2024-06-01",
-      requiredDate: "2024-06-15",
-      description: "Laboratory reagents and consumables",
-      department: "Laboratory",
-      category: "Medical Supplies",
-      approvalLevel: 2,
-      currentApprover: 2,
-      currentApproverName: "Lab Manager"
-    },
-    {
-      id: 2,
-      poNumber: "PO-2024-002", 
-      vendorId: 2,
-      vendorName: "TechEquip Ltd.",
-      requestedBy: 3,
-      requestedByName: "IT Admin",
-      totalAmount: 25000,
-      status: "approved",
-      priority: "medium",
-      requestDate: "2024-05-28",
-      requiredDate: "2024-06-20",
-      approvedBy: 4,
-      approvedByName: "Finance Manager",
-      approvedAt: "2024-06-02T10:30:00Z",
-      description: "Network equipment upgrade",
-      department: "IT",
-      category: "Equipment",
-      approvalLevel: 3
-    },
-    {
-      id: 3,
-      poNumber: "PO-2024-003",
-      vendorId: 3,
-      vendorName: "Office Solutions",
-      requestedBy: 5,
-      requestedByName: "Admin Staff",
-      totalAmount: 2500,
-      status: "completed",
-      priority: "low",
-      requestDate: "2024-05-25",
-      requiredDate: "2024-06-05",
-      approvedBy: 2,
-      approvedByName: "Department Head",
-      approvedAt: "2024-05-26T14:15:00Z",
-      description: "Office supplies and stationery",
-      department: "Administration",
-      category: "Office Supplies",
-      approvalLevel: 1
-    }
-  ];
+  // Fetch real purchase orders from API
+  const { data: purchaseOrders = [] } = useQuery({
+    queryKey: ['/api/purchase-orders'],
+  });
+
+  // Fetch vendors for dropdown
+  const { data: vendors = [] } = useQuery({
+    queryKey: ['/api/vendors'],
+  });
 
   const approvalLimits = [
     { level: 1, title: "Department Head", minAmount: 0, maxAmount: 5000, approver: "Dept. Manager" },

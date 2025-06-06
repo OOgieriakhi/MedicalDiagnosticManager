@@ -4227,8 +4227,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { tenantId } = req.query;
-      const vendors = await financialStorage.getVendors(Number(tenantId));
+      const tenantId = req.user?.tenantId || 1;
+      const vendors = await financialStorage.getVendors(tenantId);
       
       res.json(vendors);
     } catch (error) {
