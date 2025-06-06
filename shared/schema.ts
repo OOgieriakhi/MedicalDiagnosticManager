@@ -679,11 +679,22 @@ export const pettyCashTransactions = pgTable("petty_cash_transactions", {
   receiptNumber: text("receipt_number"),
   vendorName: text("vendor_name"),
   description: text("description").notNull(),
-  status: text("status").notNull().default("pending"), // pending, approved, rejected, paid
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, paid, disbursed
+  priority: text("priority").notNull().default("normal"), // urgent, normal, low
+  justification: text("justification"),
+  supportingDocuments: jsonb("supporting_documents"), // array of document URLs
+  approvalLevel: integer("approval_level").notNull().default(1),
+  currentApprover: integer("current_approver"),
+  approvalHistory: jsonb("approval_history"), // array of approval steps
+  disbursementMethod: text("disbursement_method"), // cash, cheque, bank_transfer
+  disbursedBy: integer("disbursed_by"),
+  disbursementVoucherNumber: text("disbursement_voucher_number"),
   attachments: jsonb("attachments"), // receipt images/documents
   createdAt: timestamp("created_at").notNull().defaultNow(),
   approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
   paidAt: timestamp("paid_at"),
+  disbursedAt: timestamp("disbursed_at"),
 });
 
 // Audit Trail for Financial Transactions
@@ -759,7 +770,9 @@ export const insertPettyCashTransactionSchema = createInsertSchema(pettyCashTran
   id: true,
   createdAt: true,
   approvedAt: true,
+  rejectedAt: true,
   paidAt: true,
+  disbursedAt: true,
 });
 
 export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
@@ -1249,6 +1262,43 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Petty Cash Approval Workflow
+export const pettyCashApprovals = pgTable("petty_cash_approvals", {
+  id: serial("id").primaryKey(),
+  transactionId: integer("transaction_id").notNull(),
+  approverLevel: integer("approver_level").notNull(), // 1, 2, 3 for multi-level approval
+  approverId: integer("approver_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  comments: text("comments"),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Petty Cash Disbursement Vouchers
+export const pettyCashDisbursements = pgTable("petty_cash_disbursements", {
+  id: serial("id").primaryKey(),
+  transactionId: integer("transaction_id").notNull(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  voucherNumber: text("voucher_number").notNull().unique(),
+  payeeName: text("payee_name").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  disbursementMethod: text("disbursement_method").notNull(), // cash, cheque, bank_transfer
+  bankAccount: text("bank_account"),
+  chequeNumber: text("cheque_number"),
+  referenceNumber: text("reference_number"),
+  preparedBy: integer("prepared_by").notNull(),
+  approvedBy: integer("approved_by"),
+  disbursedBy: integer("disbursed_by"),
+  journalEntryId: integer("journal_entry_id"),
+  status: text("status").notNull().default("prepared"), // prepared, approved, disbursed, cancelled
+  notes: text("notes"),
+  preparedAt: timestamp("prepared_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  disbursedAt: timestamp("disbursed_at"),
+});
+
 // Petty Cash Reconciliation
 export const pettyCashReconciliations = pgTable("petty_cash_reconciliations", {
   id: serial("id").primaryKey(),
@@ -1494,6 +1544,20 @@ export const insertPaymentVoucherSchema = createInsertSchema(paymentVouchers).om
   preparedAt: true,
   approvedAt: true,
   paidAt: true,
+});
+
+export const insertPettyCashApprovalSchema = createInsertSchema(pettyCashApprovals).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+  rejectedAt: true,
+});
+
+export const insertPettyCashDisbursementSchema = createInsertSchema(pettyCashDisbursements).omit({
+  id: true,
+  preparedAt: true,
+  approvedAt: true,
+  disbursedAt: true,
 });
 
 // Type exports for accounting system
