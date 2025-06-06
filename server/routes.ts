@@ -8825,6 +8825,165 @@ Medical System Procurement Team
     }
   });
 
+  // ========== PATIENT BILLING ENDPOINTS ==========
+  
+  // Process patient billing with receipt generation and ERP integration
+  app.post("/api/patient-billing", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { 
+        patientId, 
+        patientName, 
+        services, 
+        subtotal, 
+        tax, 
+        discount, 
+        totalAmount, 
+        paymentMethod, 
+        staffId,
+        tenantId,
+        branchId,
+        timestamp,
+        staffInfo
+      } = req.body;
+
+      // Generate receipt number
+      const receiptNumber = `RCP-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+      
+      // Create invoice/bill record
+      const invoiceData = {
+        invoiceNumber: receiptNumber,
+        patientId,
+        tenantId,
+        branchId,
+        amount: totalAmount,
+        status: 'paid',
+        paymentMethod,
+        paymentDate: new Date(timestamp),
+        createdBy: staffId,
+        services: JSON.stringify(services),
+        subtotal,
+        tax,
+        discount,
+        staffInfo: JSON.stringify(staffInfo)
+      };
+
+      // Store invoice record
+      const invoice = await storage.createInvoice(invoiceData);
+
+      // Create journal entry for revenue posting
+      const journalEntryData = {
+        entryNumber: `JE-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+        entryDate: new Date(timestamp),
+        description: `Patient billing - ${patientName} - Services: ${services.map((s: any) => s.name).join(', ')}`,
+        tenantId,
+        branchId,
+        referenceType: 'patient_billing',
+        referenceNumber: receiptNumber,
+        totalDebit: totalAmount,
+        totalCredit: totalAmount,
+        status: 'posted',
+        createdBy: staffId
+      };
+
+      // Post to accounting system with automatic journal entry
+      const journalEntry = await storage.createJournalEntry(journalEntryData);
+
+      // Create journal entry line items
+      const lineItems = [
+        // Debit: Cash/Bank Account (Asset)
+        {
+          journalEntryId: journalEntry.id,
+          accountCode: paymentMethod === 'cash' ? '1010' : '1020',
+          accountName: paymentMethod === 'cash' ? 'Cash in Hand' : 'Bank Account',
+          description: `Payment received - ${paymentMethod.toUpperCase()}`,
+          debitAmount: totalAmount,
+          creditAmount: 0,
+          tenantId,
+          branchId
+        },
+        // Credit: Service Revenue (Revenue)
+        {
+          journalEntryId: journalEntry.id,
+          accountCode: '4010',
+          accountName: 'Medical Service Revenue',
+          description: `Revenue from patient services - ${patientName}`,
+          debitAmount: 0,
+          creditAmount: subtotal,
+          tenantId,
+          branchId
+        }
+      ];
+
+      // Add VAT line item if applicable
+      if (tax > 0) {
+        lineItems.push({
+          journalEntryId: journalEntry.id,
+          accountCode: '2030',
+          accountName: 'VAT Payable',
+          description: 'VAT collected on services',
+          debitAmount: 0,
+          creditAmount: tax,
+          tenantId,
+          branchId
+        });
+      }
+
+      // Create line items
+      for (const lineItem of lineItems) {
+        await storage.createJournalEntryLineItem(lineItem);
+      }
+
+      // Generate receipt data
+      const receipt = {
+        receiptNumber,
+        patientId,
+        patientName,
+        invoiceId: invoice.id,
+        services,
+        subtotal,
+        tax,
+        discount,
+        totalAmount,
+        paymentMethod,
+        timestamp,
+        staffInfo,
+        journalEntryNumber: journalEntry.entryNumber,
+        status: 'completed'
+      };
+
+      console.log(`Patient billing processed: ${receiptNumber} - ₦${totalAmount.toLocaleString()} - ${paymentMethod.toUpperCase()}`);
+      console.log(`Journal Entry: ${journalEntry.entryNumber} posted to ERP ledger`);
+      console.log(`Staff: ${staffInfo.username} (${staffInfo.department})`);
+
+      res.json(receipt);
+
+    } catch (error: any) {
+      console.error("Error processing patient billing:", error);
+      res.status(500).json({ message: "Failed to process payment" });
+    }
+  });
+
+  // Get patient billing history
+  app.get("/api/patient-billing/:patientId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { patientId } = req.params;
+      const invoices = await storage.getPatientInvoices(parseInt(patientId), req.user!.tenantId);
+      
+      res.json(invoices);
+    } catch (error: any) {
+      console.error("Error fetching patient billing history:", error);
+      res.status(500).json({ message: "Failed to fetch billing history" });
+    }
+  });
+
   // ========== REPORT TEMPLATE MANAGEMENT ENDPOINTS ==========
   
   // Get all report templates
