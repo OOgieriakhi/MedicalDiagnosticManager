@@ -453,6 +453,92 @@ export default function GEDDashboard() {
                                         <CheckCircle className="w-4 h-4 mr-2" />
                                         Approve
                                       </Button>
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button variant="outline">
+                                            <MessageSquare className="w-4 h-4 mr-2" />
+                                            Query
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>Raise Query</DialogTitle>
+                                            <DialogDescription>
+                                              Request additional information or clarification
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                          <div className="space-y-4">
+                                            <div>
+                                              <Label>Request Details</Label>
+                                              <p className="text-sm text-gray-600">{selectedApproval?.type} - {formatCurrency(selectedApproval?.amount)}</p>
+                                            </div>
+                                            <div>
+                                              <Label htmlFor="query">Your Query</Label>
+                                              <Textarea
+                                                id="query"
+                                                placeholder="Please provide additional details about..."
+                                                rows={4}
+                                              />
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Button className="flex-1">
+                                                Submit Query
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </DialogContent>
+                                      </Dialog>
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button variant="outline" className="bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100">
+                                            <ArrowUp className="w-4 h-4 mr-2" />
+                                            Refer to CEO
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>Refer to CEO</DialogTitle>
+                                            <DialogDescription>
+                                              Escalate this approval to CEO level
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                          <div className="space-y-4">
+                                            <div>
+                                              <Label>Request Details</Label>
+                                              <p className="text-sm text-gray-600">{selectedApproval?.type} - {formatCurrency(selectedApproval?.amount)}</p>
+                                            </div>
+                                            <div>
+                                              <Label htmlFor="referral-reason">Reason for CEO Referral</Label>
+                                              <Select>
+                                                <SelectTrigger>
+                                                  <SelectValue placeholder="Select reason" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  <SelectItem value="high-value">High Value Transaction</SelectItem>
+                                                  <SelectItem value="policy-exception">Policy Exception Required</SelectItem>
+                                                  <SelectItem value="strategic-decision">Strategic Decision</SelectItem>
+                                                  <SelectItem value="compliance-review">Compliance Review</SelectItem>
+                                                  <SelectItem value="other">Other</SelectItem>
+                                                </SelectContent>
+                                              </Select>
+                                            </div>
+                                            <div>
+                                              <Label htmlFor="referral-notes">Additional Notes</Label>
+                                              <Textarea
+                                                id="referral-notes"
+                                                placeholder="Provide context for CEO review..."
+                                                rows={3}
+                                              />
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Button className="flex-1 bg-yellow-600 hover:bg-yellow-700">
+                                                <ArrowUp className="w-4 h-4 mr-2" />
+                                                Refer to CEO
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </DialogContent>
+                                      </Dialog>
                                       <Button 
                                         variant="destructive"
                                         onClick={() => rejectExpenseMutation.mutate({ 
