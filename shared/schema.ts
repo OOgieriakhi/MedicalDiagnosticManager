@@ -874,6 +874,79 @@ export const paymentOrders = pgTable("payment_orders", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Bank Accounts
+export const bankAccounts = pgTable("bank_accounts", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  accountName: text("account_name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  bankName: text("bank_name").notNull(),
+  bankCode: text("bank_code"),
+  accountType: text("account_type").notNull().default("current"), // current, savings, fixed_deposit
+  currency: text("currency").notNull().default("NGN"),
+  currentBalance: decimal("current_balance", { precision: 12, scale: 2 }).notNull().default("0"),
+  availableBalance: decimal("available_balance", { precision: 12, scale: 2 }).notNull().default("0"),
+  isActive: boolean("is_active").notNull().default(true),
+  isMainAccount: boolean("is_main_account").notNull().default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Bank Deposits
+export const bankDeposits = pgTable("bank_deposits", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  depositNumber: text("deposit_number").notNull().unique(),
+  bankAccountId: integer("bank_account_id").notNull().references(() => bankAccounts.id),
+  depositAmount: decimal("deposit_amount", { precision: 12, scale: 2 }).notNull(),
+  depositDate: timestamp("deposit_date").notNull(),
+  depositMethod: text("deposit_method").notNull(), // cash, cheque, bank_transfer, card
+  referenceNumber: text("reference_number"), // Bank slip/teller reference
+  tellerReference: text("teller_reference"),
+  sourceType: text("source_type").notNull(), // daily_cash, invoice_payments, other
+  sourceReference: text("source_reference"), // Link to daily transactions or specific invoices
+  linkedCashAmount: decimal("linked_cash_amount", { precision: 12, scale: 2 }).default("0"),
+  depositedBy: integer("deposited_by").notNull().references(() => users.id),
+  verifiedBy: integer("verified_by").references(() => users.id),
+  reconcileStatus: text("reconcile_status").notNull().default("pending"), // pending, matched, discrepancy, verified
+  proofOfPayment: text("proof_of_payment"), // URL to uploaded document
+  bankStatement: text("bank_statement"), // URL to bank statement proof
+  discrepancyAmount: decimal("discrepancy_amount", { precision: 12, scale: 2 }).default("0"),
+  discrepancyReason: text("discrepancy_reason"),
+  notes: text("notes"),
+  status: text("status").notNull().default("pending"), // pending, verified, flagged, resolved
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Daily Cash Reconciliation - links verified cash to bank deposits
+export const cashReconciliation = pgTable("cash_reconciliation", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  reconciliationNumber: text("reconciliation_number").notNull().unique(),
+  businessDate: timestamp("business_date").notNull(),
+  totalCashCollected: decimal("total_cash_collected", { precision: 12, scale: 2 }).notNull(),
+  totalCashDeposited: decimal("total_cash_deposited", { precision: 12, scale: 2 }).default("0"),
+  totalCashRetained: decimal("total_cash_retained", { precision: 12, scale: 2 }).default("0"),
+  retentionReason: text("retention_reason"), // petty_cash, change_fund, float
+  varianceAmount: decimal("variance_amount", { precision: 12, scale: 2 }).default("0"),
+  varianceReason: text("variance_reason"),
+  reconciliationStatus: text("reconciliation_status").notNull().default("pending"), // pending, completed, discrepancy
+  reconciledBy: integer("reconciled_by").notNull().references(() => users.id),
+  approvedBy: integer("approved_by").references(() => users.id),
+  depositIds: jsonb("deposit_ids"), // Array of bank deposit IDs linked to this reconciliation
+  transactionIds: jsonb("transaction_ids"), // Array of daily transaction IDs included
+  notes: text("notes"),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Schema validations for new tables
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
   id: true,
@@ -954,6 +1027,24 @@ export const insertVendorSchema = createInsertSchema(vendors).omit({
   updatedAt: true,
 });
 
+export const insertBankAccountSchema = createInsertSchema(bankAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBankDepositSchema = createInsertSchema(bankDeposits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCashReconciliationSchema = createInsertSchema(cashReconciliation).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type exports for new schemas
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
@@ -975,6 +1066,15 @@ export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
 
 export type Vendor = typeof vendors.$inferSelect;
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
+
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type InsertBankAccount = z.infer<typeof insertBankAccountSchema>;
+
+export type BankDeposit = typeof bankDeposits.$inferSelect;
+export type InsertBankDeposit = z.infer<typeof insertBankDepositSchema>;
+
+export type CashReconciliation = typeof cashReconciliation.$inferSelect;
+export type InsertCashReconciliation = z.infer<typeof insertCashReconciliationSchema>;
 
 // Double Entry Accounting System
 // Chart of Accounts
