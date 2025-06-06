@@ -2100,6 +2100,80 @@ export const referralInvoiceItems = pgTable("referral_invoice_items", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
+// Referral Payment Settlements - ERP ledger integration
+export const referralPaymentSettlements = pgTable("referral_payment_settlements", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  referralInvoiceId: integer("referral_invoice_id").references(() => referralInvoices.id).notNull(),
+  settlementNumber: text("settlement_number").notNull().unique(), // SETTLE-YYYYMM-XXXXXX
+  paymentMethod: text("payment_method").notNull(), // bank_transfer, cash, cheque, mobile_money
+  paymentReference: text("payment_reference"), // Bank reference, cheque number, etc.
+  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).notNull(),
+  bankAccountId: integer("bank_account_id"), // If paid via bank transfer
+  processedBy: integer("processed_by").references(() => users.id).notNull(),
+  authorizedBy: integer("authorized_by").references(() => users.id), // Required for dual authorization
+  paymentDate: timestamp("payment_date").notNull(),
+  status: text("status").notNull().default("processed"), // processed, reversed, cancelled
+  proofOfPaymentUrl: text("proof_of_payment_url"), // Document/receipt upload
+  journalEntryId: integer("journal_entry_id"), // Link to accounting entry
+  notes: text("notes"),
+  reversalReason: text("reversal_reason"),
+  reversedBy: integer("reversed_by").references(() => users.id),
+  reversedAt: timestamp("reversed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Referral Provider Ledger - Running balance tracking
+export const referralProviderLedger = pgTable("referral_provider_ledger", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  referralProviderId: integer("referral_provider_id").references(() => referralProviders.id).notNull(),
+  transactionDate: timestamp("transaction_date").notNull(),
+  transactionType: text("transaction_type").notNull(), // commission_earned, payment_made, adjustment
+  referenceType: text("reference_type").notNull(), // invoice, settlement, adjustment
+  referenceId: integer("reference_id").notNull(),
+  referenceNumber: text("reference_number").notNull(),
+  description: text("description").notNull(),
+  debitAmount: decimal("debit_amount", { precision: 10, scale: 2 }).default("0"), // Amounts owed TO provider
+  creditAmount: decimal("credit_amount", { precision: 10, scale: 2 }).default("0"), // Payments made BY organization
+  runningBalance: decimal("running_balance", { precision: 10, scale: 2 }).notNull(),
+  fiscalYear: integer("fiscal_year").notNull(),
+  fiscalMonth: integer("fiscal_month").notNull(),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Payment Authorization Workflow for referral settlements
+export const referralPaymentAuthorizations = pgTable("referral_payment_authorizations", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  referralInvoiceId: integer("referral_invoice_id").references(() => referralInvoices.id).notNull(),
+  requestedBy: integer("requested_by").references(() => users.id).notNull(),
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  amountRequested: decimal("amount_requested", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  justification: text("justification").notNull(),
+  supportingDocuments: jsonb("supporting_documents"), // Invoice, contracts, etc.
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, processed
+  authorizedBy: integer("authorized_by").references(() => users.id),
+  authorizedAt: timestamp("authorized_at"),
+  rejectedBy: integer("rejected_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  processedBy: integer("processed_by").references(() => users.id),
+  processedAt: timestamp("processed_at"),
+  settlementId: integer("settlement_id").references(() => referralPaymentSettlements.id), // Link to actual payment record
+  approvalLevel: integer("approval_level").notNull().default(1), // 1=Manager, 2=Finance Director
+  currentApprover: integer("current_approver").references(() => users.id),
+  approvalHistory: jsonb("approval_history"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Referral invoice schema validations
 export const insertReferralInvoiceSchema = createInsertSchema(referralInvoices).omit({
   id: true,
@@ -2114,12 +2188,39 @@ export const insertReferralInvoiceItemSchema = createInsertSchema(referralInvoic
   createdAt: true,
 });
 
+export const insertReferralPaymentSettlementSchema = createInsertSchema(referralPaymentSettlements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReferralProviderLedgerSchema = createInsertSchema(referralProviderLedger).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReferralPaymentAuthorizationSchema = createInsertSchema(referralPaymentAuthorizations).omit({
+  id: true,
+  requestedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Referral invoice type exports
 export type ReferralInvoice = typeof referralInvoices.$inferSelect;
 export type InsertReferralInvoice = z.infer<typeof insertReferralInvoiceSchema>;
 
 export type ReferralInvoiceItem = typeof referralInvoiceItems.$inferSelect;
 export type InsertReferralInvoiceItem = z.infer<typeof insertReferralInvoiceItemSchema>;
+
+export type ReferralPaymentSettlement = typeof referralPaymentSettlements.$inferSelect;
+export type InsertReferralPaymentSettlement = z.infer<typeof insertReferralPaymentSettlementSchema>;
+
+export type ReferralProviderLedger = typeof referralProviderLedger.$inferSelect;
+export type InsertReferralProviderLedger = z.infer<typeof insertReferralProviderLedgerSchema>;
+
+export type ReferralPaymentAuthorization = typeof referralPaymentAuthorizations.$inferSelect;
+export type InsertReferralPaymentAuthorization = z.infer<typeof insertReferralPaymentAuthorizationSchema>;
 
 // Export RBAC schemas
 export * from "./rbac-schema";
