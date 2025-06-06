@@ -81,10 +81,10 @@ export default function RecentPatients({ branchId }: RecentPatientsProps) {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        {recentTests.length === 0 ? (
+        {recentTransactions.length === 0 ? (
           <div className="p-6 text-center text-slate-gray">
             <User className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p>No recent patient tests found</p>
+            <p>No recent transactions found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -95,22 +95,22 @@ export default function RecentPatients({ branchId }: RecentPatientsProps) {
                     Patient
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-gray uppercase tracking-wider">
-                    Test Type
+                    Receipt
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-gray uppercase tracking-wider">
-                    Status
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-gray uppercase tracking-wider">
+                    Payment
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-gray uppercase tracking-wider">
                     Time
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-gray uppercase tracking-wider">
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recentTests.map((test: any) => (
-                  <tr key={test.id} className="hover:bg-gray-50">
+                {recentTransactions.map((transaction: any) => (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-slate-gray rounded-full flex items-center justify-center">
@@ -118,30 +118,27 @@ export default function RecentPatients({ branchId }: RecentPatientsProps) {
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {test.patientName}
+                            {transaction.patient_name}
                           </div>
                           <div className="text-sm text-slate-gray">
-                            ID: {test.patientId}
+                            {transaction.cashier_name}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {test.testName}
+                      {transaction.receipt_number}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      ₦{Number(transaction.amount).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(test.status)}
+                      <Badge variant={transaction.payment_method === 'cash' ? 'default' : 'secondary'}>
+                        {transaction.payment_method.toUpperCase()}
+                      </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-gray">
-                      {formatTime(test.scheduledAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                      <Button variant="ghost" size="sm" className="text-medical-blue hover:text-blue-700">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-slate-gray hover:text-gray-700">
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                      {formatTime(transaction.transaction_time)}
                     </td>
                   </tr>
                 ))}

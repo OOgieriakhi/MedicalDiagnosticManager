@@ -14,7 +14,7 @@ import { queueManager } from "./queue-manager";
 import { accountingEngine } from "./accounting-engine";
 import { pettyCashEngine } from "./petty-cash-engine";
 import { approvalConfigService } from "./approval-config";
-import { db } from "./db";
+import { db, pool } from "./db";
 import PDFDocument from 'pdfkit';
 import { 
   patients, 
@@ -9252,134 +9252,71 @@ Medical System Procurement Team
       const branchId = req.user!.branchId;
       const today = new Date().toISOString().split('T')[0];
 
-      // Get today's revenue summary
-      const revenueQuery = `
-        SELECT 
-          COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0) as cash_total,
-          COALESCE(SUM(CASE WHEN payment_method = 'pos' THEN amount ELSE 0 END), 0) as pos_total,
-          COALESCE(SUM(CASE WHEN payment_method = 'transfer' THEN amount ELSE 0 END), 0) as transfer_total,
-          COALESCE(SUM(amount), 0) as total_revenue,
-          COUNT(*) as transaction_count
-        FROM daily_transactions 
-        WHERE tenant_id = $1 
-        AND DATE(transaction_time) = $2
-        ${branchId ? 'AND branch_id = $3' : ''}
-      `;
+      // Get today's transactions from our existing daily_transactions table
+      const todayTransactions = await storage.getDailyTransactions(tenantId, branchId, today);
 
-      const revenueParams = branchId ? [tenantId, today, branchId] : [tenantId, today];
-      const revenueResult = await pool.query(revenueQuery, revenueParams);
-      const revenueData = revenueResult.rows[0] || {
-        cash_total: 0,
-        pos_total: 0,
-        transfer_total: 0,
-        total_revenue: 0,
-        transaction_count: 0
-      };
+      // Calculate revenue metrics from actual transaction data
+      const totalRevenue = todayTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+      const cashTotal = todayTransactions
+        .filter(t => t.payment_method === 'cash')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const posTotal = todayTransactions
+        .filter(t => t.payment_method === 'pos')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const transferTotal = todayTransactions
+        .filter(t => t.payment_method === 'transfer')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
 
-      // Get purchase order metrics
-      const poQuery = `
-        SELECT 
-          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_orders,
-          COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_orders,
-          COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_orders,
-          COALESCE(SUM(CASE WHEN status = 'approved' THEN total_amount ELSE 0 END), 0) as total_approved_amount
-        FROM purchase_orders 
-        WHERE tenant_id = $1
-        ${branchId ? 'AND branch_id = $2' : ''}
-      `;
+      const uniquePatients = new Set(todayTransactions.map(t => t.patient_name)).size;
 
-      const poParams = branchId ? [tenantId, branchId] : [tenantId];
-      const poResult = await pool.query(poQuery, poParams);
-      const poData = poResult.rows[0] || {
-        pending_orders: 0,
-        approved_orders: 0,
-        rejected_orders: 0,
-        total_approved_amount: 0
-      };
+      // Get purchase order metrics using existing schema
+      const purchaseOrders = await storage.getPurchaseOrders(tenantId);
+      const pendingOrders = purchaseOrders.filter(po => po.status === 'pending').length;
+      const approvedOrders = purchaseOrders.filter(po => po.status === 'approved').length;
+      const rejectedOrders = purchaseOrders.filter(po => po.status === 'rejected').length;
 
-      // Get patient metrics
-      const patientQuery = `
-        SELECT 
-          COUNT(DISTINCT patient_id) as unique_patients,
-          COUNT(*) as total_visits,
-          AVG(amount) as average_transaction
-        FROM daily_transactions 
-        WHERE tenant_id = $1 
-        AND DATE(transaction_time) = $2
-        ${branchId ? 'AND branch_id = $3' : ''}
-      `;
+      // Get recent transactions (last 10)
+      const recentTransactions = todayTransactions
+        .sort((a, b) => new Date(b.transaction_time).getTime() - new Date(a.transaction_time).getTime())
+        .slice(0, 10);
 
-      const patientResult = await pool.query(patientQuery, revenueParams);
-      const patientData = patientResult.rows[0] || {
-        unique_patients: 0,
-        total_visits: 0,
-        average_transaction: 0
-      };
+      // Calculate average transaction amount
+      const averageTransaction = todayTransactions.length > 0 
+        ? totalRevenue / todayTransactions.length 
+        : 0;
 
-      // Get recent transactions
-      const recentQuery = `
-        SELECT 
-          dt.id,
-          dt.receipt_number,
-          dt.patient_name,
-          dt.amount,
-          dt.payment_method,
-          dt.transaction_time,
-          u.username as cashier_name
-        FROM daily_transactions dt
-        LEFT JOIN users u ON dt.cashier_id = u.id
-        WHERE dt.tenant_id = $1
-        ${branchId ? 'AND dt.branch_id = $2' : ''}
-        ORDER BY dt.transaction_time DESC
-        LIMIT 10
-      `;
+      // Monthly trend (using current data - could expand to historical data)
+      const monthlyTrend = [{
+        month: new Date().toISOString().slice(0, 7), // YYYY-MM format
+        revenue: totalRevenue,
+        transactions: todayTransactions.length
+      }];
 
-      const recentParams = branchId ? [tenantId, branchId] : [tenantId];
-      const recentResult = await pool.query(recentQuery, recentParams);
-
-      // Get monthly revenue trend (last 6 months)
-      const trendQuery = `
-        SELECT 
-          DATE_TRUNC('month', transaction_time) as month,
-          SUM(amount) as monthly_revenue,
-          COUNT(*) as monthly_transactions
-        FROM daily_transactions 
-        WHERE tenant_id = $1 
-        AND transaction_time >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
-        ${branchId ? 'AND branch_id = $2' : ''}
-        GROUP BY DATE_TRUNC('month', transaction_time)
-        ORDER BY month DESC
-      `;
-
-      const trendResult = await pool.query(trendQuery, recentParams);
-
-      // Compile dashboard response
+      // Compile dashboard response with real data
       const dashboardData = {
         date: today,
         revenue: {
-          total: Number(revenueData.total_revenue),
-          cash: Number(revenueData.cash_total),
-          pos: Number(revenueData.pos_total),
-          transfer: Number(revenueData.transfer_total),
-          transactionCount: Number(revenueData.transaction_count)
+          total: totalRevenue,
+          cash: cashTotal,
+          pos: posTotal,
+          transfer: transferTotal,
+          transactionCount: todayTransactions.length
         },
         purchaseOrders: {
-          pending: Number(poData.pending_orders),
-          approved: Number(poData.approved_orders),
-          rejected: Number(poData.rejected_orders),
-          totalApprovedAmount: Number(poData.total_approved_amount)
+          pending: pendingOrders,
+          approved: approvedOrders,
+          rejected: rejectedOrders,
+          totalApprovedAmount: purchaseOrders
+            .filter(po => po.status === 'approved')
+            .reduce((sum, po) => sum + Number(po.totalAmount), 0)
         },
         patients: {
-          uniquePatients: Number(patientData.unique_patients),
-          totalVisits: Number(patientData.total_visits),
-          averageTransaction: Number(patientData.average_transaction) || 0
+          uniquePatients: uniquePatients,
+          totalVisits: todayTransactions.length,
+          averageTransaction: averageTransaction
         },
-        recentTransactions: recentResult.rows,
-        monthlyTrend: trendResult.rows.map(row => ({
-          month: row.month,
-          revenue: Number(row.monthly_revenue),
-          transactions: Number(row.monthly_transactions)
-        })),
+        recentTransactions: recentTransactions,
+        monthlyTrend: monthlyTrend,
         lastUpdated: new Date()
       };
 
