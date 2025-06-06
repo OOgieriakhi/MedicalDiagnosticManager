@@ -208,6 +208,72 @@ export class PettyCashEngine {
   }
 
   /**
+   * Check if user can approve transaction based on amount and role
+   */
+  async canUserApproveTransaction(transactionId: number, userId: number, tenantId: number): Promise<{ canApprove: boolean; reason?: string; maxLimit?: number }> {
+    // Get transaction details
+    const transaction = await db
+      .select()
+      .from(pettyCashTransactions)
+      .where(eq(pettyCashTransactions.id, transactionId))
+      .limit(1);
+
+    if (!transaction.length) {
+      return { canApprove: false, reason: "Transaction not found" };
+    }
+
+    const txn = transaction[0];
+    const amount = parseFloat(txn.amount);
+
+    // Get user details and approval role
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user.length) {
+      return { canApprove: false, reason: "User not found" };
+    }
+
+    const userRole = user[0].role;
+
+    // Get approval thresholds for this organization
+    const thresholds = await approvalConfigService.getApprovalThresholds(tenantId, txn.branchId);
+
+    // Determine max approval limit based on user role
+    let maxApprovalLimit = 0;
+    
+    switch (userRole) {
+      case 'branch_manager':
+      case 'manager':
+        maxApprovalLimit = thresholds.managerThreshold;
+        break;
+      case 'finance_manager':
+      case 'accountant':
+      case 'admin':
+        maxApprovalLimit = thresholds.financeThreshold;
+        break;
+      case 'ceo':
+      case 'director':
+        maxApprovalLimit = thresholds.ceoThreshold;
+        break;
+      default:
+        return { canApprove: false, reason: "User role not authorized for approvals", maxLimit: 0 };
+    }
+
+    if (amount > maxApprovalLimit) {
+      return { 
+        canApprove: false, 
+        reason: `Transaction amount (${amount.toLocaleString()}) exceeds your approval limit (${maxApprovalLimit.toLocaleString()})`,
+        maxLimit: maxApprovalLimit 
+      };
+    }
+
+    return { canApprove: true, maxLimit: maxApprovalLimit };
+  }
+
+  /**
    * Approve a petty cash transaction
    */
   async approveTransaction(transactionId: number, approverId: number, comments?: string) {

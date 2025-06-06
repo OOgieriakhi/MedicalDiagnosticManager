@@ -3822,6 +3822,22 @@ export function registerRoutes(app: Express): Server {
       const { transactionId } = req.params;
       const { comments } = req.body;
       const approverId = req.user?.id || 2;
+      const tenantId = req.user?.tenantId || 1;
+
+      // Check if user has authorization to approve this transaction
+      const authCheck = await pettyCashEngine.canUserApproveTransaction(
+        parseInt(transactionId), 
+        approverId, 
+        tenantId
+      );
+
+      if (!authCheck.canApprove) {
+        return res.status(403).json({ 
+          message: "Approval not authorized", 
+          reason: authCheck.reason,
+          maxLimit: authCheck.maxLimit 
+        });
+      }
 
       await pettyCashEngine.approveTransaction(parseInt(transactionId), approverId, comments);
       

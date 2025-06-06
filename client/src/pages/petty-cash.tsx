@@ -69,6 +69,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertPettyCashFundSchema, insertPettyCashTransactionSchema, insertPettyCashReconciliationSchema } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 // Simplified form schemas matching database structure
 const transactionFormSchema = z.object({
@@ -108,6 +109,32 @@ export default function PettyCash() {
   const [selectedFund, setSelectedFund] = useState<any>(null);
   
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Helper function to get user approval limit based on role
+  const getUserApprovalLimit = () => {
+    if (!user?.role) return 0;
+    
+    switch (user.role) {
+      case 'branch_manager':
+      case 'manager':
+        return 25000; // NGN
+      case 'finance_manager':
+      case 'accountant':
+      case 'admin':
+        return 100000; // NGN
+      case 'ceo':
+      case 'director':
+        return 500000; // NGN
+      default:
+        return 0;
+    }
+  };
+
+  const canApproveTransaction = (amount: number) => {
+    const userLimit = getUserApprovalLimit();
+    return amount <= userLimit;
+  };
 
   // Queries
   const { data: funds = [], isLoading: isLoadingFunds } = useQuery({
@@ -627,24 +654,51 @@ export default function PettyCash() {
                           <TableCell>Level {transaction.approvalLevel || 1}</TableCell>
                           <TableCell>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => handleApproveTransaction(transaction.id)}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="destructive"
-                                onClick={() => handleRejectTransaction(transaction.id)}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
+                            {canApproveTransaction(parseFloat(transaction.amount)) ? (
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  className="bg-green-600 hover:bg-green-700"
+                                  onClick={() => handleApproveTransaction(transaction.id)}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => handleRejectTransaction(transaction.id)}
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    disabled
+                                    className="opacity-50 cursor-not-allowed"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    disabled
+                                    variant="destructive"
+                                    className="opacity-50 cursor-not-allowed"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Reject
+                                  </Button>
+                                </div>
+                                <p className="text-xs text-red-600">
+                                  Exceeds your approval limit (₦{getUserApprovalLimit().toLocaleString()})
+                                </p>
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
