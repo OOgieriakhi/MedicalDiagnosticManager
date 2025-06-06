@@ -7790,6 +7790,447 @@ Medical System Procurement Team
     }
   });
 
+  // === GOODS RECEIPT MANAGEMENT ===
+
+  // Get purchase orders ready for delivery
+  app.get("/api/purchase-orders/delivery-pending", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      
+      // Get approved POs that don't have complete goods receipts
+      const purchaseOrders = await storage.db
+        .select({
+          id: purchaseOrders.id,
+          poNumber: purchaseOrders.poNumber,
+          vendorName: vendors.name,
+          createdAt: purchaseOrders.createdAt,
+          expectedDeliveryDate: purchaseOrders.expectedDeliveryDate,
+          totalAmount: purchaseOrders.totalAmount,
+          status: purchaseOrders.status,
+          items: sql`COALESCE(
+            json_agg(
+              json_build_object(
+                'id', poi.id,
+                'description', poi.description,
+                'quantity', poi.quantity,
+                'unit', poi.unit,
+                'unitPrice', poi.unit_price
+              )
+            ) FILTER (WHERE poi.id IS NOT NULL), '[]'::json
+          )`
+        })
+        .from(purchaseOrders)
+        .leftJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
+        .leftJoin(purchaseOrderItems, eq(purchaseOrders.id, purchaseOrderItems.purchaseOrderId))
+        .leftJoin(goodsReceipts, eq(purchaseOrders.id, goodsReceipts.purchaseOrderId))
+        .where(
+          and(
+            eq(purchaseOrders.tenantId, user.tenantId!),
+            eq(purchaseOrders.status, 'approved'),
+            isNull(goodsReceipts.id) // No goods receipt exists yet
+          )
+        )
+        .groupBy(purchaseOrders.id, vendors.name);
+
+      res.json(purchaseOrders);
+    } catch (error: any) {
+      console.error("Error fetching delivery pending POs:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create goods receipt
+  app.post("/api/goods-receipts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      const { purchaseOrderId, receivedDate, notes, items } = req.body;
+
+      // Generate receipt number
+      const receiptNumber = `GR-${Date.now()}`;
+
+      // Create goods receipt
+      const [goodsReceipt] = await storage.db
+        .insert(goodsReceipts)
+        .values({
+          tenantId: user.tenantId!,
+          branchId: user.branchId!,
+          purchaseOrderId,
+          receiptNumber,
+          receivedDate: new Date(receivedDate),
+          receivedBy: user.id,
+          status: 'received',
+          notes
+        })
+        .returning();
+
+      // Create goods receipt items
+      if (items && items.length > 0) {
+        const receiptItems = items.map((item: any) => ({
+          goodsReceiptId: goodsReceipt.id,
+          purchaseOrderItemId: item.purchaseOrderItemId,
+          itemDescription: item.itemDescription,
+          orderedQuantity: item.orderedQuantity,
+          receivedQuantity: item.receivedQuantity,
+          unitPrice: item.unitPrice,
+          condition: item.condition || 'good',
+          batchNumber: item.batchNumber,
+          expiryDate: item.expiryDate ? new Date(item.expiryDate) : null,
+          notes: item.notes
+        }));
+
+        await storage.db.insert(goodsReceiptItems).values(receiptItems);
+      }
+
+      res.json({
+        success: true,
+        goodsReceipt,
+        message: "Goods receipt created successfully"
+      });
+    } catch (error: any) {
+      console.error("Error creating goods receipt:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get all goods receipts
+  app.get("/api/goods-receipts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      
+      const receipts = await storage.db
+        .select({
+          id: goodsReceipts.id,
+          receiptNumber: goodsReceipts.receiptNumber,
+          poNumber: purchaseOrders.poNumber,
+          vendorName: vendors.name,
+          receivedDate: goodsReceipts.receivedDate,
+          receivedByName: users.username,
+          status: goodsReceipts.status,
+          notes: goodsReceipts.notes
+        })
+        .from(goodsReceipts)
+        .leftJoin(purchaseOrders, eq(goodsReceipts.purchaseOrderId, purchaseOrders.id))
+        .leftJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
+        .leftJoin(users, eq(goodsReceipts.receivedBy, users.id))
+        .where(eq(goodsReceipts.tenantId, user.tenantId!))
+        .orderBy(desc(goodsReceipts.createdAt));
+
+      res.json(receipts);
+    } catch (error: any) {
+      console.error("Error fetching goods receipts:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get unmatched goods receipts
+  app.get("/api/goods-receipts/unmatched", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      
+      const unmatchedReceipts = await storage.db
+        .select({
+          id: goodsReceipts.id,
+          receiptNumber: goodsReceipts.receiptNumber,
+          poNumber: purchaseOrders.poNumber,
+          purchaseOrderId: goodsReceipts.purchaseOrderId,
+          vendorName: vendors.name,
+          receivedDate: goodsReceipts.receivedDate,
+          status: goodsReceipts.status
+        })
+        .from(goodsReceipts)
+        .leftJoin(purchaseOrders, eq(goodsReceipts.purchaseOrderId, purchaseOrders.id))
+        .leftJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
+        .leftJoin(threeWayMatching, eq(goodsReceipts.id, threeWayMatching.goodsReceiptId))
+        .where(
+          and(
+            eq(goodsReceipts.tenantId, user.tenantId!),
+            eq(goodsReceipts.status, 'received'),
+            isNull(threeWayMatching.id) // Not yet matched
+          )
+        )
+        .orderBy(desc(goodsReceipts.receivedDate));
+
+      res.json(unmatchedReceipts);
+    } catch (error: any) {
+      console.error("Error fetching unmatched receipts:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // === VENDOR INVOICE MANAGEMENT ===
+
+  // Create vendor invoice
+  app.post("/api/vendor-invoices", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      const { 
+        vendorId, 
+        invoiceNumber, 
+        invoiceDate, 
+        dueDate, 
+        totalAmount, 
+        taxAmount, 
+        discountAmount, 
+        attachmentUrl, 
+        notes 
+      } = req.body;
+
+      const [vendorInvoice] = await storage.db
+        .insert(vendorInvoices)
+        .values({
+          tenantId: user.tenantId!,
+          branchId: user.branchId!,
+          vendorId: parseInt(vendorId),
+          invoiceNumber,
+          invoiceDate: new Date(invoiceDate),
+          dueDate: new Date(dueDate),
+          totalAmount: totalAmount.toString(),
+          taxAmount: taxAmount ? taxAmount.toString() : '0',
+          discountAmount: discountAmount ? discountAmount.toString() : '0',
+          currency: 'NGN',
+          status: 'pending',
+          attachmentUrl,
+          notes,
+          createdBy: user.id
+        })
+        .returning();
+
+      res.json({
+        success: true,
+        vendorInvoice,
+        message: "Vendor invoice created successfully"
+      });
+    } catch (error: any) {
+      console.error("Error creating vendor invoice:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get pending vendor invoices
+  app.get("/api/vendor-invoices/pending", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      
+      const pendingInvoices = await storage.db
+        .select({
+          id: vendorInvoices.id,
+          vendorId: vendorInvoices.vendorId,
+          vendorName: vendors.name,
+          invoiceNumber: vendorInvoices.invoiceNumber,
+          invoiceDate: vendorInvoices.invoiceDate,
+          dueDate: vendorInvoices.dueDate,
+          totalAmount: vendorInvoices.totalAmount,
+          taxAmount: vendorInvoices.taxAmount,
+          discountAmount: vendorInvoices.discountAmount,
+          status: vendorInvoices.status,
+          notes: vendorInvoices.notes
+        })
+        .from(vendorInvoices)
+        .leftJoin(vendors, eq(vendorInvoices.vendorId, vendors.id))
+        .leftJoin(threeWayMatching, eq(vendorInvoices.id, threeWayMatching.invoiceId))
+        .where(
+          and(
+            eq(vendorInvoices.tenantId, user.tenantId!),
+            eq(vendorInvoices.status, 'pending'),
+            isNull(threeWayMatching.id) // Not yet matched
+          )
+        )
+        .orderBy(desc(vendorInvoices.createdAt));
+
+      res.json(pendingInvoices);
+    } catch (error: any) {
+      console.error("Error fetching pending invoices:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // === THREE-WAY MATCHING ===
+
+  // Perform three-way matching
+  app.post("/api/three-way-matching/perform", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      const { purchaseOrderId, goodsReceiptId, invoiceId } = req.body;
+
+      // Get PO, Receipt, and Invoice details for comparison
+      const [po] = await storage.db
+        .select()
+        .from(purchaseOrders)
+        .where(eq(purchaseOrders.id, purchaseOrderId));
+
+      const [receipt] = await storage.db
+        .select()
+        .from(goodsReceipts)
+        .where(eq(goodsReceipts.id, goodsReceiptId));
+
+      const [invoice] = await storage.db
+        .select()
+        .from(vendorInvoices)
+        .where(eq(vendorInvoices.id, invoiceId));
+
+      if (!po || !receipt || !invoice) {
+        return res.status(400).json({ message: "Invalid PO, receipt, or invoice ID" });
+      }
+
+      // Calculate variance
+      const poAmount = parseFloat(po.totalAmount);
+      const invoiceAmount = parseFloat(invoice.totalAmount);
+      const totalVariance = Math.abs(poAmount - invoiceAmount);
+
+      // Determine matching status
+      let matchingStatus = 'matched';
+      if (totalVariance > 0) {
+        // Allow small variances (e.g., up to 5% or ₦1000)
+        const varianceThreshold = Math.max(poAmount * 0.05, 1000);
+        if (totalVariance > varianceThreshold) {
+          matchingStatus = 'discrepancy';
+        }
+      }
+
+      // Generate matching number
+      const matchingNumber = `TWM-${Date.now()}`;
+
+      // Create three-way matching record
+      const [matching] = await storage.db
+        .insert(threeWayMatching)
+        .values({
+          tenantId: user.tenantId!,
+          branchId: user.branchId!,
+          matchingNumber,
+          purchaseOrderId,
+          goodsReceiptId,
+          invoiceId,
+          matchingStatus,
+          totalVariance: totalVariance.toString(),
+          matchedBy: user.id,
+          matchedDate: new Date(),
+          notes: `Auto-matched: PO Amount: ₦${poAmount.toLocaleString()}, Invoice Amount: ₦${invoiceAmount.toLocaleString()}, Variance: ₦${totalVariance.toLocaleString()}`
+        })
+        .returning();
+
+      res.json({
+        success: true,
+        matching,
+        message: "Three-way matching completed successfully"
+      });
+    } catch (error: any) {
+      console.error("Error performing three-way matching:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get three-way matching records
+  app.get("/api/three-way-matching", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      
+      const matchingRecords = await storage.db
+        .select({
+          id: threeWayMatching.id,
+          matchingNumber: threeWayMatching.matchingNumber,
+          poNumber: purchaseOrders.poNumber,
+          receiptNumber: goodsReceipts.receiptNumber,
+          invoiceNumber: vendorInvoices.invoiceNumber,
+          vendorName: vendors.name,
+          totalAmount: vendorInvoices.totalAmount,
+          totalVariance: threeWayMatching.totalVariance,
+          matchingStatus: threeWayMatching.matchingStatus,
+          matchedDate: threeWayMatching.matchedDate,
+          approvedBy: threeWayMatching.approvedBy,
+          approvedDate: threeWayMatching.approvedDate
+        })
+        .from(threeWayMatching)
+        .leftJoin(purchaseOrders, eq(threeWayMatching.purchaseOrderId, purchaseOrders.id))
+        .leftJoin(goodsReceipts, eq(threeWayMatching.goodsReceiptId, goodsReceipts.id))
+        .leftJoin(vendorInvoices, eq(threeWayMatching.invoiceId, vendorInvoices.id))
+        .leftJoin(vendors, eq(purchaseOrders.vendorId, vendors.id))
+        .where(eq(threeWayMatching.tenantId, user.tenantId!))
+        .orderBy(desc(threeWayMatching.matchedDate));
+
+      res.json(matchingRecords);
+    } catch (error: any) {
+      console.error("Error fetching matching records:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Approve three-way matching
+  app.post("/api/three-way-matching/:id/approve", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const storage = req.storage!;
+      const { id } = req.params;
+
+      // Update matching status to approved
+      const [updatedMatching] = await storage.db
+        .update(threeWayMatching)
+        .set({
+          matchingStatus: 'approved',
+          approvedBy: user.id,
+          approvedDate: new Date()
+        })
+        .where(eq(threeWayMatching.id, parseInt(id)))
+        .returning();
+
+      if (!updatedMatching) {
+        return res.status(404).json({ message: "Matching record not found" });
+      }
+
+      res.json({
+        success: true,
+        matching: updatedMatching,
+        message: "Three-way matching approved successfully"
+      });
+    } catch (error: any) {
+      console.error("Error approving matching:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Generate Laboratory PDF Report
   app.post("/api/generate-lab-report", async (req, res) => {
     try {
