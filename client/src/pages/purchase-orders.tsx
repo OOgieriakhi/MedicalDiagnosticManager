@@ -148,6 +148,41 @@ export default function PurchaseOrders() {
     }).format(amount);
   };
 
+  const confirmExecution = useMutation({
+    mutationFn: (poId: number) => 
+      apiRequest(`/api/purchase-orders/${poId}/confirm-execution`, {
+        method: 'POST'
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+      toast({ title: "Purchase order execution confirmed" });
+    },
+    onError: () => {
+      toast({ 
+        title: "Failed to confirm execution", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const confirmDelivery = useMutation({
+    mutationFn: ({ poId, confirmationType }: { poId: number, confirmationType: string }) => 
+      apiRequest(`/api/purchase-orders/${poId}/confirm-delivery`, {
+        method: 'POST',
+        body: JSON.stringify({ confirmationType })
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+      toast({ title: "Delivery confirmation successful" });
+    },
+    onError: () => {
+      toast({ 
+        title: "Failed to confirm delivery", 
+        variant: "destructive" 
+      });
+    }
+  });
+
   const getRequiredApprovalLevel = (amount: number) => {
     for (const limit of approvalLimits) {
       if (amount >= limit.minAmount && amount <= limit.maxAmount) {
@@ -396,6 +431,38 @@ export default function PurchaseOrders() {
                                 }}
                               >
                                 <XCircle className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {po.status === 'approved' && !po.executionConfirmedBy && (
+                            <Button 
+                              size="sm" 
+                              variant="secondary"
+                              onClick={() => confirmExecution.mutate(po.id)}
+                            >
+                              <Truck className="w-4 h-4 mr-1" />
+                              Execute Order
+                            </Button>
+                          )}
+                          
+                          {po.status === 'ordered' && (
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => confirmDelivery.mutate({ poId: po.id, confirmationType: 'accountant' })}
+                              >
+                                <Package className="w-4 h-4 mr-1" />
+                                Accountant Confirm
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => confirmDelivery.mutate({ poId: po.id, confirmationType: 'unit' })}
+                              >
+                                <Package className="w-4 h-4 mr-1" />
+                                Unit Confirm
                               </Button>
                             </div>
                           )}

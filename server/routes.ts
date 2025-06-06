@@ -3592,6 +3592,55 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Confirm purchase order execution
+  app.post("/api/purchase-orders/:id/confirm-execution", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const user = req.user!;
+
+      await db.execute(sql`
+        UPDATE purchase_orders 
+        SET execution_confirmed_by = ${user.id}, 
+            workflow_stage = 'delivery_pending',
+            status = 'ordered'
+        WHERE id = ${id}
+      `);
+
+      res.json({ success: true, message: "Purchase order execution confirmed" });
+    } catch (error) {
+      console.error("Error confirming execution:", error);
+      res.status(500).json({ message: "Failed to confirm execution" });
+    }
+  });
+
+  // Confirm purchase order delivery
+  app.post("/api/purchase-orders/:id/confirm-delivery", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { confirmationType } = req.body; // 'accountant' or 'unit'
+      const user = req.user!;
+
+      const result = await financialStorage.confirmPurchaseReceived(
+        Number(id), 
+        user.id,
+        confirmationType
+      );
+
+      res.json({ success: true, message: "Delivery confirmed successfully" });
+    } catch (error) {
+      console.error("Error confirming delivery:", error);
+      res.status(500).json({ message: "Failed to confirm delivery" });
+    }
+  });
+
   // Reject purchase order
   app.post("/api/purchase-orders/:id/reject", async (req, res) => {
     try {
