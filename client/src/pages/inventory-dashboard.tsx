@@ -25,14 +25,15 @@ interface InventoryItem {
 
 interface StockLevel {
   id: number;
-  itemId: number;
-  itemName: string;
-  itemCode: string;
-  availableQuantity: number;
-  reorderLevel: number;
-  minimumStock: number;
-  stockStatus: 'critical' | 'low' | 'normal' | 'high';
-  lastUpdated: string;
+  item_id: number;
+  item_name: string;
+  item_code: string;
+  available_quantity: number;
+  reorder_level: number;
+  minimum_stock: number;
+  maximum_stock: number;
+  stock_status: 'critical' | 'low' | 'normal' | 'high';
+  last_updated: string;
 }
 
 interface ConsumptionTemplate {
@@ -52,12 +53,12 @@ interface ConsumptionTemplate {
 interface RecentTransaction {
   id: number;
   type: 'in' | 'out' | 'adjustment';
-  itemName: string;
+  item_name: string;
   quantity: number;
-  unitOfMeasure: string;
+  unit_of_measure: string;
   reason: string;
-  createdAt: string;
-  performedBy: string;
+  created_at: string;
+  performed_by: string;
 }
 
 export default function InventoryDashboard() {
@@ -117,11 +118,12 @@ export default function InventoryDashboard() {
   });
 
   // Calculate dashboard statistics
-  const totalItems = stockLevels.length;
-  const criticalItems = stockLevels.filter(item => item.stockStatus === 'critical').length;
-  const lowStockCount = stockLevels.filter(item => item.stockStatus === 'low').length;
-  const normalStockCount = stockLevels.filter(item => item.stockStatus === 'normal').length;
-  const highStockCount = stockLevels.filter(item => item.stockStatus === 'high').length;
+  const stockLevelsArray = Array.isArray(stockLevels) ? stockLevels : [];
+  const totalItems = stockLevelsArray.length;
+  const criticalItems = stockLevelsArray.filter(item => item.stock_status === 'critical').length;
+  const lowStockCount = stockLevelsArray.filter(item => item.stock_status === 'low').length;
+  const normalStockCount = stockLevelsArray.filter(item => item.stock_status === 'normal').length;
+  const highStockCount = stockLevelsArray.filter(item => item.stock_status === 'high').length;
 
   const getStockStatusColor = (status: string) => {
     switch (status) {
@@ -253,39 +255,39 @@ export default function InventoryDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {stockLevels.map((item) => (
+                  {stockLevelsArray.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{item.itemName}</div>
-                          <div className="text-sm text-muted-foreground">{item.itemCode}</div>
+                          <div className="font-medium">{item.item_name}</div>
+                          <div className="text-sm text-muted-foreground">{item.item_code}</div>
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {item.availableQuantity}
+                        {item.available_quantity}
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           <Progress 
-                            value={(item.availableQuantity / item.reorderLevel) * 100}
+                            value={(item.available_quantity / item.reorder_level) * 100}
                             className="h-2"
                           />
                           <div className="text-xs text-muted-foreground">
-                            Reorder at {item.reorderLevel} | Min: {item.minimumStock}
+                            Reorder at {item.reorder_level} | Min: {item.minimum_stock}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge 
-                          variant={getStockStatusColor(item.stockStatus) as any}
+                          variant={getStockStatusColor(item.stock_status) as any}
                           className="flex items-center gap-1"
                         >
-                          {getStockStatusIcon(item.stockStatus)}
-                          {item.stockStatus}
+                          {getStockStatusIcon(item.stock_status)}
+                          {item.stock_status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(item.lastUpdated)}
+                        {formatDate(item.last_updated)}
                       </TableCell>
                     </TableRow>
                   ))}

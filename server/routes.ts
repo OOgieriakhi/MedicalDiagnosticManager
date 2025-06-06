@@ -4182,20 +4182,20 @@ export function registerRoutes(app: Express): Server {
       const stockLevels = await db.execute(sql`
         SELECT 
           is.id,
-          is.item_id as "itemId",
-          ii.name as "itemName",
-          ii.item_code as "itemCode",
-          is.available_quantity as "availableQuantity",
-          ii.reorder_level as "reorderLevel",
-          ii.minimum_stock as "minimumStock",
-          ii.maximum_stock as "maximumStock",
+          is.item_id,
+          ii.name as item_name,
+          ii.item_code,
+          is.available_quantity,
+          ii.reorder_level,
+          ii.minimum_stock,
+          ii.maximum_stock,
           CASE 
             WHEN is.available_quantity <= ii.minimum_stock THEN 'critical'
             WHEN is.available_quantity <= ii.reorder_level THEN 'low'
             WHEN is.available_quantity >= ii.maximum_stock THEN 'high'
             ELSE 'normal'
-          END as "stockStatus",
-          is.last_updated as "lastUpdated"
+          END as stock_status,
+          is.updated_at as last_updated
         FROM inventory_stock is
         JOIN inventory_items ii ON is.item_id = ii.id
         WHERE is.tenant_id = ${user.tenantId} 
@@ -4231,12 +4231,12 @@ export function registerRoutes(app: Express): Server {
         SELECT 
           it.id,
           it.transaction_type as type,
-          ii.name as "itemName",
+          ii.name as item_name,
           it.quantity,
-          ii.unit_of_measure as "unitOfMeasure",
-          it.reason,
-          it.created_at as "createdAt",
-          CONCAT(u.first_name, ' ', u.last_name) as "performedBy"
+          ii.unit_of_measure,
+          it.consumption_reason as reason,
+          it.created_at,
+          CONCAT(u.first_name, ' ', u.last_name) as performed_by
         FROM inventory_transactions it
         JOIN inventory_items ii ON it.item_id = ii.id
         JOIN users u ON it.performed_by = u.id
