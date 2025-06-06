@@ -8188,6 +8188,16 @@ Medical System Procurement Team
       }
       global.paymentOrders.push(paymentOrder);
 
+      // Update invoice match status to 'paid' to remove from ready for payment
+      if (invoiceMatchId && global.invoiceMatches) {
+        const matchIndex = global.invoiceMatches.findIndex((match: any) => match.id === invoiceMatchId);
+        if (matchIndex !== -1) {
+          global.invoiceMatches[matchIndex].status = 'paid';
+          global.invoiceMatches[matchIndex].paymentOrderId = paymentOrder.id;
+          global.invoiceMatches[matchIndex].paidAt = new Date();
+        }
+      }
+
       console.log(`Payment order created: ${paymentNumber} by ${user.username}`);
       console.log(`Amount: ₦${amount}, Method: ${paymentMethod}, Account: ${bankAccount}`);
 
@@ -8226,6 +8236,49 @@ Medical System Procurement Team
       paymentOrders[paymentIndex].approvedBy = user.id;
       paymentOrders[paymentIndex].approvedByName = user.username;
       paymentOrders[paymentIndex].approvedAt = new Date();
+
+      // Create journal entry for approved payment
+      if (action === 'approve') {
+        const paymentOrder = paymentOrders[paymentIndex];
+        const entryNumber = `JE-PAY-${Date.now()}`;
+        
+        try {
+          // Insert journal entry header
+          const journalResult = await db.execute(sql`
+            INSERT INTO journal_entries (
+              tenant_id, branch_id, entry_number, description, reference_type, 
+              reference_number, total_debit, total_credit, status, created_by, 
+              entry_date, created_at, updated_at
+            ) VALUES (
+              ${user.tenantId}, ${user.branchId || 1}, ${entryNumber}, 
+              ${'Payment to vendor - ' + paymentOrder.vendorName}, 'payment_order',
+              ${paymentOrder.paymentNumber}, ${paymentOrder.amount}, ${paymentOrder.amount},
+              'posted', ${user.id}, ${new Date().toISOString()}, 
+              ${new Date().toISOString()}, ${new Date().toISOString()}
+            ) RETURNING id
+          `);
+
+          const journalEntryId = journalResult.rows[0]?.id;
+
+          if (journalEntryId) {
+            // Create line items: Credit Cash/Bank, Debit Accounts Payable
+            await db.execute(sql`
+              INSERT INTO journal_entry_line_items (
+                journal_entry_id, account_id, account_code, account_name, 
+                description, debit_amount, credit_amount, created_at
+              ) VALUES 
+              (${journalEntryId}, 1100, '1100', 'Cash - Main Operating Account', 
+               'Payment to ${paymentOrder.vendorName}', 0, ${paymentOrder.amount}, ${new Date().toISOString()}),
+              (${journalEntryId}, 2100, '2100', 'Accounts Payable', 
+               'Payment to ${paymentOrder.vendorName}', ${paymentOrder.amount}, 0, ${new Date().toISOString()})
+            `);
+            
+            console.log(`Journal entry ${entryNumber} created for payment ${paymentOrder.paymentNumber}`);
+          }
+        } catch (error) {
+          console.error('Error creating journal entry for payment:', error);
+        }
+      }
 
       console.log(`Payment order ${paymentOrders[paymentIndex].paymentNumber} ${action}d by ${user.username}`);
 
