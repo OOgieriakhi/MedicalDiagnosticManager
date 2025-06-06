@@ -176,9 +176,9 @@ export default function PurchaseOrderApprovals() {
           <tbody>
             ${items.map((item: any) => `
               <tr>
-                <td>${item.description}</td>
+                <td>${item.description || item.itemName}</td>
                 <td>${item.quantity}</td>
-                <td>${item.unit}</td>
+                <td>${item.unit || 'pcs'}</td>
                 <td>₦${parseFloat(item.unitPrice || 0).toLocaleString()}</td>
                 <td>₦${(parseFloat(item.unitPrice || 0) * parseFloat(item.quantity || 0)).toLocaleString()}</td>
               </tr>
@@ -517,11 +517,20 @@ export default function PurchaseOrderApprovals() {
                         {(() => {
                           try {
                             const items = typeof selectedPO.items === 'string' ? JSON.parse(selectedPO.items) : selectedPO.items || [];
+                            if (items.length === 0) {
+                              return (
+                                <TableRow>
+                                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                    No items found
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            }
                             return items.map((item: any, index: number) => (
                               <TableRow key={index}>
-                                <TableCell>{item.description}</TableCell>
+                                <TableCell>{item.description || item.itemName}</TableCell>
                                 <TableCell>{item.quantity}</TableCell>
-                                <TableCell>{item.unit}</TableCell>
+                                <TableCell>{item.unit || 'pcs'}</TableCell>
                                 <TableCell>₦{parseFloat(item.unitPrice || 0).toLocaleString()}</TableCell>
                                 <TableCell>₦{(parseFloat(item.unitPrice || 0) * parseFloat(item.quantity || 0)).toLocaleString()}</TableCell>
                               </TableRow>
