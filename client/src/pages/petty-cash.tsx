@@ -132,8 +132,7 @@ export default function PettyCash() {
       amount: 0,
       purpose: "",
       category: "",
-      description: "",
-      vendorName: "",
+      recipient: "",
       receiptNumber: "",
     },
   });
