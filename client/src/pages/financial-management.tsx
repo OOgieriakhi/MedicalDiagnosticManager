@@ -329,6 +329,53 @@ export default function FinancialManagement() {
         </Card>
       </div>
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Link href="/petty-cash">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <Wallet className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Petty Cash Management</h3>
+                  <p className="text-sm text-gray-600">Manage imprest funds, approvals & disbursements</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer opacity-60">
+          <CardContent className="p-6 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <Receipt className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Purchase Orders</h3>
+                <p className="text-sm text-gray-600">Coming Soon</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer opacity-60">
+          <CardContent className="p-6 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Accounting Reports</h3>
+                <p className="text-sm text-gray-600">Coming Soon</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
