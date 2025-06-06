@@ -683,9 +683,9 @@ export default function PurchaseOrders() {
                     <h3 className="font-semibold mb-2">To:</h3>
                     <div className="space-y-1">
                       <p className="font-medium">{previewPO.vendorName}</p>
-                      {previewPO.vendorAddress && <p>{previewPO.vendorAddress}</p>}
-                      {previewPO.vendorEmail && <p>Email: {previewPO.vendorEmail}</p>}
-                      {previewPO.vendorPhone && <p>Phone: {previewPO.vendorPhone}</p>}
+                      {(previewPO as any).vendor_address && <p>{(previewPO as any).vendor_address}</p>}
+                      {(previewPO as any).vendor_email && <p>Email: {(previewPO as any).vendor_email}</p>}
+                      {(previewPO as any).vendor_phone && <p>Phone: {(previewPO as any).vendor_phone}</p>}
                     </div>
                   </div>
                 </div>
@@ -693,21 +693,21 @@ export default function PurchaseOrders() {
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div>
                     <Label className="font-semibold">PO Date:</Label>
-                    <p>{new Date(previewPO.requestDate).toLocaleDateString()}</p>
+                    <p>{new Date(previewPO.createdAt || previewPO.created_at).toLocaleDateString()}</p>
                   </div>
                   <div>
                     <Label className="font-semibold">Required Date:</Label>
-                    <p>{new Date(previewPO.requiredDate).toLocaleDateString()}</p>
+                    <p>{previewPO.deliveryDate || previewPO.delivery_date ? new Date(previewPO.deliveryDate || previewPO.delivery_date).toLocaleDateString() : 'TBD'}</p>
                   </div>
                   <div>
                     <Label className="font-semibold">Department:</Label>
-                    <p>{previewPO.department}</p>
+                    <p>{previewPO.department || 'General'}</p>
                   </div>
                 </div>
                 
                 <div className="mb-6">
                   <Label className="font-semibold">Description:</Label>
-                  <p className="mt-1">{previewPO.description}</p>
+                  <p className="mt-1">{previewPO.notes || previewPO.description || 'Medical supplies and equipment'}</p>
                 </div>
                 
                 <div className="mb-6">
@@ -722,18 +722,45 @@ export default function PurchaseOrders() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">Medical Supplies</div>
-                            <div className="text-sm text-gray-500">ITEM-001</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{previewPO.description}</TableCell>
-                        <TableCell>1</TableCell>
-                        <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(previewPO.totalAmount)}</TableCell>
-                        <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(previewPO.totalAmount)}</TableCell>
-                      </TableRow>
+                      {(() => {
+                        try {
+                          const items = (previewPO as any).items ? JSON.parse((previewPO as any).items) : [];
+                          if (items.length > 0) {
+                            return items.map((item: any, index: number) => (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">{item.itemName}</div>
+                                    <div className="text-sm text-gray-500">{item.itemCode}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{item.description}</TableCell>
+                                <TableCell>{item.quantity}</TableCell>
+                                <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.unitPrice)}</TableCell>
+                                <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.totalPrice)}</TableCell>
+                              </TableRow>
+                            ));
+                          }
+                        } catch (e) {
+                          console.error('Error parsing items:', e);
+                        }
+                        
+                        // Fallback row
+                        return (
+                          <TableRow>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">Medical Supplies</div>
+                                <div className="text-sm text-gray-500">GENERAL-001</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{(previewPO as any).notes || previewPO.description || 'General medical supplies'}</TableCell>
+                            <TableCell>1</TableCell>
+                            <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(previewPO.totalAmount)}</TableCell>
+                            <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(previewPO.totalAmount)}</TableCell>
+                          </TableRow>
+                        );
+                      })()}
                     </TableBody>
                   </Table>
                 </div>
