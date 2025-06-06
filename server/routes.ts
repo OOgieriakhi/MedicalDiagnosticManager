@@ -2169,37 +2169,42 @@ export function registerRoutes(app: Express): Server {
     const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
     
     try {
-      const results = await db
-        .select({
-          patient_type: sql<string>`
-            CASE 
-              WHEN ${patients.referralSource} IS NOT NULL AND ${patients.referralSource} != 'Self' THEN 'Referral'
-              ELSE 'Walk-in'
-            END`,
-          patient_count: sql<number>`COUNT(DISTINCT ${patients.id})`,
-          transaction_count: sql<number>`COUNT(${dailyTransactions.id})`,
-          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
-          avg_per_patient: sql<number>`ROUND(SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) / COUNT(DISTINCT ${patients.id}), 2)`,
-          referral_source: sql<string>`STRING_AGG(DISTINCT ${patients.referralSource}, ', ' ORDER BY ${patients.referralSource})`
-        })
-        .from(dailyTransactions)
-        .leftJoin(patients, eq(dailyTransactions.patientName, patients.fullName))
-        .where(
-          and(
-            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined,
-            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
-            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined,
-            eq(dailyTransactions.verificationStatus, 'verified')
-          )
-        )
-        .groupBy(sql`
-          CASE 
-            WHEN ${patients.referralSource} IS NOT NULL AND ${patients.referralSource} != 'Self' THEN 'Referral'
-            ELSE 'Walk-in'
-          END`)
-        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+      let query = `
+        SELECT 
+          'Walk-in' as patient_type,
+          COUNT(DISTINCT patient_name) as patient_count,
+          COUNT(*) as transaction_count,
+          SUM(CAST(amount AS DECIMAL)) as total_amount,
+          ROUND(SUM(CAST(amount AS DECIMAL)) / COUNT(DISTINCT patient_name), 2) as avg_per_patient
+        FROM daily_transactions 
+        WHERE tenant_id = $1
+      `;
       
-      res.json(results);
+      const params = [req.user!.tenantId];
+      let paramIndex = 2;
+
+      if (userBranchId) {
+        query += ` AND branch_id = $${paramIndex}`;
+        params.push(userBranchId);
+        paramIndex++;
+      }
+
+      if (startDate) {
+        query += ` AND transaction_time >= $${paramIndex}`;
+        params.push(startDate as string);
+        paramIndex++;
+      }
+
+      if (endDate) {
+        query += ` AND transaction_time <= $${paramIndex}`;
+        params.push(endDate as string);
+        paramIndex++;
+      }
+
+      query += ` AND verification_status = 'verified'`;
+
+      const result = await pool.query(query, params);
+      res.json(result.rows);
     } catch (error) {
       console.error('Error generating patient types revenue report:', error);
       res.status(500).json({ error: 'Failed to generate patient types revenue report' });
@@ -2213,31 +2218,42 @@ export function registerRoutes(app: Express): Server {
     const { startDate, endDate } = req.query;
     
     try {
-      const results = await db
-        .select({
-          branch_id: dailyTransactions.branchId,
-          branch_name: sql<string>`COALESCE(${branches.name}, 'Unknown Branch')`,
-          transaction_count: sql<number>`COUNT(*)`,
-          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
-          cash_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          pos_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          transfer_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          verified_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          pending_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'pending' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          verification_rate: sql<number>`ROUND(COUNT(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN 1 END) * 100.0 / COUNT(*), 2)`
-        })
-        .from(dailyTransactions)
-        .leftJoin(branches, eq(dailyTransactions.branchId, branches.id))
-        .where(
-          and(
-            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
-            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined
-          )
-        )
-        .groupBy(dailyTransactions.branchId, branches.name)
-        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+      let query = `
+        SELECT 
+          dt.branch_id,
+          COALESCE(b.name, 'Unknown Branch') as branch_name,
+          COUNT(*) as transaction_count,
+          SUM(CAST(dt.amount AS DECIMAL)) as total_amount,
+          SUM(CASE WHEN dt.payment_method = 'cash' THEN CAST(dt.amount AS DECIMAL) ELSE 0 END) as cash_amount,
+          SUM(CASE WHEN dt.payment_method = 'pos' THEN CAST(dt.amount AS DECIMAL) ELSE 0 END) as pos_amount,
+          SUM(CASE WHEN dt.payment_method = 'transfer' THEN CAST(dt.amount AS DECIMAL) ELSE 0 END) as transfer_amount,
+          SUM(CASE WHEN dt.verification_status = 'verified' THEN CAST(dt.amount AS DECIMAL) ELSE 0 END) as verified_amount,
+          SUM(CASE WHEN dt.verification_status = 'pending' THEN CAST(dt.amount AS DECIMAL) ELSE 0 END) as pending_amount,
+          ROUND(COUNT(CASE WHEN dt.verification_status = 'verified' THEN 1 END) * 100.0 / COUNT(*), 2) as verification_rate
+        FROM daily_transactions dt
+        LEFT JOIN branches b ON dt.branch_id = b.id
+        WHERE dt.tenant_id = $1
+      `;
       
-      res.json(results);
+      const params = [req.user!.tenantId];
+      let paramIndex = 2;
+
+      if (startDate) {
+        query += ` AND dt.transaction_time >= $${paramIndex}`;
+        params.push(startDate as string);
+        paramIndex++;
+      }
+
+      if (endDate) {
+        query += ` AND dt.transaction_time <= $${paramIndex}`;
+        params.push(endDate as string);
+        paramIndex++;
+      }
+
+      query += ` GROUP BY dt.branch_id, b.name ORDER BY total_amount DESC`;
+
+      const result = await pool.query(query, params);
+      res.json(result.rows);
     } catch (error) {
       console.error('Error generating branches revenue report:', error);
       res.status(500).json({ error: 'Failed to generate branches revenue report' });
@@ -2252,31 +2268,37 @@ export function registerRoutes(app: Express): Server {
     const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
     
     try {
-      const results = await db
-        .select({
-          month: sql<number>`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`,
-          month_name: sql<string>`TO_CHAR(${dailyTransactions.transactionTime}, 'Month')`,
-          transaction_count: sql<number>`COUNT(*)`,
-          total_revenue: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
-          cash_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          pos_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          transfer_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          verified_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          pending_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'pending' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
-          avg_transaction: sql<number>`ROUND(AVG(CAST(${dailyTransactions.amount} AS DECIMAL)), 2)`,
-          unique_patients: sql<number>`COUNT(DISTINCT ${dailyTransactions.patientName})`
-        })
-        .from(dailyTransactions)
-        .where(
-          and(
-            sql`EXTRACT(YEAR FROM ${dailyTransactions.transactionTime}) = ${year}`,
-            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined
-          )
-        )
-        .groupBy(sql`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`, sql`TO_CHAR(${dailyTransactions.transactionTime}, 'Month')`)
-        .orderBy(sql`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`);
+      let query = `
+        SELECT 
+          EXTRACT(MONTH FROM transaction_time) as month,
+          TO_CHAR(transaction_time, 'Month') as month_name,
+          COUNT(*) as transaction_count,
+          SUM(CAST(amount AS DECIMAL)) as total_revenue,
+          SUM(CASE WHEN payment_method = 'cash' THEN CAST(amount AS DECIMAL) ELSE 0 END) as cash_revenue,
+          SUM(CASE WHEN payment_method = 'pos' THEN CAST(amount AS DECIMAL) ELSE 0 END) as pos_revenue,
+          SUM(CASE WHEN payment_method = 'transfer' THEN CAST(amount AS DECIMAL) ELSE 0 END) as transfer_revenue,
+          SUM(CASE WHEN verification_status = 'verified' THEN CAST(amount AS DECIMAL) ELSE 0 END) as verified_revenue,
+          SUM(CASE WHEN verification_status = 'pending' THEN CAST(amount AS DECIMAL) ELSE 0 END) as pending_revenue,
+          ROUND(AVG(CAST(amount AS DECIMAL)), 2) as avg_transaction,
+          COUNT(DISTINCT patient_name) as unique_patients
+        FROM daily_transactions 
+        WHERE tenant_id = $1 AND EXTRACT(YEAR FROM transaction_time) = $2
+      `;
       
-      res.json(results);
+      const params = [req.user!.tenantId, year];
+      let paramIndex = 3;
+
+      if (userBranchId) {
+        query += ` AND branch_id = $${paramIndex}`;
+        params.push(userBranchId);
+        paramIndex++;
+      }
+
+      query += ` GROUP BY EXTRACT(MONTH FROM transaction_time), TO_CHAR(transaction_time, 'Month')
+                 ORDER BY EXTRACT(MONTH FROM transaction_time)`;
+
+      const result = await pool.query(query, params);
+      res.json(result.rows);
     } catch (error) {
       console.error('Error generating monthly revenue summary:', error);
       res.status(500).json({ error: 'Failed to generate monthly revenue summary' });
