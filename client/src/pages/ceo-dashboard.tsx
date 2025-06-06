@@ -296,7 +296,7 @@ export default function CEODashboard() {
                   }
 
                   return (
-                    <TableRow key={transaction.id} className={amount > 100000 ? 'bg-red-50' : ''}>
+                    <TableRow key={`${transaction.id}-${transaction.transactionNumber || 'transaction'}-${index}`} className={amount > 100000 ? 'bg-red-50' : ''}>
                       <TableCell className="font-medium">{transaction.transactionNumber}</TableCell>
                       <TableCell>
                         <span className={`font-bold ${amount > 100000 ? 'text-red-600' : amount > 25000 ? 'text-orange-600' : 'text-green-600'}`}>

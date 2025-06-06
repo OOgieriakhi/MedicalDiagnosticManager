@@ -624,11 +624,22 @@ export class FinancialStorage {
       purpose: purchaseOrders.vendorName,
       category: sql<string>`'Procurement'`,
       priority: purchaseOrders.priority,
-      requestedBy: purchaseOrders.requestedBy,
+      requestedBy: sql<string>`CASE 
+        WHEN ${purchaseOrders.requestedBy} = 1 THEN 'oogierhiakhi'
+        WHEN ${purchaseOrders.requestedBy} = 2 THEN 'admin'
+        WHEN ${purchaseOrders.requestedBy} = 4 THEN 'branch_mgr'
+        WHEN ${purchaseOrders.requestedBy} = 5 THEN 'finance_mgr'
+        WHEN ${purchaseOrders.requestedBy} = 6 THEN 'ceo_user'
+        ELSE 'Unknown User'
+      END`,
       createdAt: purchaseOrders.createdAt,
       status: purchaseOrders.status,
       vendorName: purchaseOrders.vendorName,
-      notes: purchaseOrders.notes
+      notes: purchaseOrders.notes,
+      justification: purchaseOrders.notes,
+      description: purchaseOrders.notes,
+      type: sql<string>`'purchase_order'`,
+      module: sql<string>`'Procurement'`
     })
     .from(purchaseOrders)
     .where(and(
