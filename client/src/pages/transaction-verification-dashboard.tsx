@@ -100,6 +100,32 @@ export default function TransactionVerificationDashboard() {
     }
   });
 
+  // Export report mutation
+  const exportReportMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/export-verification-report', {
+        dateRange,
+        filterStatus,
+        branchId: selectedBranchId
+      });
+      return response.blob();
+    },
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `verification-report-${dateRange.from}-to-${dateRange.to}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Report exported successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Export failed", description: error.message, variant: "destructive" });
+    }
+  });
+
   // Ensure transactions is always an array
   const transactionsArray = Array.isArray(transactions) ? transactions : [];
 
@@ -315,10 +341,22 @@ export default function TransactionVerificationDashboard() {
                   <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-sm text-gray-600">Live Monitoring</span>
                 </div>
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Report
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => exportReportMutation.mutate()}
+                      disabled={exportReportMutation.isPending}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {exportReportMutation.isPending ? "Exporting..." : "Export Report"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Export transaction verification report as CSV</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           </div>

@@ -9606,5 +9606,87 @@ Medical System Procurement Team
     }
   });
 
+  // Export verification report
+  app.post("/api/export-verification-report", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { dateRange, filterStatus, branchId } = req.body;
+
+      // Get transactions for the date range
+      const startDate = new Date(dateRange.from);
+      const endDate = new Date(dateRange.to);
+      endDate.setHours(23, 59, 59, 999); // End of day
+
+      const result = await db.execute(
+        sql`SELECT 
+          id,
+          receipt_number,
+          patient_name,
+          amount,
+          payment_method,
+          transaction_time,
+          cashier_name,
+          verification_status,
+          verification_notes,
+          verified_by,
+          verified_at
+        FROM daily_transactions 
+        WHERE tenant_id = ${user.tenantId || 1}
+          AND branch_id = ${branchId || user.branchId || 1}
+          AND transaction_time >= ${startDate.toISOString()}
+          AND transaction_time <= ${endDate.toISOString()}
+          ${filterStatus && filterStatus !== 'all' ? sql`AND verification_status = ${filterStatus}` : sql``}
+        ORDER BY transaction_time DESC`
+      );
+
+      const transactions = result.rows;
+
+      // Generate CSV content
+      const headers = [
+        'Receipt Number',
+        'Patient Name',
+        'Amount (₦)',
+        'Payment Method',
+        'Transaction Time',
+        'Cashier Name',
+        'Verification Status',
+        'Verification Notes',
+        'Verified By',
+        'Verified At'
+      ];
+
+      const csvRows = [
+        headers.join(','),
+        ...transactions.map((txn: any) => [
+          txn.receipt_number,
+          `"${txn.patient_name}"`,
+          txn.amount,
+          txn.payment_method,
+          new Date(txn.transaction_time).toLocaleString(),
+          `"${txn.cashier_name}"`,
+          txn.verification_status || 'pending',
+          `"${txn.verification_notes || ''}"`,
+          `"${txn.verified_by || ''}"`,
+          txn.verified_at ? new Date(txn.verified_at).toLocaleString() : ''
+        ].join(','))
+      ];
+
+      const csvContent = csvRows.join('\n');
+
+      // Set headers for CSV download
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="verification-report-${dateRange.from}-to-${dateRange.to}.csv"`);
+      
+      res.send(csvContent);
+    } catch (error: any) {
+      console.error("Error exporting verification report:", error);
+      res.status(500).json({ message: "Failed to export report" });
+    }
+  });
+
   return httpServer;
 }
