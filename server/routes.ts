@@ -3690,6 +3690,7 @@ export function registerRoutes(app: Express): Server {
         category: req.body.category || 'Administrative',
         recipient: req.body.recipient || '',
         receiptNumber: req.body.receiptNumber || null,
+        requestedBy: req.user?.id || 2,
         status: 'pending',
         createdAt: new Date()
       };
