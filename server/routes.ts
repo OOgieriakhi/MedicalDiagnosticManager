@@ -13,6 +13,7 @@ import { predictiveEngine } from "./predictive-engine";
 import { queueManager } from "./queue-manager";
 import { accountingEngine } from "./accounting-engine";
 import { pettyCashEngine } from "./petty-cash-engine";
+import { approvalConfigService } from "./approval-config";
 import { db } from "./db";
 import { 
   patients, 
@@ -3856,6 +3857,107 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching user permissions:", error);
       res.status(500).json({ message: "Failed to fetch user permissions" });
+    }
+  });
+
+  // Get detailed approval information
+  app.get("/api/approvals/details/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const approvalId = parseInt(req.params.id);
+      const tenantId = req.user?.tenantId || 1;
+
+      // Get approval details with related information
+      const approvalDetails = await financialStorage.getApprovalDetails(approvalId, tenantId);
+      
+      res.json(approvalDetails);
+    } catch (error) {
+      console.error("Error fetching approval details:", error);
+      res.status(500).json({ message: "Failed to fetch approval details" });
+    }
+  });
+
+  // Add query/comment to approval
+  app.post("/api/approvals/:id/query", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const approvalId = parseInt(req.params.id);
+      const { query, queryType } = req.body;
+      const userId = req.user?.id || 2;
+      const tenantId = req.user?.tenantId || 1;
+
+      const queryRecord = await financialStorage.addApprovalQuery({
+        approvalId,
+        userId,
+        tenantId,
+        query,
+        queryType,
+        status: 'pending_response'
+      });
+
+      res.json(queryRecord);
+    } catch (error) {
+      console.error("Error adding approval query:", error);
+      res.status(500).json({ message: "Failed to add query" });
+    }
+  });
+
+  // Get all pending approvals (petty cash + purchase orders + other expenses)
+  app.get("/api/approvals/all-pending", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userId = req.user?.id || 2;
+      const tenantId = req.user?.tenantId || 1;
+      const branchId = req.user?.branchId || 1;
+
+      // Get pending petty cash approvals
+      const pettyCashApprovals = await pettyCashEngine.getPendingApprovals(userId, tenantId);
+      
+      // Get pending purchase order approvals
+      const purchaseOrderApprovals = await financialStorage.getPendingPurchaseOrderApprovals(tenantId, branchId);
+      
+      // Get other pending financial approvals
+      const otherApprovals = await financialStorage.getPendingFinancialApprovals(tenantId, branchId);
+
+      // Combine and format all approvals
+      const allApprovals = [
+        ...pettyCashApprovals.map(approval => ({
+          ...approval,
+          type: 'petty_cash',
+          module: 'Petty Cash'
+        })),
+        ...purchaseOrderApprovals.map(approval => ({
+          ...approval,
+          type: 'purchase_order',
+          module: 'Purchase Orders'
+        })),
+        ...otherApprovals.map(approval => ({
+          ...approval,
+          type: 'financial',
+          module: 'Financial'
+        }))
+      ];
+
+      // Sort by priority and date
+      allApprovals.sort((a, b) => {
+        if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
+        if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      res.json(allApprovals);
+    } catch (error) {
+      console.error("Error fetching all pending approvals:", error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
     }
   });
 
