@@ -31,6 +31,7 @@ import {
   bankAccounts,
   bankDeposits,
   dailyTransactions,
+  referralProviders,
   insertBankDepositSchema
 } from "@shared/schema";
 import { 
@@ -792,6 +793,64 @@ export function registerRoutes(app: Express): Server {
       // Generate invoice number
       const invoiceNumber = await storage.generateInvoiceNumber(invoiceData.tenantId);
 
+      // Calculate commission amount with corrected per-service rebate logic
+      let calculatedCommission = 0;
+      
+      if (invoiceData.referralProviderId && invoiceData.tests) {
+        try {
+          // Get referral provider details using the ID from invoice data
+          const provider = await db
+            .select({
+              id: referralProviders.id,
+              name: referralProviders.name,
+              commissionRate: referralProviders.commissionRate
+            })
+            .from(referralProviders)
+            .where(eq(referralProviders.id, parseInt(invoiceData.referralProviderId)))
+            .limit(1);
+
+          if (provider.length > 0 && provider[0].commissionRate) {
+            const commissionRate = parseFloat(provider[0].commissionRate);
+            console.log(`Processing commission calculation for ${provider[0].name} at ${commissionRate}%`);
+            
+            // Calculate rebate per service with individual caps
+            for (const test of invoiceData.tests) {
+              if (test.testId && test.price) {
+                // Get test details including max rebate amount
+                const testDetails = await db
+                  .select({
+                    id: tests.id,
+                    name: tests.name,
+                    maxRebateAmount: tests.maxRebateAmount
+                  })
+                  .from(tests)
+                  .where(eq(tests.id, parseInt(test.testId)))
+                  .limit(1);
+
+                if (testDetails.length > 0) {
+                  const price = parseFloat(test.price) || 0;
+                  const maxRebateAmount = parseFloat(String(testDetails[0].maxRebateAmount || "0")) || 0;
+                  
+                  // Calculate percentage-based rebate
+                  const percentageRebate = (price * commissionRate) / 100;
+                  
+                  // Apply the lower of percentage rebate or service maximum
+                  const serviceRebate = Math.min(percentageRebate, maxRebateAmount);
+                  calculatedCommission += serviceRebate;
+                  
+                  console.log(`Service: ${testDetails[0].name}, Price: ₦${price}, Max Rebate: ₦${maxRebateAmount}, Applied: ₦${serviceRebate.toFixed(2)}`);
+                }
+              }
+            }
+            
+            console.log(`Total calculated commission: ₦${calculatedCommission.toFixed(2)} for provider ${provider[0].name}`);
+          }
+        } catch (commissionError) {
+          console.error("Error calculating commission:", commissionError);
+          // Continue with invoice creation even if commission calculation fails
+        }
+      }
+
       // Create the invoice using storage
       const invoice = await storage.createInvoice({
         invoiceNumber,
@@ -802,7 +861,7 @@ export function registerRoutes(app: Express): Server {
         subtotal: (invoiceData.subtotal || 0).toString(),
         discountPercentage: (invoiceData.discountPercentage || 0).toString(),
         discountAmount: (invoiceData.discountAmount || 0).toString(),
-        commissionAmount: (invoiceData.commission || invoiceData.commissionAmount || 0).toString(),
+        commissionAmount: Math.round(calculatedCommission).toString(),
         totalAmount: (invoiceData.totalAmount || invoiceData.total || 0).toString(),
         netAmount: (invoiceData.netAmount || invoiceData.totalAmount || invoiceData.total || 0).toString(),
         paymentStatus: invoiceData.status || "unpaid",
@@ -812,7 +871,7 @@ export function registerRoutes(app: Express): Server {
 
       // Note: Patient tests are created separately in the patient intake workflow
       // This invoice route only handles the billing/payment aspect
-      console.log("Invoice created successfully, patient tests handled separately");
+      console.log("Invoice created successfully with accurate commission calculation");
 
       res.status(201).json(invoice);
     } catch (error) {
