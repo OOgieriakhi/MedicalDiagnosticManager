@@ -12,6 +12,7 @@ import { marketingStorage } from "./marketing-storage";
 import { predictiveEngine } from "./predictive-engine";
 import { queueManager } from "./queue-manager";
 import { accountingEngine } from "./accounting-engine";
+import { pettyCashEngine } from "./petty-cash-engine";
 import { db } from "./db";
 import { 
   patients, 
@@ -3694,28 +3695,19 @@ export function registerRoutes(app: Express): Server {
 
       const userTenantId = req.user?.tenantId || 1;
       const userBranchId = req.user?.branchId || 1;
-      
-      // Generate transaction number
-      const timestamp = Date.now();
-      const transactionNumber = `PC-${new Date().getFullYear()}-${String(timestamp).slice(-6)}`;
 
-      const transactionData = {
-        tenantId: userTenantId,
-        branchId: userBranchId,
+      const transaction = await pettyCashEngine.createTransaction(userTenantId, userBranchId, {
         fundId: req.body.fundId,
-        transactionNumber,
         type: req.body.type,
-        amount: req.body.amount.toString(),
+        amount: parseFloat(req.body.amount),
         purpose: req.body.purpose,
         category: req.body.category || 'Administrative',
-        recipient: req.body.recipient || '',
-        receiptNumber: req.body.receiptNumber || null,
+        priority: req.body.priority || 'normal',
+        justification: req.body.justification,
         requestedBy: req.user?.id || 2,
-        status: 'pending',
-        createdAt: new Date()
-      };
-
-      const transaction = await financialStorage.createPettyCashTransaction(transactionData);
+        recipient: req.body.recipient,
+        receiptNumber: req.body.receiptNumber,
+      });
 
       res.status(201).json(transaction);
     } catch (error) {
@@ -3798,6 +3790,125 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error fetching petty cash metrics:", error);
       res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  // Enhanced Petty Cash Approval API Routes
+  app.get("/api/petty-cash/pending-approvals", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userTenantId = req.user?.tenantId || 1;
+      const userId = req.user?.id || 2;
+      
+      const pendingApprovals = await pettyCashEngine.getPendingApprovals(userId, userTenantId);
+      
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json(pendingApprovals);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  app.post("/api/petty-cash/approve/:transactionId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { transactionId } = req.params;
+      const { comments } = req.body;
+      const approverId = req.user?.id || 2;
+
+      await pettyCashEngine.approveTransaction(parseInt(transactionId), approverId, comments);
+      
+      res.json({ message: "Transaction approved successfully" });
+    } catch (error) {
+      console.error("Error approving transaction:", error);
+      res.status(500).json({ message: "Failed to approve transaction" });
+    }
+  });
+
+  app.post("/api/petty-cash/reject/:transactionId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { transactionId } = req.params;
+      const { comments } = req.body;
+      const approverId = req.user?.id || 2;
+
+      if (!comments) {
+        return res.status(400).json({ message: "Comments are required for rejection" });
+      }
+
+      await pettyCashEngine.rejectTransaction(parseInt(transactionId), approverId, comments);
+      
+      res.json({ message: "Transaction rejected successfully" });
+    } catch (error) {
+      console.error("Error rejecting transaction:", error);
+      res.status(500).json({ message: "Failed to reject transaction" });
+    }
+  });
+
+  // Petty Cash Disbursement API Routes
+  app.get("/api/petty-cash/disbursements", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userTenantId = req.user?.tenantId || 1;
+      const userBranchId = req.user?.branchId || 1;
+      
+      const disbursements = await financialStorage.getPettyCashDisbursements(userTenantId, userBranchId);
+      
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json(disbursements);
+    } catch (error) {
+      console.error("Error fetching disbursements:", error);
+      res.status(500).json({ message: "Failed to fetch disbursements" });
+    }
+  });
+
+  app.get("/api/petty-cash/ready-for-disbursement", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userTenantId = req.user?.tenantId || 1;
+      const userBranchId = req.user?.branchId || 1;
+      
+      const readyVouchers = await pettyCashEngine.getReadyForDisbursement(userTenantId, userBranchId);
+      
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json(readyVouchers);
+    } catch (error) {
+      console.error("Error fetching ready disbursements:", error);
+      res.status(500).json({ message: "Failed to fetch ready disbursements" });
+    }
+  });
+
+  app.post("/api/petty-cash/disburse/:voucherId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { voucherId } = req.params;
+      const disbursedBy = req.user?.id || 2;
+
+      await pettyCashEngine.disburseFunds(parseInt(voucherId), disbursedBy);
+      
+      res.json({ message: "Funds disbursed successfully" });
+    } catch (error) {
+      console.error("Error disbursing funds:", error);
+      res.status(500).json({ message: "Failed to disburse funds" });
     }
   });
 

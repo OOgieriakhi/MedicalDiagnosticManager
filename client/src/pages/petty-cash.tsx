@@ -77,6 +77,8 @@ const transactionFormSchema = z.object({
   amount: z.number().min(0.01, "Amount must be greater than 0"),
   purpose: z.string().min(1, "Purpose is required"),
   category: z.string().optional(),
+  priority: z.string().optional(),
+  justification: z.string().optional(),
   recipient: z.string().optional(),
   receiptNumber: z.string().optional(),
 });
@@ -142,6 +144,8 @@ export default function PettyCash() {
       amount: 0,
       purpose: "",
       category: "Administrative",
+      priority: "normal",
+      justification: "",
       recipient: "",
       receiptNumber: "",
     },
