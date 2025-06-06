@@ -7949,7 +7949,7 @@ Medical System Procurement Team
       const totalCommission = invoices.reduce((sum, inv) => sum + parseFloat(inv.commission_amount), 0);
       const totalPatients = new Set(invoices.map(inv => `${inv.first_name} ${inv.last_name}`)).size;
       const totalServices = invoices.reduce((sum, inv) => {
-        const tests = JSON.parse(inv.tests || '[]');
+        const tests = Array.isArray(inv.tests) ? inv.tests : [];
         return sum + tests.length;
       }, 0);
 
@@ -7970,17 +7970,36 @@ Medical System Procurement Team
 
       // Create invoice items
       for (const invoice of invoices) {
-        const tests = JSON.parse(invoice.tests || '[]');
+        const tests = Array.isArray(invoice.tests) ? invoice.tests : [];
         const patientName = `${invoice.first_name} ${invoice.last_name}`;
         
-        for (const test of tests) {
+        if (tests.length > 0) {
+          for (const test of tests) {
+            const servicePrice = parseFloat(test.price || '0');
+            const commissionRate = parseFloat(invoice.commission_rate || '0');
+            const commissionAmount = (servicePrice * commissionRate / 100);
+            
+            await db.execute(sql`
+              INSERT INTO referral_invoice_items 
+                (referral_invoice_id, original_invoice_id, patient_name, service_name,
+                 service_amount, commission_rate, commission_amount, service_date)
+              VALUES 
+                (${referralInvoice.id}, ${invoice.id}, ${patientName}, ${test.testName || 'Unknown Service'},
+                 ${servicePrice.toString()}, ${commissionRate.toString()}, ${commissionAmount.toString()}, ${invoice.created_at})
+            `);
+          }
+        } else {
+          // Create a single item for the entire invoice if no tests found
+          const totalAmount = parseFloat(invoice.total_amount || '0');
+          const commissionAmount = parseFloat(invoice.commission_amount || '0');
+          
           await db.execute(sql`
             INSERT INTO referral_invoice_items 
               (referral_invoice_id, original_invoice_id, patient_name, service_name,
                service_amount, commission_rate, commission_amount, service_date)
             VALUES 
-              (${referralInvoice.id}, ${invoice.id}, ${patientName}, ${test.testName},
-               ${test.price}, ${invoice.commission_rate}, ${(parseFloat(test.price) * parseFloat(invoice.commission_rate) / 100).toString()}, ${invoice.created_at})
+              (${referralInvoice.id}, ${invoice.id}, ${patientName}, 'Medical Services',
+               ${totalAmount.toString()}, ${invoice.commission_rate || '0'}, ${commissionAmount.toString()}, ${invoice.created_at})
           `);
         }
       }
