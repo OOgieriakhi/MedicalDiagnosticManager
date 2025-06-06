@@ -181,11 +181,24 @@ export default function SidebarDashboard() {
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          {sidebarOpen && (
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Medical ERP</h1>
-              <p className="text-sm text-gray-600">Diagnostic Center</p>
+          {sidebarOpen ? (
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/attached_assets/letter head logo.jpg" 
+                alt="Orient Medical Diagnostic Centre" 
+                className="h-12 w-auto object-contain"
+              />
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">Orient Medical</h1>
+                <p className="text-xs text-gray-600">Diagnostic Centre</p>
+              </div>
             </div>
+          ) : (
+            <img 
+              src="/attached_assets/letter head logo.jpg" 
+              alt="Orient Medical" 
+              className="h-10 w-10 object-contain mx-auto"
+            />
           )}
           <Button
             variant="ghost"
