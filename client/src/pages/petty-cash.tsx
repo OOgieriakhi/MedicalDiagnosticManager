@@ -258,9 +258,9 @@ export default function PettyCash() {
   // Approval handlers
   const handleApproveTransaction = async (transactionId: number) => {
     try {
-      await apiRequest(`/api/petty-cash/transactions/${transactionId}/approve`, {
+      await apiRequest(`/api/petty-cash/approve/${transactionId}`, {
         method: 'POST',
-        body: { action: 'approve' }
+        body: { comments: 'Approved via dashboard' }
       });
       
       toast({
@@ -281,9 +281,9 @@ export default function PettyCash() {
 
   const handleRejectTransaction = async (transactionId: number) => {
     try {
-      await apiRequest(`/api/petty-cash/transactions/${transactionId}/approve`, {
+      await apiRequest(`/api/petty-cash/reject/${transactionId}`, {
         method: 'POST',
-        body: { action: 'reject' }
+        body: { comments: 'Rejected via dashboard' }
       });
       
       toast({
