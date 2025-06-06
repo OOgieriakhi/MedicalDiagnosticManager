@@ -1,0 +1,47 @@
+Here is a focused **prompt** you can use with the AI agent to **test the full revenue flow and verification process** in your ERP application:
+
+---
+
+### ✅ **Prompt to Test Revenue Flow & Verification in ERP**
+
+> **You are a senior ERP QA engineer. Test the complete revenue collection and verification flow in the ERP system for a diagnostic center.**
+> Cover the journey from service billing to final bank deposit and monthly reconciliation, ensuring roles, approvals, and audit trails are enforced.
+>
+> ### 🔍 **Key Test Areas to Cover:**
+>
+> 1. **Billing & Receipt Generation**
+>
+>    * Can cashier select services and apply correct prices?
+>    * Is an official receipt auto-generated and tagged to the correct patient and invoice?
+>    * Is the revenue properly categorized (cash, POS, transfer)?
+> 2. **End-of-Day Summary & Cash Handover**
+>
+>    * Can cashier generate accurate daily collection summary?
+>    * Can manager verify and sign off on handover report?
+>    * Is a discrepancy flagged if physical cash ≠ ERP total?
+> 3. **Bank Deposit and Posting**
+>
+>    * Can manager record actual cash deposited to bank?
+>    * Is bank deposit slip or reference attached?
+>    * Does ERP compare deposit value against previous day’s cash?
+> 4. **Accountant Reconciliation**
+>
+>    * Can accountant verify bank receipts match ERP billing data?
+>    * Are cashbook and general ledger automatically updated?
+>    * Are there reconciliation flags for missing or delayed deposits?
+> 5. **Audit Trail & Security**
+>
+>    * Are all actions (billing, verification, deposit, approval) time-stamped with user roles?
+>    * Can unauthorized users make edits to financial entries?
+>    * Is there a monthly report showing revenue by category, staff, and branch?
+>
+> ### ✅ **Expected Output:**
+>
+> * A step-by-step test report for each workflow
+> * Identification of any broken flows or skipped validations
+> * List of missing audit logs or access control issues
+> * Recommendation for compliance with financial SOP
+
+---
+
+Would you like this prompt exported as a `.txt` or `.docx` file for your QA manual?

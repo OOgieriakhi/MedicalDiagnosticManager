@@ -61,6 +61,7 @@ function Router() {
       <ProtectedRoute path="/" component={() => <RoleBasedDashboard />} />
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
+      <ProtectedRoute path="/patients" component={PatientManagement} />
       <ProtectedRoute path="/financial-management" component={FinancialManagement} />
       <ProtectedRoute path="/invoice-management" component={InvoiceManagement} />
       <ProtectedRoute path="/notifications" component={NotificationCenter} />
