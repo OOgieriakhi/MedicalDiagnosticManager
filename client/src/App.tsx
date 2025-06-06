@@ -47,6 +47,7 @@ import PredictiveRecommendations from "@/pages/predictive-recommendations";
 import WaitingRoomQueue from "@/pages/waiting-room-queue";
 import AccountingDashboard from "@/pages/accounting-dashboard";
 import RoleBasedDashboard from "@/pages/role-based-dashboard";
+import ApprovalTracking from "@/pages/approval-tracking";
 
 function Router() {
   return (
@@ -87,7 +88,7 @@ function Router() {
       <ProtectedRoute path="/predictive-recommendations" component={PredictiveRecommendations} />
       <ProtectedRoute path="/waiting-room-queue" component={WaitingRoomQueue} />
       <ProtectedRoute path="/accounting-dashboard" component={AccountingDashboard} />
-      <ProtectedRoute path="/purchase-orders" component={PurchaseOrders} />
+      <ProtectedRoute path="/approval-tracking" component={ApprovalTracking} />
       <ProtectedRoute path="/inventory-dashboard" component={InventoryDashboard} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />

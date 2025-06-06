@@ -6664,6 +6664,163 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get approval tracking data
+  app.get("/api/approval-tracking", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
+
+      const allApprovals = [
+        {
+          id: 1,
+          type: "Equipment Purchase",
+          description: "New ultrasound machine for cardiology unit",
+          amount: "850000",
+          requestedBy: "Dr. Sarah Johnson",
+          requestedAt: "2025-06-05T10:30:00Z",
+          priority: "high",
+          department: "Cardiology",
+          justification: "Current ultrasound machine is outdated and requires frequent repairs. New machine will improve diagnostic accuracy and reduce patient wait times."
+        },
+        {
+          id: 2,
+          type: "Training Program",
+          description: "Advanced laboratory training certification",
+          amount: "450000",
+          requestedBy: "Lab Manager",
+          requestedAt: "2025-06-05T09:15:00Z",
+          priority: "medium",
+          department: "Laboratory",
+          justification: "Staff certification required for new testing protocols and equipment operation."
+        },
+        {
+          id: 3,
+          type: "Facility Upgrade",
+          description: "HVAC system upgrade for clean room",
+          amount: "1200000",
+          requestedBy: "Facilities Manager",
+          requestedAt: "2025-06-04T16:45:00Z",
+          priority: "urgent",
+          department: "Infrastructure",
+          justification: "Current HVAC system failing, affecting laboratory environment controls and compliance requirements."
+        },
+        {
+          id: 4,
+          type: "Software License",
+          description: "Laboratory management system upgrade",
+          amount: "300000",
+          requestedBy: "IT Manager",
+          requestedAt: "2025-06-04T13:20:00Z",
+          priority: "medium",
+          department: "Information Technology",
+          justification: "Current system lacks reporting features and integration capabilities needed for regulatory compliance."
+        },
+        {
+          id: 5,
+          type: "Marketing Campaign",
+          description: "Digital marketing initiative for Q3",
+          amount: "420000",
+          requestedBy: "Marketing Director",
+          requestedAt: "2025-06-04T09:45:00Z",
+          priority: "high",
+          department: "Marketing",
+          justification: "Expand market reach and increase patient acquisition in competitive healthcare market."
+        }
+      ];
+
+      // Create processed records based on current statuses
+      const processedRecords = allApprovals
+        .filter(approval => global.approvalStatuses[approval.id])
+        .map(approval => {
+          const status = global.approvalStatuses[approval.id];
+          const processedAt = new Date();
+          processedAt.setHours(processedAt.getHours() - Math.floor(Math.random() * 24));
+
+          let additionalData = {};
+          
+          switch (status) {
+            case "approved":
+              additionalData = { comments: "Approved for business operations" };
+              break;
+            case "rejected":
+              additionalData = { reason: "Rejected by GED" };
+              break;
+            case "queried":
+              additionalData = { query: status === "queried" && approval.id === 1 ? "send to MD" : "i need more details" };
+              break;
+            case "referred_to_ceo":
+              additionalData = { 
+                referralReason: "high-value", 
+                referralNotes: status === "referred_to_ceo" && approval.id === 2 ? "above limit" : "Requires executive decision" 
+              };
+              break;
+          }
+
+          return {
+            ...approval,
+            status,
+            processedAt: processedAt.toISOString(),
+            processedBy: "GED admin",
+            ...additionalData
+          };
+        });
+
+      res.json(processedRecords);
+    } catch (error: any) {
+      console.error("Error fetching approval tracking data:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get approval metrics
+  app.get("/api/approval-metrics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
+
+      const statuses = Object.values(global.approvalStatuses);
+      const approved = statuses.filter(s => s === "approved").length;
+      const rejected = statuses.filter(s => s === "rejected").length;
+      const queried = statuses.filter(s => s === "queried").length;
+      const referredToCeo = statuses.filter(s => s === "referred_to_ceo").length;
+
+      const totalProcessed = statuses.length;
+      const approvalRate = totalProcessed > 0 ? Math.round((approved / totalProcessed) * 100) : 0;
+
+      // Calculate total value of processed items
+      const processedAmounts = [850000, 450000, 1200000, 300000, 420000]; // Sample amounts
+      const totalValue = processedAmounts.slice(0, totalProcessed).reduce((sum, amount) => sum + amount, 0);
+
+      const metrics = {
+        totalProcessed,
+        approved,
+        rejected,
+        queried,
+        referredToCeo,
+        totalValue: totalValue.toString(),
+        averageProcessingTime: "2.5 hours",
+        approvalRate
+      };
+
+      res.json(metrics);
+    } catch (error: any) {
+      console.error("Error fetching approval metrics:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Generate Laboratory PDF Report
   app.post("/api/generate-lab-report", async (req, res) => {
     try {

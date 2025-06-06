@@ -279,6 +279,12 @@ export default function GEDDashboard() {
         </div>
         <div className="flex items-center space-x-3">
           <MessageNotification />
+          <Link href="/approval-tracking">
+            <Button variant="outline" size="sm">
+              <FileText className="w-4 h-4 mr-2" />
+              Approval Tracking
+            </Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/ged/metrics"] });
             queryClient.invalidateQueries({ queryKey: ["/api/ged/pending-approvals"] });
