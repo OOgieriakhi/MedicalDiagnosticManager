@@ -36,48 +36,46 @@ export class FinancialStorage {
     // Generate PO number
     const poNumber = await this.generatePONumber(data.tenantId);
     
-    // Get unit/center manager (first in workflow)
-    const unitManager = await this.getUnitManager(data.tenantId, data.branchId, data.requestedBy);
-    
     const poData = {
-      ...data,
+      tenantId: data.tenantId || 1,
+      branchId: data.branchId || 1,
       poNumber,
+      vendorName: data.vendorName || '',
+      vendorEmail: data.vendorEmail || null,
+      vendorPhone: data.vendorPhone || null,
+      vendorAddress: data.vendorAddress || null,
+      requestedBy: data.requestedBy || 1,
+      status: 'pending',
+      priority: data.priority || 'normal',
+      subtotal: parseFloat(data.subtotal) || 0,
+      taxAmount: parseFloat(data.taxAmount) || 0,
+      discountAmount: parseFloat(data.discountAmount) || 0,
+      totalAmount: parseFloat(data.totalAmount) || 0,
+      currency: data.currency || 'NGN',
+      items: JSON.stringify(data.items || []),
+      notes: data.notes || null,
+      urgencyLevel: data.urgencyLevel || 'normal',
       approvalLevel: 1,
-      workflowStage: 'unit_manager_review',
-      currentStageUser: unitManager?.userId || null,
-      status: 'pending'
+      workflowStage: 'unit_manager_review'
     };
     
     const result = await db.execute(sql`
       INSERT INTO purchase_orders (
         tenant_id, branch_id, po_number, vendor_name, vendor_email, vendor_phone, vendor_address,
-        requested_by, status, approval_level, workflow_stage, current_stage_user,
-        subtotal, tax_amount, discount_amount, total_amount, currency, items, notes, 
-        terms_conditions, delivery_date, urgency_level, created_at, updated_at
+        requested_by, status, priority, subtotal, tax_amount, discount_amount, total_amount, 
+        currency, items, notes, urgency_level, approval_level, workflow_stage,
+        created_at, updated_at
       ) VALUES (
         ${poData.tenantId}, ${poData.branchId}, ${poData.poNumber}, ${poData.vendorName}, 
-        ${poData.vendorEmail || null}, ${poData.vendorPhone || null}, ${poData.vendorAddress || null},
-        ${poData.requestedBy}, ${poData.status}, ${poData.approvalLevel}, ${poData.workflowStage}, 
-        ${poData.currentStageUser}, ${poData.subtotal}, ${poData.taxAmount || 0}, 
-        ${poData.discountAmount || 0}, ${poData.totalAmount}, ${poData.currency || 'NGN'}, 
-        ${JSON.stringify(poData.items)}, ${poData.notes || null}, ${poData.termsConditions || null}, 
-        ${poData.deliveryDate || null}, ${poData.urgencyLevel || 'normal'}, NOW(), NOW()
+        ${poData.vendorEmail}, ${poData.vendorPhone}, ${poData.vendorAddress},
+        ${poData.requestedBy}, ${poData.status}, ${poData.priority}, ${poData.subtotal}, 
+        ${poData.taxAmount}, ${poData.discountAmount}, ${poData.totalAmount}, 
+        ${poData.currency}, ${poData.items}, ${poData.notes}, ${poData.urgencyLevel}, 
+        ${poData.approvalLevel}, ${poData.workflowStage}, NOW(), NOW()
       ) RETURNING *
     `);
     
-    const po = result.rows[0];
-    
-    // Create approval record for unit manager
-    if (unitManager) {
-      await this.createApprovalRecord({
-        purchaseOrderId: po.id,
-        approverId: unitManager.userId,
-        approvalLevel: 1,
-        status: 'pending'
-      });
-    }
-    
-    return po;
+    return result.rows[0];
   }
 
   async generatePONumber(tenantId: number) {
@@ -90,30 +88,33 @@ export class FinancialStorage {
         WHERE tenant_id = ${tenantId}
       `);
       
-      const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(4, '0');
-      return `PO-${year}${month}-${count}`;
+      const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(3, '0');
+      return `PO-${year}-${count}`;
     } catch (error) {
       console.error('Error generating PO number:', error);
       // Fallback to timestamp-based number
       const timestamp = Date.now().toString().slice(-4);
-      return `PO-${year}${month}-${timestamp}`;
+      return `PO-${year}-${timestamp}`;
     }
   }
 
   async getUnitManager(tenantId: number, branchId: number, requestedBy: number) {
-    // Get the unit/center manager who is the first in the workflow
-    const result = await db.execute(sql`
-      SELECT ah.manager_id as user_id, u.username
-      FROM approval_hierarchy ah
-      JOIN users u ON u.id = ah.manager_id
-      WHERE ah.tenant_id = ${tenantId} 
-        AND ah.branch_id = ${branchId} 
-        AND ah.user_id = ${requestedBy}
-        AND ah.is_active = true
-      LIMIT 1
-    `);
-    
-    return result.rows[0] ? { userId: result.rows[0].user_id, username: result.rows[0].username } : null;
+    // Return a default manager for now - simplified workflow
+    try {
+      const result = await db.execute(sql`
+        SELECT id as user_id, username
+        FROM users 
+        WHERE tenant_id = ${tenantId} 
+          AND role IN ('manager', 'admin')
+          AND is_active = true
+        LIMIT 1
+      `);
+      
+      return result.rows[0] ? { userId: result.rows[0].user_id, username: result.rows[0].username } : null;
+    } catch (error) {
+      console.error('Error getting unit manager:', error);
+      return null;
+    }
   }
 
   async getApprovalWorkflow(tenantId: number, amount: number) {
