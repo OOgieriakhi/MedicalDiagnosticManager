@@ -10,6 +10,7 @@ import {
   journalEntryLineItems
 } from "@shared/schema";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { approvalConfigService } from "./approval-config";
 
 export interface PettyCashApprovalWorkflow {
   level: number;
@@ -153,38 +154,45 @@ export class PettyCashEngine {
         )
       );
 
-    // Define approval thresholds and hierarchy
-    if (amount > 10000) { // Above $10,000 requires CEO approval
+    // Define approval thresholds and hierarchy (amounts in local currency)
+    // These thresholds can be configured per organization/branch in production
+    const approvalThresholds = {
+      ceoThreshold: 500000,      // Large amounts require CEO approval
+      financeThreshold: 100000,  // Medium amounts require Finance Manager
+      managerThreshold: 25000    // Small amounts require Branch Manager
+    };
+
+    if (amount > approvalThresholds.ceoThreshold) {
       const ceo = approvers.find(u => u.role === 'ceo' || u.role === 'director');
       if (ceo) {
         workflow.push({
-          level: 2,
+          level: 3,
           approverId: ceo.id,
           approverName: `${ceo.firstName} ${ceo.lastName}`,
           approverRole: ceo.role,
-          amountLimit: 50000,
+          amountLimit: 1000000,
           isRequired: true,
         });
       }
     }
 
-    if (amount > 5000) { // Above $5,000 requires Finance Manager approval
+    if (amount > approvalThresholds.financeThreshold) {
       const financeManager = approvers.find(u => 
         u.role === 'finance_manager' || u.role === 'accountant' || u.role === 'admin'
       );
       if (financeManager) {
         workflow.push({
-          level: 1,
+          level: 2,
           approverId: financeManager.id,
           approverName: `${financeManager.firstName} ${financeManager.lastName}`,
           approverRole: financeManager.role,
-          amountLimit: 10000,
+          amountLimit: approvalThresholds.ceoThreshold,
           isRequired: true,
         });
       }
     }
 
-    if (amount > 1000) { // Above $1,000 requires Branch Manager approval
+    if (amount > approvalThresholds.managerThreshold) {
       const branchManager = approvers.find(u => 
         u.role === 'branch_manager' || u.role === 'manager'
       );
@@ -194,7 +202,7 @@ export class PettyCashEngine {
           approverId: branchManager.id,
           approverName: `${branchManager.firstName} ${branchManager.lastName}`,
           approverRole: branchManager.role,
-          amountLimit: 5000,
+          amountLimit: approvalThresholds.financeThreshold,
           isRequired: true,
         });
       }
