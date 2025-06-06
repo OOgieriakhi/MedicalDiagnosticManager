@@ -3640,6 +3640,43 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get pending delivery confirmations
+  app.get("/api/purchase-orders/pending-deliveries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      const pendingDeliveries = await db.execute(sql`
+        SELECT 
+          po.id,
+          po.po_number as "poNumber",
+          po.description,
+          po.total_amount as "totalAmount",
+          po.execution_confirmed_by as "executionConfirmedBy",
+          po.workflow_stage as "workflowStage",
+          v.name as "vendorName",
+          u.username as "executedByName",
+          po.updated_at as "executionDate"
+        FROM purchase_orders po
+        LEFT JOIN vendors v ON po.vendor_id = v.id
+        LEFT JOIN users u ON po.execution_confirmed_by = u.id
+        WHERE po.tenant_id = ${user.tenantId}
+          AND po.workflow_stage = 'delivery_pending'
+          AND po.execution_confirmed_by IS NOT NULL
+          AND po.status = 'approved'
+        ORDER BY po.updated_at DESC
+      `);
+
+      res.json(pendingDeliveries.rows);
+    } catch (error) {
+      console.error("Error fetching pending deliveries:", error);
+      res.status(500).json({ message: "Failed to fetch pending deliveries" });
+    }
+  });
+
   // Reject purchase order
   app.post("/api/purchase-orders/:id/reject", async (req, res) => {
     try {

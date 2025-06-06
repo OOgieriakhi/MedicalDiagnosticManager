@@ -22,7 +22,8 @@ import {
   Calendar,
   CreditCard,
   Receipt,
-  Wallet
+  Wallet,
+  Package
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -83,6 +84,16 @@ export default function AccountantDashboard() {
     queryFn: async () => {
       const response = await fetch("/api/accounting/metrics");
       if (!response.ok) throw new Error("Failed to fetch accounting metrics");
+      return response.json();
+    },
+  });
+
+  // Fetch pending delivery confirmations
+  const { data: pendingDeliveries } = useQuery({
+    queryKey: ["/api/purchase-orders/pending-deliveries"],
+    queryFn: async () => {
+      const response = await fetch("/api/purchase-orders/pending-deliveries");
+      if (!response.ok) throw new Error("Failed to fetch pending deliveries");
       return response.json();
     },
   });
@@ -181,6 +192,30 @@ export default function AccountantDashboard() {
     onError: (error: any) => {
       toast({ 
         title: "Rejection failed", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Confirm delivery mutation
+  const confirmDeliveryMutation = useMutation({
+    mutationFn: async ({ poId }: { poId: number }) => {
+      const response = await fetch(`/api/purchase-orders/${poId}/confirm-delivery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmationType: 'accountant' }),
+      });
+      if (!response.ok) throw new Error("Failed to confirm delivery");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders/pending-deliveries"] });
+      toast({ title: "Delivery confirmed successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Delivery confirmation failed", 
         description: error.message,
         variant: "destructive" 
       });
@@ -335,6 +370,63 @@ export default function AccountantDashboard() {
           </Card>
         </div>
       )}
+
+      {/* Pending Delivery Confirmations */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Package className="w-5 h-5 mr-2" />
+            Pending Delivery Confirmations
+          </CardTitle>
+          <CardDescription>
+            Purchase orders awaiting accountant delivery confirmation
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>PO Number</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Executed By</TableHead>
+                <TableHead>Execution Date</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!pendingDeliveries || pendingDeliveries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No pending delivery confirmations
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pendingDeliveries.map((po: any) => (
+                  <TableRow key={po.id}>
+                    <TableCell className="font-medium">{po.poNumber}</TableCell>
+                    <TableCell>{po.vendorName}</TableCell>
+                    <TableCell className="font-bold">{formatCurrency(po.totalAmount)}</TableCell>
+                    <TableCell className="max-w-xs truncate">{po.description}</TableCell>
+                    <TableCell>{po.executedByName}</TableCell>
+                    <TableCell>{po.executionDate ? new Date(po.executionDate).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell>
+                      <Button 
+                        size="sm" 
+                        onClick={() => confirmDeliveryMutation.mutate({ poId: po.id })}
+                      >
+                        <Package className="w-4 h-4 mr-1" />
+                        Confirm Delivery
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Accounts Payable Posting Queue */}
       <Card>
