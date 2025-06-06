@@ -165,7 +165,9 @@ export default function BankDepositRecording() {
       return;
     }
 
-    const selectedCash = verifiedCash.find(c => c.businessDate === formData.depositDate);
+    const selectedCash = formData.depositDate 
+      ? (verifiedCash as any)?.daily?.find((c: any) => c.businessDate === formData.depositDate)
+      : (verifiedCash as any)?.cumulative;
     const submitData = {
       ...formData,
       depositAmount: parseFloat(formData.depositAmount),
@@ -203,8 +205,9 @@ export default function BankDepositRecording() {
     }).format(amount);
   };
 
-  const selectedCashForDate = (verifiedCash as any)?.daily?.find((c: any) => c.businessDate === formData.depositDate) || 
-                              ((verifiedCash as any)?.cumulative && formData.depositDate ? (verifiedCash as any).cumulative : null);
+  const selectedCashForDate = formData.depositDate 
+    ? (verifiedCash as any)?.daily?.find((c: any) => c.businessDate === formData.depositDate)
+    : (verifiedCash as any)?.cumulative;
 
   return (
     <div className="container mx-auto py-6 space-y-6">
