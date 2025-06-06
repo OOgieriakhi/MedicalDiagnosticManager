@@ -80,7 +80,6 @@ export class FinancialStorage {
 
   async generatePONumber(tenantId: number) {
     const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
     
     try {
       const result = await db.execute(sql`

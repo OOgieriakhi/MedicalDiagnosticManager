@@ -3544,17 +3544,6 @@ export function registerRoutes(app: Express): Server {
       };
 
       const order = await financialStorage.createPurchaseOrder(orderData);
-      
-      // Create audit trail entry
-      await financialStorage.createAuditEntry({
-        tenantId: req.body.tenantId,
-        branchId: req.body.branchId,
-        userId: req.user.id,
-        action: "create_purchase_order",
-        resourceType: "purchase_order",
-        resourceId: order.id,
-        details: `Created PO ${req.body.poNumber}`
-      });
 
       res.status(201).json(order);
     } catch (error) {
