@@ -94,6 +94,9 @@ export default function GEDDashboard() {
   const [transferPurpose, setTransferPurpose] = useState("");
   const [fromAccount, setFromAccount] = useState("");
   const [toAccount, setToAccount] = useState("");
+  const [queryText, setQueryText] = useState("");
+  const [referralReason, setReferralReason] = useState("");
+  const [referralNotes, setReferralNotes] = useState("");
 
   // Fetch GED metrics
   const { data: gedMetrics, isLoading: metricsLoading } = useQuery<GEDMetrics>({
@@ -156,6 +159,43 @@ export default function GEDDashboard() {
     },
     onError: () => {
       toast({ title: "Failed to reject expense", variant: "destructive" });
+    },
+  });
+
+  // Query expense mutation
+  const queryExpenseMutation = useMutation({
+    mutationFn: async ({ id, query }: { id: number; query: string }) => {
+      const response = await apiRequest("POST", `/api/ged/query-expense/${id}`, { query });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ged/pending-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ged/metrics"] });
+      toast({ title: "Query sent successfully" });
+      setSelectedApproval(null);
+      setQueryText("");
+    },
+    onError: () => {
+      toast({ title: "Failed to send query", variant: "destructive" });
+    },
+  });
+
+  // Refer to CEO mutation
+  const referToCEOMutation = useMutation({
+    mutationFn: async ({ id, reason, notes }: { id: number; reason: string; notes: string }) => {
+      const response = await apiRequest("POST", `/api/ged/refer-to-ceo/${id}`, { reason, notes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ged/pending-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ged/metrics"] });
+      toast({ title: "Successfully referred to CEO" });
+      setSelectedApproval(null);
+      setReferralReason("");
+      setReferralNotes("");
+    },
+    onError: () => {
+      toast({ title: "Failed to refer to CEO", variant: "destructive" });
     },
   });
 
@@ -476,13 +516,22 @@ export default function GEDDashboard() {
                                               <Label htmlFor="query">Your Query</Label>
                                               <Textarea
                                                 id="query"
+                                                value={queryText}
+                                                onChange={(e) => setQueryText(e.target.value)}
                                                 placeholder="Please provide additional details about..."
                                                 rows={4}
                                               />
                                             </div>
                                             <div className="flex gap-2">
-                                              <Button className="flex-1">
-                                                Submit Query
+                                              <Button 
+                                                className="flex-1"
+                                                onClick={() => queryExpenseMutation.mutate({ 
+                                                  id: selectedApproval?.id || 0, 
+                                                  query: queryText 
+                                                })}
+                                                disabled={!queryText.trim() || queryExpenseMutation.isPending}
+                                              >
+                                                {queryExpenseMutation.isPending ? "Sending..." : "Submit Query"}
                                               </Button>
                                             </div>
                                           </div>
@@ -509,7 +558,7 @@ export default function GEDDashboard() {
                                             </div>
                                             <div>
                                               <Label htmlFor="referral-reason">Reason for CEO Referral</Label>
-                                              <Select>
+                                              <Select value={referralReason} onValueChange={setReferralReason}>
                                                 <SelectTrigger>
                                                   <SelectValue placeholder="Select reason" />
                                                 </SelectTrigger>
@@ -526,14 +575,24 @@ export default function GEDDashboard() {
                                               <Label htmlFor="referral-notes">Additional Notes</Label>
                                               <Textarea
                                                 id="referral-notes"
+                                                value={referralNotes}
+                                                onChange={(e) => setReferralNotes(e.target.value)}
                                                 placeholder="Provide context for CEO review..."
                                                 rows={3}
                                               />
                                             </div>
                                             <div className="flex gap-2">
-                                              <Button className="flex-1 bg-yellow-600 hover:bg-yellow-700">
+                                              <Button 
+                                                className="flex-1 bg-yellow-600 hover:bg-yellow-700"
+                                                onClick={() => referToCEOMutation.mutate({ 
+                                                  id: selectedApproval?.id || 0, 
+                                                  reason: referralReason, 
+                                                  notes: referralNotes 
+                                                })}
+                                                disabled={!referralReason || !referralNotes.trim() || referToCEOMutation.isPending}
+                                              >
                                                 <ArrowUp className="w-4 h-4 mr-2" />
-                                                Refer to CEO
+                                                {referToCEOMutation.isPending ? "Referring..." : "Refer to CEO"}
                                               </Button>
                                             </div>
                                           </div>

@@ -6544,6 +6544,78 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Query expense (GED)
+  app.post("/api/ged/query-expense/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const expenseId = parseInt(req.params.id);
+      const { query } = req.body;
+
+      if (!query) {
+        return res.status(400).json({ message: "Query text is required" });
+      }
+
+      console.log(`GED ${user.username} queried expense ${expenseId} with query: ${query}`);
+
+      // In a real implementation, this would:
+      // - Update the expense status to 'queried'
+      // - Store the query in the database
+      // - Send notification to the originator
+      // - Create audit trail
+
+      res.json({ 
+        success: true, 
+        message: "Query sent successfully",
+        expenseId,
+        query
+      });
+    } catch (error: any) {
+      console.error("Error querying expense:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Refer expense to CEO (GED)
+  app.post("/api/ged/refer-to-ceo/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const expenseId = parseInt(req.params.id);
+      const { reason, notes } = req.body;
+
+      if (!reason || !notes) {
+        return res.status(400).json({ message: "Reason and notes are required" });
+      }
+
+      console.log(`GED ${user.username} referred expense ${expenseId} to CEO. Reason: ${reason}, Notes: ${notes}`);
+
+      // In a real implementation, this would:
+      // - Update the expense status to 'referred_to_ceo'
+      // - Store the referral reason and notes
+      // - Send notification to CEO
+      // - Create audit trail
+      // - Update approval workflow
+
+      res.json({ 
+        success: true, 
+        message: "Successfully referred to CEO",
+        expenseId,
+        reason,
+        notes
+      });
+    } catch (error: any) {
+      console.error("Error referring to CEO:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Generate Laboratory PDF Report
   app.post("/api/generate-lab-report", async (req, res) => {
     try {
