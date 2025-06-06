@@ -8202,12 +8202,30 @@ Medical System Procurement Team
 
       const user = req.user!;
       
-      // Get purchase orders with pending approval status
-      const purchaseOrders = global.purchaseOrders || [];
-      const pendingApprovals = purchaseOrders.filter((po: any) => 
-        po.status === 'pending_approval'
+      // Get purchase orders with pending_approval status from database
+      const result = await db.execute(
+        sql`SELECT 
+          id,
+          po_number as "poNumber",
+          vendor_name as "vendorName", 
+          total_amount as "totalAmount",
+          CASE 
+            WHEN requested_by = 1 THEN 'oogierhiakhi'
+            WHEN requested_by = 2 THEN 'admin'
+            WHEN requested_by = 4 THEN 'branch_mgr'
+            WHEN requested_by = 5 THEN 'finance_mgr'
+            WHEN requested_by = 6 THEN 'ceo_user'
+            ELSE 'Unknown User'
+          END as "requestedBy",
+          created_at as "createdAt",
+          notes as description,
+          (SELECT COUNT(*) FROM jsonb_array_elements(items::jsonb)) as "itemCount"
+        FROM purchase_orders 
+        WHERE tenant_id = ${user.tenantId || 1} AND status = 'pending_approval'
+        ORDER BY created_at DESC`
       );
-
+      
+      const pendingApprovals = result.rows;
       res.json(pendingApprovals);
     } catch (error: any) {
       console.error("Error fetching pending approvals:", error);
@@ -8224,12 +8242,29 @@ Medical System Procurement Team
 
       const user = req.user!;
       
-      // Get approved purchase orders
-      const purchaseOrders = global.purchaseOrders || [];
-      const approvedOrders = purchaseOrders.filter((po: any) => 
-        po.status === 'approved' || po.status === 'executed'
+      // Get approved purchase orders from database
+      const result = await db.execute(
+        sql`SELECT 
+          id,
+          po_number as "poNumber",
+          vendor_name as "vendorName", 
+          total_amount as "totalAmount",
+          CASE 
+            WHEN approved_by = 1 THEN 'oogierhiakhi'
+            WHEN approved_by = 2 THEN 'admin'
+            WHEN approved_by = 4 THEN 'branch_mgr'
+            WHEN approved_by = 5 THEN 'finance_mgr'
+            WHEN approved_by = 6 THEN 'ceo_user'
+            ELSE 'Unknown User'
+          END as "approvedByName",
+          approved_at as "approvedAt",
+          status
+        FROM purchase_orders 
+        WHERE tenant_id = ${user.tenantId || 1} AND status IN ('approved', 'executed')
+        ORDER BY approved_at DESC`
       );
-
+      
+      const approvedOrders = result.rows;
       res.json(approvedOrders);
     } catch (error: any) {
       console.error("Error fetching approved orders:", error);
@@ -8249,27 +8284,30 @@ Medical System Procurement Team
       const action = req.params.action; // 'approve' or 'reject'
       const { comments } = req.body;
 
-      // Find and update purchase order
-      const purchaseOrders = global.purchaseOrders || [];
-      const poIndex = purchaseOrders.findIndex((po: any) => po.id === poId);
+      const newStatus = action === 'approve' ? 'approved' : 'rejected';
       
-      if (poIndex === -1) {
+      // Update purchase order in database
+      const result = await db.execute(
+        sql`UPDATE purchase_orders 
+        SET status = ${newStatus},
+            approved_by = ${user.id},
+            approved_at = NOW(),
+            approval_comments = ${comments},
+            updated_at = NOW()
+        WHERE id = ${poId} AND tenant_id = ${user.tenantId || 1}
+        RETURNING po_number`
+      );
+
+      if (result.rows.length === 0) {
         return res.status(404).json({ message: "Purchase order not found" });
       }
 
-      const newStatus = action === 'approve' ? 'approved' : 'rejected';
-      purchaseOrders[poIndex].status = newStatus;
-      purchaseOrders[poIndex].approvedBy = user.id;
-      purchaseOrders[poIndex].approvedByName = user.username;
-      purchaseOrders[poIndex].approvedAt = new Date();
-      purchaseOrders[poIndex].approvalComments = comments;
-
-      console.log(`Purchase order ${purchaseOrders[poIndex].poNumber} ${action}d by ${user.username}`);
+      const poNumber = result.rows[0].po_number;
+      console.log(`Purchase order ${poNumber} ${action}d by ${user.username}`);
       console.log(`Comments: ${comments}`);
 
       res.json({
         success: true,
-        purchaseOrder: purchaseOrders[poIndex],
         message: `Purchase order ${action}d successfully`
       });
     } catch (error: any) {
