@@ -3580,13 +3580,27 @@ export function registerRoutes(app: Express): Server {
       const { comments } = req.body;
       const user = req.user!;
 
-      const result = await financialStorage.approvePurchaseOrder(
-        Number(id), 
-        user.id,
-        comments
+      // Update purchase order in database
+      const result = await db.execute(
+        sql`UPDATE purchase_orders 
+        SET status = 'approved',
+            approved_by = ${user.id},
+            approved_at = NOW(),
+            approval_comments = ${comments},
+            updated_at = NOW()
+        WHERE id = ${parseInt(id)} AND tenant_id = ${user.tenantId || 1}
+        RETURNING po_number`
       );
 
-      res.json({ success: true, message: "Purchase order approved successfully", ...result });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+
+      const poNumber = result.rows[0].po_number;
+      console.log(`Purchase order ${poNumber} approved by ${user.username}`);
+      console.log(`Comments: ${comments}`);
+
+      res.json({ success: true, message: "Purchase order approved successfully" });
     } catch (error) {
       console.error("Error approving purchase order:", error);
       res.status(500).json({ message: "Failed to approve purchase order" });
