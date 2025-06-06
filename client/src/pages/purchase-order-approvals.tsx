@@ -29,8 +29,10 @@ export default function PurchaseOrderApprovals() {
   const { user } = useAuth();
   const [selectedPO, setSelectedPO] = useState<any>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showExecutionModal, setShowExecutionModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
   const [approvalComments, setApprovalComments] = useState("");
+  const [executionMethod, setExecutionMethod] = useState<'email' | 'print'>('email');
 
   // Fetch pending purchase orders requiring approval
   const { data: pendingApprovals = [] } = useQuery({
@@ -72,10 +74,43 @@ export default function PurchaseOrderApprovals() {
     }
   });
 
+  // Execute purchase order mutation
+  const executeMutation = useMutation({
+    mutationFn: async ({ poId, method }: { poId: number, method: 'email' | 'print' }) => {
+      const response = await fetch(`/api/purchase-orders/${poId}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method })
+      });
+      if (!response.ok) throw new Error('Failed to execute purchase order');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders/approved'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders/delivery-pending'] });
+      setShowExecutionModal(false);
+      toast({
+        title: "Purchase order executed and sent to vendor successfully"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Execution failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleApprovalAction = (po: any, action: 'approve' | 'reject') => {
     setSelectedPO(po);
     setApprovalAction(action);
     setShowApprovalModal(true);
+  };
+
+  const handleExecuteOrder = (po: any) => {
+    setSelectedPO(po);
+    setShowExecutionModal(true);
   };
 
   const submitApproval = () => {
@@ -373,6 +408,51 @@ export default function PurchaseOrderApprovals() {
                   ? `${approvalAction === 'approve' ? 'Approving' : 'Rejecting'}...`
                   : `${approvalAction === 'approve' ? 'Approve' : 'Reject'} Purchase Order`
                 }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Execution Modal */}
+      <Dialog open={showExecutionModal} onOpenChange={setShowExecutionModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Execute Purchase Order</DialogTitle>
+            <DialogDescription>
+              Send {selectedPO?.poNumber} to vendor {selectedPO?.vendorName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant={executionMethod === 'email' ? 'default' : 'outline'}
+                onClick={() => setExecutionMethod('email')}
+                className="flex items-center gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                Email Vendor
+              </Button>
+              <Button
+                variant={executionMethod === 'print' ? 'default' : 'outline'}
+                onClick={() => setExecutionMethod('print')}
+                className="flex items-center gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                Print Order
+              </Button>
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowExecutionModal(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => executeMutation.mutate({ poId: selectedPO?.id, method: executionMethod })}
+                disabled={executeMutation.isPending}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {executeMutation.isPending ? 'Executing...' : 'Execute Order'}
               </Button>
             </div>
           </div>

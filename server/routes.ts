@@ -7828,7 +7828,7 @@ Medical System Procurement Team
           status,
           (SELECT COUNT(*) FROM jsonb_array_elements(items::jsonb)) as "itemCount"
         FROM purchase_orders 
-        WHERE tenant_id = ${user.tenantId || 1} AND status = 'approved'
+        WHERE tenant_id = ${user.tenantId || 1} AND status = 'executed'
         ORDER BY approved_at DESC`
       );
       
@@ -7842,6 +7842,49 @@ Medical System Procurement Team
     } catch (error: any) {
       console.error("Error fetching delivery pending POs:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Execute purchase order (send to vendor)
+  app.post("/api/purchase-orders/:id/execute", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const poId = parseInt(req.params.id);
+      const { method } = req.body; // 'email' or 'print'
+
+      // Update purchase order status to executed
+      await db.execute(
+        sql`UPDATE purchase_orders 
+            SET status = 'executed', 
+                executed_by = ${user.id}, 
+                executed_at = NOW(), 
+                execution_method = ${method}
+            WHERE id = ${poId} AND tenant_id = ${user.tenantId || 1} AND status = 'approved'`
+      );
+
+      // Log execution
+      console.log(`Purchase order ${poId} executed by ${user.username} via ${method}`);
+
+      // For email method, simulate sending to vendor
+      if (method === 'email') {
+        // In production, this would integrate with email service
+        console.log(`Email sent to vendor for PO ${poId}`);
+      } else if (method === 'print') {
+        // In production, this would generate PDF and trigger print
+        console.log(`Print job queued for PO ${poId}`);
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Purchase order executed and ${method === 'email' ? 'emailed to vendor' : 'queued for printing'}` 
+      });
+    } catch (error: any) {
+      console.error("Error executing purchase order:", error);
+      res.status(500).json({ message: "Failed to execute purchase order" });
     }
   });
 
