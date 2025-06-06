@@ -1582,6 +1582,12 @@ export type InsertPurchaseOrderApproval = z.infer<typeof insertPurchaseOrderAppr
 export type PettyCashReconciliation = typeof pettyCashReconciliations.$inferSelect;
 export type InsertPettyCashReconciliation = z.infer<typeof insertPettyCashReconciliationSchema>;
 
+export type PettyCashApproval = typeof pettyCashApprovals.$inferSelect;
+export type InsertPettyCashApproval = z.infer<typeof insertPettyCashApprovalSchema>;
+
+export type PettyCashDisbursement = typeof pettyCashDisbursements.$inferSelect;
+export type InsertPettyCashDisbursement = z.infer<typeof insertPettyCashDisbursementSchema>;
+
 export type OrganizationBankAccount = typeof organizationBankAccounts.$inferSelect;
 export type InsertOrganizationBankAccount = z.infer<typeof insertOrganizationBankAccountSchema>;
 

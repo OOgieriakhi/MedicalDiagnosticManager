@@ -5,6 +5,8 @@ import {
   paymentApprovals,
   pettyCashFunds,
   pettyCashTransactions,
+  pettyCashApprovals,
+  pettyCashDisbursements,
   pettyCashReconciliations,
   auditTrail,
   vendors,
@@ -356,6 +358,88 @@ export class FinancialStorage {
     return await db
       .insert(pettyCashTransactions)
       .values(data)
+      .returning();
+  }
+
+  async getPettyCashApprovals(tenantId: number, branchId?: number) {
+    let conditions = [eq(pettyCashTransactions.tenantId, tenantId)];
+    
+    if (branchId) {
+      conditions.push(eq(pettyCashTransactions.branchId, branchId));
+    }
+
+    return await db
+      .select({
+        id: pettyCashApprovals.id,
+        transactionId: pettyCashApprovals.transactionId,
+        approverLevel: pettyCashApprovals.approverLevel,
+        approverId: pettyCashApprovals.approverId,
+        status: pettyCashApprovals.status,
+        comments: pettyCashApprovals.comments,
+        createdAt: pettyCashApprovals.createdAt,
+        approvedAt: pettyCashApprovals.approvedAt,
+        transactionNumber: pettyCashTransactions.transactionNumber,
+        amount: pettyCashTransactions.amount,
+        purpose: pettyCashTransactions.purpose,
+        priority: pettyCashTransactions.priority,
+      })
+      .from(pettyCashApprovals)
+      .leftJoin(pettyCashTransactions, eq(pettyCashTransactions.id, pettyCashApprovals.transactionId))
+      .where(and(...conditions))
+      .orderBy(desc(pettyCashApprovals.createdAt));
+  }
+
+  async createPettyCashApproval(data: any) {
+    return await db
+      .insert(pettyCashApprovals)
+      .values(data)
+      .returning();
+  }
+
+  async updatePettyCashApproval(id: number, data: any) {
+    return await db
+      .update(pettyCashApprovals)
+      .set(data)
+      .where(eq(pettyCashApprovals.id, id))
+      .returning();
+  }
+
+  async getPettyCashDisbursements(tenantId: number, branchId?: number) {
+    let conditions = [eq(pettyCashDisbursements.tenantId, tenantId)];
+    
+    if (branchId) {
+      conditions.push(eq(pettyCashDisbursements.branchId, branchId));
+    }
+
+    return await db
+      .select()
+      .from(pettyCashDisbursements)
+      .where(and(...conditions))
+      .orderBy(desc(pettyCashDisbursements.preparedAt));
+  }
+
+  async createPettyCashDisbursement(data: any) {
+    return await db
+      .insert(pettyCashDisbursements)
+      .values(data)
+      .returning();
+  }
+
+  async updatePettyCashDisbursement(id: number, data: any) {
+    return await db
+      .update(pettyCashDisbursements)
+      .set(data)
+      .where(eq(pettyCashDisbursements.id, id))
+      .returning();
+  }
+
+  async updatePettyCashTransactionStatus(id: number, status: string, additionalData?: any) {
+    const updateData = { status, ...additionalData };
+    
+    return await db
+      .update(pettyCashTransactions)
+      .set(updateData)
+      .where(eq(pettyCashTransactions.id, id))
       .returning();
   }
 
