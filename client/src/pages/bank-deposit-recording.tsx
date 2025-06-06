@@ -203,7 +203,8 @@ export default function BankDepositRecording() {
     }).format(amount);
   };
 
-  const selectedCashForDate = verifiedCash.find(c => c.businessDate === formData.depositDate);
+  const selectedCashForDate = (verifiedCash as any)?.daily?.find((c: any) => c.businessDate === formData.depositDate) || 
+                              ((verifiedCash as any)?.cumulative && formData.depositDate ? (verifiedCash as any).cumulative : null);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -535,44 +536,93 @@ export default function BankDepositRecording() {
               </CardContent>
             </Card>
 
-            {/* Verified Cash Summary */}
+            {/* Undeposited Cash Summary */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Banknote className="w-5 h-5" />
-                  Verified Cash
+                  Undeposited Cash
                 </CardTitle>
-                <CardDescription>Available for deposit by date</CardDescription>
+                <CardDescription>Verified cash since last deposit</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cashDate">Select Date</Label>
-                  <Input
-                    id="cashDate"
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
-                </div>
                 {cashLoading ? (
                   <div className="h-20 bg-muted animate-pulse rounded" />
-                ) : verifiedCash.length > 0 ? (
-                  verifiedCash.map((cash: VerifiedCashSummary) => (
-                    <div key={cash.businessDate} className="p-3 border rounded-lg bg-green-50 dark:bg-green-950/20">
-                      <div className="text-sm text-muted-foreground mb-1">
-                        {format(new Date(cash.businessDate), 'MMM dd, yyyy')}
+                ) : (verifiedCash as any)?.cumulative?.totalAmount > 0 ? (
+                  <div className="space-y-3">
+                    {/* Cumulative Total */}
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-blue-800 dark:text-blue-200">
+                          Total Undeposited
+                        </span>
+                        <Badge variant="outline" className="text-blue-600 border-blue-300">
+                          {(verifiedCash as any).cumulative.daySpan} days
+                        </Badge>
                       </div>
-                      <div className="text-xl font-bold text-green-600">
-                        {formatCurrency(cash.totalAmount)}
+                      <div className="text-2xl font-bold text-blue-700 dark:text-blue-300 mb-1">
+                        {formatCurrency(parseFloat((verifiedCash as any).cumulative.totalAmount.toString()))}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {cash.transactionCount} transactions
+                      <div className="text-sm text-blue-600 dark:text-blue-400">
+                        {(verifiedCash as any).cumulative.transactionCount} transactions
+                        {(verifiedCash as any).cumulative.fromDate && (
+                          <span className="ml-2">
+                            from {format(new Date((verifiedCash as any).cumulative.fromDate), 'MMM dd')} 
+                            to {format(new Date((verifiedCash as any).cumulative.toDate), 'MMM dd')}
+                          </span>
+                        )}
                       </div>
+                      {(verifiedCash as any).lastDepositDate && (
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Last deposit: {format(new Date((verifiedCash as any).lastDepositDate), 'MMM dd, yyyy')}
+                        </div>
+                      )}
                     </div>
-                  ))
+
+                    {/* Date Selection for Specific Day */}
+                    <div className="space-y-2">
+                      <Label htmlFor="cashDate">Select Specific Date (Optional)</Label>
+                      <Input
+                        id="cashDate"
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        placeholder="Choose date for specific amount"
+                      />
+                    </div>
+
+                    {/* Daily Breakdown */}
+                    {(verifiedCash as any)?.daily?.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium text-muted-foreground">Daily Breakdown:</div>
+                        {(verifiedCash as any).daily.slice(0, 3).map((cash: any) => (
+                          <div key={cash.businessDate} 
+                               className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                               onClick={() => setFormData(prev => ({ ...prev, depositDate: cash.businessDate }))}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-sm">
+                                {format(new Date(cash.businessDate), 'MMM dd, yyyy')}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                {cash.transactionCount} transactions
+                              </Badge>
+                            </div>
+                            <div className="text-lg font-bold text-green-600">
+                              {formatCurrency(parseFloat(cash.totalAmount.toString()))}
+                            </div>
+                          </div>
+                        ))}
+                        {(verifiedCash as any).daily.length > 3 && (
+                          <div className="text-xs text-muted-foreground text-center">
+                            +{(verifiedCash as any).daily.length - 3} more days
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-center py-4 text-muted-foreground">
-                    No verified cash for selected date
+                    All cash collections have been deposited
                   </div>
                 )}
               </CardContent>

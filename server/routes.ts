@@ -7688,7 +7688,7 @@ Medical System Procurement Team
     }
   });
 
-  // Get verified cash summary for deposit linking
+  // Get verified cash summary for deposit linking - cumulative undeposited cash
   app.get("/api/verified-cash-summary", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -7698,8 +7698,54 @@ Medical System Procurement Team
       const user = req.user!;
       const { date } = req.query;
       
-      // Get verified cash transactions for the specified date
-      const verifiedTransactions = await db.select({
+      // Get the last deposit date to find undeposited cash
+      const lastDepositDate = await db.select({
+        lastDepositDate: sql<string>`MAX(DATE(deposit_date))`
+      })
+      .from(bankDeposits)
+      .where(and(
+        eq(bankDeposits.tenantId, user.tenantId),
+        eq(bankDeposits.status, 'verified')
+      ));
+
+      const lastDeposit = lastDepositDate[0]?.lastDepositDate;
+      
+      // If specific date is requested, get verified cash for that date
+      if (date) {
+        const verifiedTransactions = await db.select({
+          totalAmount: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0)`,
+          transactionCount: sql<number>`COUNT(CASE WHEN payment_method = 'cash' THEN 1 END)`,
+          businessDate: sql<string>`DATE(created_at)`
+        })
+        .from(transactions)
+        .where(and(
+          eq(transactions.tenantId, user.tenantId),
+          eq(transactions.paymentMethod, 'cash'),
+          sql`DATE(created_at) = ${date}`
+        ))
+        .groupBy(sql`DATE(created_at)`);
+
+        return res.json(verifiedTransactions);
+      }
+
+      // Get cumulative undeposited verified cash since last deposit
+      const unDepositedCash = await db.select({
+        totalAmount: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0)`,
+        transactionCount: sql<number>`COUNT(CASE WHEN payment_method = 'cash' THEN 1 END)`,
+        businessDate: sql<string>`'cumulative'`,
+        fromDate: sql<string>`MIN(DATE(created_at))`,
+        toDate: sql<string>`MAX(DATE(created_at))`,
+        daySpan: sql<number>`DATE_PART('day', MAX(created_at) - MIN(created_at)) + 1`
+      })
+      .from(transactions)
+      .where(and(
+        eq(transactions.tenantId, user.tenantId),
+        eq(transactions.paymentMethod, 'cash'),
+        lastDeposit ? sql`DATE(created_at) > ${lastDeposit}` : undefined
+      ));
+
+      // Also get daily breakdown of undeposited cash
+      const dailyBreakdown = await db.select({
         totalAmount: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0)`,
         transactionCount: sql<number>`COUNT(CASE WHEN payment_method = 'cash' THEN 1 END)`,
         businessDate: sql<string>`DATE(created_at)`
@@ -7708,12 +7754,25 @@ Medical System Procurement Team
       .where(and(
         eq(transactions.tenantId, user.tenantId),
         eq(transactions.paymentMethod, 'cash'),
-        date ? sql`DATE(created_at) = ${date}` : undefined
+        lastDeposit ? sql`DATE(created_at) > ${lastDeposit}` : undefined
       ))
       .groupBy(sql`DATE(created_at)`)
       .orderBy(desc(sql`DATE(created_at)`));
 
-      res.json(verifiedTransactions);
+      const result = {
+        cumulative: unDepositedCash[0] || {
+          totalAmount: 0,
+          transactionCount: 0,
+          businessDate: 'cumulative',
+          fromDate: null,
+          toDate: null,
+          daySpan: 0
+        },
+        daily: dailyBreakdown,
+        lastDepositDate: lastDeposit
+      };
+
+      res.json(result);
     } catch (error: any) {
       console.error("Error fetching verified cash summary:", error);
       res.status(500).json({ message: "Internal server error" });
