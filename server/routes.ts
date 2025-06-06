@@ -6007,21 +6007,24 @@ export function registerRoutes(app: Express): Server {
       const { id } = req.params;
       const { comments } = req.body;
       const user = req.user!;
+      const expenseId = parseInt(id);
 
-      // Mock approval process - replace with actual database updates
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
+
+      // Update status to 'approved'
+      global.approvalStatuses[expenseId] = "approved";
+
       console.log(`GED ${user.username} approved expense ${id} with comments:`, comments);
-
-      // In real implementation, update database:
-      // - Update expense status to 'approved'
-      // - Add approval record with user ID and timestamp
-      // - Create journal entry for accounting
-      // - Send notification to requester
 
       res.json({ 
         success: true, 
         message: "Expense approved successfully",
         approvedBy: user.username,
-        approvedAt: new Date().toISOString()
+        approvedAt: new Date().toISOString(),
+        newStatus: "approved"
       });
     } catch (error: any) {
       console.error("Error approving expense:", error);
@@ -6039,21 +6042,25 @@ export function registerRoutes(app: Express): Server {
       const { id } = req.params;
       const { reason } = req.body;
       const user = req.user!;
+      const expenseId = parseInt(id);
 
-      // Mock rejection process - replace with actual database updates
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
+
+      // Update status to 'rejected'
+      global.approvalStatuses[expenseId] = "rejected";
+
       console.log(`GED ${user.username} rejected expense ${id} with reason:`, reason);
-
-      // In real implementation, update database:
-      // - Update expense status to 'rejected'
-      // - Add rejection record with user ID, timestamp, and reason
-      // - Send notification to requester with rejection reason
 
       res.json({ 
         success: true, 
         message: "Expense rejected successfully",
         rejectedBy: user.username,
         rejectedAt: new Date().toISOString(),
-        reason
+        reason,
+        newStatus: "rejected"
       });
     } catch (error: any) {
       console.error("Error rejecting expense:", error);
