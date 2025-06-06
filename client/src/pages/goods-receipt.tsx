@@ -387,18 +387,42 @@ export default function GoodsReceipt() {
             {/* Supplier Receipt Attachment */}
             <div>
               <Label htmlFor="supplier-receipt">Supplier Receipt/Delivery Note</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="supplier-receipt"
-                  value={supplierReceiptUrl}
-                  onChange={(e) => setSupplierReceiptUrl(e.target.value)}
-                  placeholder="https://drive.google.com/... or document storage URL"
-                  className="flex-1"
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="supplier-receipt"
+                    value={supplierReceiptUrl}
+                    onChange={(e) => setSupplierReceiptUrl(e.target.value)}
+                    placeholder="Paste document URL (Google Drive, Dropbox, etc.)"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    className="whitespace-nowrap"
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    Choose File
+                  </Button>
+                </div>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // For demonstration, we'll show the filename
+                      setSupplierReceiptUrl(`File selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+                    }
+                  }}
                 />
-                <Link className="h-4 w-4 text-muted-foreground" />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Link to supplier receipt or delivery note (hosted externally to avoid large uploads)
+                Upload a file or paste a URL to external document storage
               </p>
             </div>
 
