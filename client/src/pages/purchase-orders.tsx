@@ -89,6 +89,11 @@ export default function PurchaseOrders() {
   // Fetch real purchase orders from API
   const { data: purchaseOrders = [] } = useQuery({
     queryKey: ['/api/purchase-orders'],
+    queryFn: async () => {
+      const response = await fetch('/api/purchase-orders');
+      if (!response.ok) throw new Error("Failed to fetch purchase orders");
+      return response.json();
+    }
   });
 
   // Fetch vendors for dropdown
@@ -248,8 +253,8 @@ export default function PurchaseOrders() {
   };
 
   const filteredPOs = selectedStatus === "all" 
-    ? purchaseOrders 
-    : purchaseOrders.filter(po => po.status === selectedStatus);
+    ? (purchaseOrders || [])
+    : (purchaseOrders || []).filter((po: any) => po.status === selectedStatus);
 
   return (
     <div className="space-y-6">

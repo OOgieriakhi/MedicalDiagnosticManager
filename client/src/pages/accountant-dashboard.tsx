@@ -81,7 +81,12 @@ export default function AccountantDashboard() {
   // Fetch pending delivery confirmations
   const { data: pendingDeliveries = [] } = useQuery({
     queryKey: ['/api/purchase-orders/pending-deliveries'],
-    enabled: !!user
+    enabled: !!user,
+    queryFn: async () => {
+      const response = await fetch('/api/purchase-orders/pending-deliveries');
+      if (!response.ok) throw new Error("Failed to fetch pending deliveries");
+      return response.json();
+    }
   });
 
   // Confirm delivery mutation
