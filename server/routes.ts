@@ -8993,7 +8993,7 @@ Medical System Procurement Team
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { date, paymentMethod, branchId } = req.query;
+      const { date, from, to, paymentMethod, branchId } = req.query;
       
       let query = `
         SELECT 
@@ -9005,7 +9005,10 @@ Medical System Procurement Team
           dt.transaction_time,
           dt.cashier_id,
           u.username as cashier_name,
-          'completed' as status
+          COALESCE(dt.verification_status, 'pending') as verification_status,
+          dt.verification_notes,
+          dt.verified_by,
+          dt.verified_at
         FROM daily_transactions dt
         LEFT JOIN users u ON dt.cashier_id = u.id
         WHERE dt.tenant_id = $1
@@ -9014,7 +9017,12 @@ Medical System Procurement Team
       const params = [req.user!.tenantId];
       let paramIndex = 2;
 
-      if (date) {
+      // Handle date range filtering (from/to) or single date
+      if (from && to) {
+        query += ` AND DATE(dt.transaction_time) BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+        params.push(from as string, to as string);
+        paramIndex += 2;
+      } else if (date) {
         query += ` AND DATE(dt.transaction_time) = $${paramIndex}`;
         params.push(date as string);
         paramIndex++;

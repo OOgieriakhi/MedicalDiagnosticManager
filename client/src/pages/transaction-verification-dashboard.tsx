@@ -55,10 +55,21 @@ export default function TransactionVerificationDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [verificationNotes, setVerificationNotes] = useState("");
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [dateRange, setDateRange] = useState({
+    from: new Date().toISOString().split('T')[0], // Today
+    to: new Date().toISOString().split('T')[0]     // Today
+  });
 
-  // Fetch transactions
+  // Fetch transactions with date range
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery({
-    queryKey: ['/api/daily-transactions'],
+    queryKey: ['/api/daily-transactions', dateRange.from, dateRange.to],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        from: dateRange.from,
+        to: dateRange.to
+      });
+      return fetch(`/api/daily-transactions?${params}`).then(res => res.json());
+    },
     refetchInterval: 30000,
   });
 
@@ -318,6 +329,77 @@ export default function TransactionVerificationDashboard() {
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="pl-10 w-64"
                         />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700">From:</label>
+                        <Input
+                          type="date"
+                          value={dateRange.from}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+                          className="w-40"
+                        />
+                        <label className="text-sm font-medium text-gray-700">To:</label>
+                        <Input
+                          type="date"
+                          value={dateRange.to}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                          className="w-40"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const today = new Date().toISOString().split('T')[0];
+                            setDateRange({ from: today, to: today });
+                          }}
+                        >
+                          Today
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const today = new Date();
+                            const yesterday = new Date(today);
+                            yesterday.setDate(yesterday.getDate() - 1);
+                            const yesterdayStr = yesterday.toISOString().split('T')[0];
+                            setDateRange({ from: yesterdayStr, to: yesterdayStr });
+                          }}
+                        >
+                          Yesterday
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const today = new Date();
+                            const lastWeek = new Date(today);
+                            lastWeek.setDate(lastWeek.getDate() - 7);
+                            setDateRange({ 
+                              from: lastWeek.toISOString().split('T')[0], 
+                              to: today.toISOString().split('T')[0] 
+                            });
+                          }}
+                        >
+                          Last 7 Days
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const today = new Date();
+                            const lastMonth = new Date(today);
+                            lastMonth.setDate(lastMonth.getDate() - 30);
+                            setDateRange({ 
+                              from: lastMonth.toISOString().split('T')[0], 
+                              to: today.toISOString().split('T')[0] 
+                            });
+                          }}
+                        >
+                          Last 30 Days
+                        </Button>
                       </div>
                       <Select value={filterStatus} onValueChange={setFilterStatus}>
                         <SelectTrigger className="w-40">
