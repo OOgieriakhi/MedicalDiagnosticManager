@@ -1990,6 +1990,631 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ==================== REVENUE REPORTING ENDPOINTS ====================
+  
+  // Monthly Revenue Tracking by Payment Method
+  app.get("/api/reports/revenue/payment-methods", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { startDate, endDate, branchId } = req.query;
+    const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+    
+    try {
+      const results = await db
+        .select({
+          payment_method: dailyTransactions.paymentMethod,
+          transaction_count: sql<number>`COUNT(*)`,
+          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+          verified_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          pending_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'pending' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`
+        })
+        .from(dailyTransactions)
+        .where(
+          and(
+            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined,
+            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
+            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined
+          )
+        )
+        .groupBy(dailyTransactions.paymentMethod)
+        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+      
+      res.json(results);
+    } catch (error) {
+      console.error('Error generating payment methods revenue report:', error);
+      res.status(500).json({ error: 'Failed to generate payment methods report' });
+    }
+  });
+
+  // Revenue by Staff/Cashier
+  app.get("/api/reports/revenue/staff", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { startDate, endDate, branchId } = req.query;
+    const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+    
+    try {
+      const results = await db
+        .select({
+          cashier_id: dailyTransactions.cashierId,
+          cashier_name: sql<string>`COALESCE(${users.firstName} || ' ' || ${users.lastName}, 'Unknown')`,
+          transaction_count: sql<number>`COUNT(*)`,
+          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+          cash_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          pos_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          transfer_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          verification_rate: sql<number>`ROUND(COUNT(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN 1 END) * 100.0 / COUNT(*), 2)`
+        })
+        .from(dailyTransactions)
+        .leftJoin(users, eq(dailyTransactions.cashierId, users.id))
+        .where(
+          and(
+            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined,
+            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
+            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined
+          )
+        )
+        .groupBy(dailyTransactions.cashierId, users.firstName, users.lastName)
+        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+      
+      res.json(results);
+    } catch (error) {
+      console.error('Error generating staff revenue report:', error);
+      res.status(500).json({ error: 'Failed to generate staff revenue report' });
+    }
+  });
+
+  // Revenue by Service Category (Lab, Scan, ECG, etc.)
+  app.get("/api/reports/revenue/services", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { startDate, endDate, branchId } = req.query;
+    const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+    
+    try {
+      // Get revenue by test categories
+      const testRevenue = await db
+        .select({
+          service_category: testCategories.name,
+          service_type: sql<string>`'Laboratory'`,
+          transaction_count: sql<number>`COUNT(*)`,
+          total_amount: sql<number>`SUM(CAST(${patientTests.price} AS DECIMAL))`,
+          avg_amount: sql<number>`ROUND(AVG(CAST(${patientTests.price} AS DECIMAL)), 2)`
+        })
+        .from(patientTests)
+        .leftJoin(tests, eq(patientTests.testId, tests.id))
+        .leftJoin(testCategories, eq(tests.categoryId, testCategories.id))
+        .where(
+          and(
+            userBranchId ? eq(patientTests.branchId, userBranchId) : undefined,
+            startDate ? gte(patientTests.scheduledAt, new Date(startDate as string)) : undefined,
+            endDate ? lte(patientTests.scheduledAt, new Date(endDate as string)) : undefined,
+            eq(patientTests.paymentVerified, true)
+          )
+        )
+        .groupBy(testCategories.name)
+        .orderBy(sql`SUM(CAST(${patientTests.price} AS DECIMAL)) DESC`);
+
+      // Add daily transactions categorization based on receipt patterns
+      const dailyRevenue = await db
+        .select({
+          service_category: sql<string>`
+            CASE 
+              WHEN ${dailyTransactions.receiptNumber} LIKE '%LAB%' OR ${dailyTransactions.receiptNumber} LIKE '%RCP-2025%' THEN 'Laboratory Services'
+              WHEN ${dailyTransactions.receiptNumber} LIKE '%RAD%' THEN 'Radiology/Imaging'
+              WHEN ${dailyTransactions.receiptNumber} LIKE '%ECG%' THEN 'ECG Services'
+              WHEN ${dailyTransactions.receiptNumber} LIKE '%CONS%' THEN 'Consultation'
+              ELSE 'General Services'
+            END`,
+          service_type: sql<string>`'Billing'`,
+          transaction_count: sql<number>`COUNT(*)`,
+          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+          avg_amount: sql<number>`ROUND(AVG(CAST(${dailyTransactions.amount} AS DECIMAL)), 2)`
+        })
+        .from(dailyTransactions)
+        .where(
+          and(
+            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined,
+            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
+            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined,
+            eq(dailyTransactions.verificationStatus, 'verified')
+          )
+        )
+        .groupBy(sql`
+          CASE 
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%LAB%' OR ${dailyTransactions.receiptNumber} LIKE '%RCP-2025%' THEN 'Laboratory Services'
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%RAD%' THEN 'Radiology/Imaging'
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%ECG%' THEN 'ECG Services'
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%CONS%' THEN 'Consultation'
+            ELSE 'General Services'
+          END`)
+        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+
+      const combinedResults = [...testRevenue, ...dailyRevenue];
+      res.json(combinedResults);
+    } catch (error) {
+      console.error('Error generating services revenue report:', error);
+      res.status(500).json({ error: 'Failed to generate services revenue report' });
+    }
+  });
+
+  // Revenue by Patient Type (Walk-in vs Referral)
+  app.get("/api/reports/revenue/patient-types", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { startDate, endDate, branchId } = req.query;
+    const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+    
+    try {
+      const results = await db
+        .select({
+          patient_type: sql<string>`
+            CASE 
+              WHEN ${patients.referralSource} IS NOT NULL AND ${patients.referralSource} != 'Self' THEN 'Referral'
+              ELSE 'Walk-in'
+            END`,
+          patient_count: sql<number>`COUNT(DISTINCT ${patients.id})`,
+          transaction_count: sql<number>`COUNT(${dailyTransactions.id})`,
+          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+          avg_per_patient: sql<number>`ROUND(SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) / COUNT(DISTINCT ${patients.id}), 2)`,
+          referral_source: sql<string>`STRING_AGG(DISTINCT ${patients.referralSource}, ', ' ORDER BY ${patients.referralSource})`
+        })
+        .from(dailyTransactions)
+        .leftJoin(patients, eq(dailyTransactions.patientName, patients.fullName))
+        .where(
+          and(
+            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined,
+            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
+            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined,
+            eq(dailyTransactions.verificationStatus, 'verified')
+          )
+        )
+        .groupBy(sql`
+          CASE 
+            WHEN ${patients.referralSource} IS NOT NULL AND ${patients.referralSource} != 'Self' THEN 'Referral'
+            ELSE 'Walk-in'
+          END`)
+        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+      
+      res.json(results);
+    } catch (error) {
+      console.error('Error generating patient types revenue report:', error);
+      res.status(500).json({ error: 'Failed to generate patient types revenue report' });
+    }
+  });
+
+  // Branch-level Revenue Totals (Multi-branch support)
+  app.get("/api/reports/revenue/branches", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { startDate, endDate } = req.query;
+    
+    try {
+      const results = await db
+        .select({
+          branch_id: dailyTransactions.branchId,
+          branch_name: sql<string>`COALESCE(${branches.name}, 'Unknown Branch')`,
+          transaction_count: sql<number>`COUNT(*)`,
+          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+          cash_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          pos_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          transfer_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          verified_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          pending_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'pending' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          verification_rate: sql<number>`ROUND(COUNT(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN 1 END) * 100.0 / COUNT(*), 2)`
+        })
+        .from(dailyTransactions)
+        .leftJoin(branches, eq(dailyTransactions.branchId, branches.id))
+        .where(
+          and(
+            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
+            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined
+          )
+        )
+        .groupBy(dailyTransactions.branchId, branches.name)
+        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+      
+      res.json(results);
+    } catch (error) {
+      console.error('Error generating branches revenue report:', error);
+      res.status(500).json({ error: 'Failed to generate branches revenue report' });
+    }
+  });
+
+  // Comprehensive Monthly Revenue Summary
+  app.get("/api/reports/revenue/monthly-summary", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { year = new Date().getFullYear(), branchId } = req.query;
+    const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+    
+    try {
+      const results = await db
+        .select({
+          month: sql<number>`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`,
+          month_name: sql<string>`TO_CHAR(${dailyTransactions.transactionTime}, 'Month')`,
+          transaction_count: sql<number>`COUNT(*)`,
+          total_revenue: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+          cash_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          pos_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          transfer_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          verified_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          pending_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'pending' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+          avg_transaction: sql<number>`ROUND(AVG(CAST(${dailyTransactions.amount} AS DECIMAL)), 2)`,
+          unique_patients: sql<number>`COUNT(DISTINCT ${dailyTransactions.patientName})`
+        })
+        .from(dailyTransactions)
+        .where(
+          and(
+            sql`EXTRACT(YEAR FROM ${dailyTransactions.transactionTime}) = ${year}`,
+            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined
+          )
+        )
+        .groupBy(sql`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`, sql`TO_CHAR(${dailyTransactions.transactionTime}, 'Month')`)
+        .orderBy(sql`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`);
+      
+      res.json(results);
+    } catch (error) {
+      console.error('Error generating monthly revenue summary:', error);
+      res.status(500).json({ error: 'Failed to generate monthly revenue summary' });
+    }
+  });
+
+  // Ledger Verification Endpoint
+  app.get("/api/reports/revenue/ledger-verification", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { startDate, endDate, branchId } = req.query;
+    const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+    
+    try {
+      // Daily Transactions Total
+      const dailyTransactionsTotal = await db
+        .select({
+          source: sql<string>`'Daily Transactions'`,
+          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+          count: sql<number>`COUNT(*)`
+        })
+        .from(dailyTransactions)
+        .where(
+          and(
+            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined,
+            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
+            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined,
+            eq(dailyTransactions.verificationStatus, 'verified')
+          )
+        );
+
+      // Bank Deposits Total
+      const bankDepositsTotal = await db
+        .select({
+          source: sql<string>`'Bank Deposits'`,
+          total_amount: sql<number>`SUM(CAST(${bankDeposits.depositAmount} AS DECIMAL))`,
+          count: sql<number>`COUNT(*)`
+        })
+        .from(bankDeposits)
+        .where(
+          and(
+            startDate ? gte(bankDeposits.depositDate, new Date(startDate as string)) : undefined,
+            endDate ? lte(bankDeposits.depositDate, new Date(endDate as string)) : undefined,
+            eq(bankDeposits.status, 'verified')
+          )
+        );
+
+      // Patient Tests Revenue
+      const patientTestsTotal = await db
+        .select({
+          source: sql<string>`'Patient Tests'`,
+          total_amount: sql<number>`SUM(CAST(${patientTests.price} AS DECIMAL))`,
+          count: sql<number>`COUNT(*)`
+        })
+        .from(patientTests)
+        .where(
+          and(
+            userBranchId ? eq(patientTests.branchId, userBranchId) : undefined,
+            startDate ? gte(patientTests.scheduledAt, new Date(startDate as string)) : undefined,
+            endDate ? lte(patientTests.scheduledAt, new Date(endDate as string)) : undefined,
+            eq(patientTests.paymentVerified, true)
+          )
+        );
+
+      const reconciliation = [...dailyTransactionsTotal, ...bankDepositsTotal, ...patientTestsTotal];
+      
+      res.json({
+        reconciliation,
+        summary: {
+          daily_transactions: dailyTransactionsTotal[0]?.total_amount || 0,
+          bank_deposits: bankDepositsTotal[0]?.total_amount || 0,
+          patient_tests: patientTestsTotal[0]?.total_amount || 0,
+          variance: (dailyTransactionsTotal[0]?.total_amount || 0) - (bankDepositsTotal[0]?.total_amount || 0)
+        }
+      });
+    } catch (error) {
+      console.error('Error generating ledger verification:', error);
+      res.status(500).json({ error: 'Failed to generate ledger verification' });
+    }
+  });
+
+  // Export Revenue Reports (PDF/Excel)
+  app.get("/api/reports/revenue/export", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { format, reportType, startDate, endDate, branchId } = req.query;
+    const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
+    
+    try {
+      let reportData;
+      let reportTitle;
+      
+      // Get report data based on type
+      switch (reportType) {
+        case 'payment-methods':
+          reportData = await getPaymentMethodsData(userBranchId, startDate as string, endDate as string);
+          reportTitle = 'Revenue by Payment Methods';
+          break;
+        case 'staff':
+          reportData = await getStaffRevenueData(userBranchId, startDate as string, endDate as string);
+          reportTitle = 'Revenue by Staff/Cashier';
+          break;
+        case 'services':
+          reportData = await getServicesRevenueData(userBranchId, startDate as string, endDate as string);
+          reportTitle = 'Revenue by Service Category';
+          break;
+        case 'patient-types':
+          reportData = await getPatientTypesData(userBranchId, startDate as string, endDate as string);
+          reportTitle = 'Revenue by Patient Type';
+          break;
+        case 'branches':
+          reportData = await getBranchesRevenueData(startDate as string, endDate as string);
+          reportTitle = 'Revenue by Branch';
+          break;
+        case 'monthly-summary':
+          reportData = await getMonthlySummaryData(req.query.year as string || new Date().getFullYear().toString(), userBranchId);
+          reportTitle = 'Monthly Revenue Summary';
+          break;
+        default:
+          return res.status(400).json({ error: 'Invalid report type' });
+      }
+      
+      if (format === 'pdf') {
+        // Generate PDF report
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument();
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf"`);
+        
+        doc.pipe(res);
+        
+        // PDF Header
+        doc.fontSize(18).text('Orient Medical Diagnostic Centre', { align: 'center' });
+        doc.fontSize(14).text(reportTitle, { align: 'center' });
+        doc.fontSize(10).text(`Generated on: ${new Date().toLocaleDateString()}`, { align: 'center' });
+        doc.moveDown(2);
+        
+        // Add report data to PDF
+        if (Array.isArray(reportData)) {
+          reportData.forEach((row: any, index: number) => {
+            if (index === 0) {
+              // Headers
+              const headers = Object.keys(row);
+              doc.fontSize(8);
+              let yPos = doc.y;
+              headers.forEach((header, i) => {
+                doc.text(header.replace(/_/g, ' ').toUpperCase(), 50 + (i * 100), yPos);
+              });
+              doc.moveDown();
+            }
+            
+            // Data rows
+            const values = Object.values(row);
+            let yPos = doc.y;
+            values.forEach((value: any, i: number) => {
+              doc.text(String(value), 50 + (i * 100), yPos);
+            });
+            doc.moveDown(0.5);
+            
+            if (doc.y > 700) {
+              doc.addPage();
+            }
+          });
+        }
+        
+        doc.end();
+      } else if (format === 'excel') {
+        // Generate Excel report
+        const data = Array.isArray(reportData) ? reportData : [reportData];
+        
+        // Create CSV format for Excel compatibility
+        if (data.length > 0) {
+          const headers = Object.keys(data[0]);
+          const csvRows = [headers.join(',')];
+          
+          data.forEach(row => {
+            const values = headers.map(header => {
+              const value = (row as any)[header];
+              return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+            });
+            csvRows.push(values.join(','));
+          });
+          
+          const csvContent = csvRows.join('\n');
+          
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv"`);
+          res.send(csvContent);
+        } else {
+          res.status(404).json({ error: 'No data found for the specified criteria' });
+        }
+      } else {
+        res.status(400).json({ error: 'Invalid format. Use "pdf" or "excel"' });
+      }
+    } catch (error) {
+      console.error('Error generating export:', error);
+      res.status(500).json({ error: 'Failed to generate export' });
+    }
+  });
+
+  // Helper functions for report data
+  async function getPaymentMethodsData(branchId: number | undefined, startDate: string, endDate: string) {
+    return await db
+      .select({
+        payment_method: dailyTransactions.paymentMethod,
+        transaction_count: sql<number>`COUNT(*)`,
+        total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+        verified_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        pending_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'pending' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`
+      })
+      .from(dailyTransactions)
+      .where(
+        and(
+          branchId ? eq(dailyTransactions.branchId, branchId) : undefined,
+          startDate ? gte(dailyTransactions.transactionTime, new Date(startDate)) : undefined,
+          endDate ? lte(dailyTransactions.transactionTime, new Date(endDate)) : undefined
+        )
+      )
+      .groupBy(dailyTransactions.paymentMethod)
+      .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+  }
+
+  async function getStaffRevenueData(branchId: number | undefined, startDate: string, endDate: string) {
+    return await db
+      .select({
+        cashier_name: sql<string>`COALESCE(${users.firstName} || ' ' || ${users.lastName}, 'Unknown')`,
+        transaction_count: sql<number>`COUNT(*)`,
+        total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+        cash_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        pos_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        transfer_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        verification_rate: sql<number>`ROUND(COUNT(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN 1 END) * 100.0 / COUNT(*), 2)`
+      })
+      .from(dailyTransactions)
+      .leftJoin(users, eq(dailyTransactions.cashierId, users.id))
+      .where(
+        and(
+          branchId ? eq(dailyTransactions.branchId, branchId) : undefined,
+          startDate ? gte(dailyTransactions.transactionTime, new Date(startDate)) : undefined,
+          endDate ? lte(dailyTransactions.transactionTime, new Date(endDate)) : undefined
+        )
+      )
+      .groupBy(dailyTransactions.cashierId, users.firstName, users.lastName)
+      .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+  }
+
+  async function getServicesRevenueData(branchId: number | undefined, startDate: string, endDate: string) {
+    return await db
+      .select({
+        service_category: sql<string>`
+          CASE 
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%LAB%' OR ${dailyTransactions.receiptNumber} LIKE '%RCP-2025%' THEN 'Laboratory Services'
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%RAD%' THEN 'Radiology/Imaging'
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%ECG%' THEN 'ECG Services'
+            WHEN ${dailyTransactions.receiptNumber} LIKE '%CONS%' THEN 'Consultation'
+            ELSE 'General Services'
+          END`,
+        transaction_count: sql<number>`COUNT(*)`,
+        total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+        avg_amount: sql<number>`ROUND(AVG(CAST(${dailyTransactions.amount} AS DECIMAL)), 2)`
+      })
+      .from(dailyTransactions)
+      .where(
+        and(
+          branchId ? eq(dailyTransactions.branchId, branchId) : undefined,
+          startDate ? gte(dailyTransactions.transactionTime, new Date(startDate)) : undefined,
+          endDate ? lte(dailyTransactions.transactionTime, new Date(endDate)) : undefined,
+          eq(dailyTransactions.verificationStatus, 'verified')
+        )
+      )
+      .groupBy(sql`
+        CASE 
+          WHEN ${dailyTransactions.receiptNumber} LIKE '%LAB%' OR ${dailyTransactions.receiptNumber} LIKE '%RCP-2025%' THEN 'Laboratory Services'
+          WHEN ${dailyTransactions.receiptNumber} LIKE '%RAD%' THEN 'Radiology/Imaging'
+          WHEN ${dailyTransactions.receiptNumber} LIKE '%ECG%' THEN 'ECG Services'
+          WHEN ${dailyTransactions.receiptNumber} LIKE '%CONS%' THEN 'Consultation'
+          ELSE 'General Services'
+        END`)
+      .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+  }
+
+  async function getPatientTypesData(branchId: number | undefined, startDate: string, endDate: string) {
+    return await db
+      .select({
+        patient_type: sql<string>`
+          CASE 
+            WHEN ${patients.referralSource} IS NOT NULL AND ${patients.referralSource} != 'Self' THEN 'Referral'
+            ELSE 'Walk-in'
+          END`,
+        patient_count: sql<number>`COUNT(DISTINCT ${patients.id})`,
+        transaction_count: sql<number>`COUNT(${dailyTransactions.id})`,
+        total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+        avg_per_patient: sql<number>`ROUND(SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) / COUNT(DISTINCT ${patients.id}), 2)`
+      })
+      .from(dailyTransactions)
+      .leftJoin(patients, eq(dailyTransactions.patientName, patients.fullName))
+      .where(
+        and(
+          branchId ? eq(dailyTransactions.branchId, branchId) : undefined,
+          startDate ? gte(dailyTransactions.transactionTime, new Date(startDate)) : undefined,
+          endDate ? lte(dailyTransactions.transactionTime, new Date(endDate)) : undefined,
+          eq(dailyTransactions.verificationStatus, 'verified')
+        )
+      )
+      .groupBy(sql`
+        CASE 
+          WHEN ${patients.referralSource} IS NOT NULL AND ${patients.referralSource} != 'Self' THEN 'Referral'
+          ELSE 'Walk-in'
+        END`)
+      .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+  }
+
+  async function getBranchesRevenueData(startDate: string, endDate: string) {
+    return await db
+      .select({
+        branch_name: sql<string>`COALESCE(${branches.name}, 'Unknown Branch')`,
+        transaction_count: sql<number>`COUNT(*)`,
+        total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+        cash_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        pos_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        transfer_amount: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        verification_rate: sql<number>`ROUND(COUNT(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN 1 END) * 100.0 / COUNT(*), 2)`
+      })
+      .from(dailyTransactions)
+      .leftJoin(branches, eq(dailyTransactions.branchId, branches.id))
+      .where(
+        and(
+          startDate ? gte(dailyTransactions.transactionTime, new Date(startDate)) : undefined,
+          endDate ? lte(dailyTransactions.transactionTime, new Date(endDate)) : undefined
+        )
+      )
+      .groupBy(dailyTransactions.branchId, branches.name)
+      .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+  }
+
+  async function getMonthlySummaryData(year: string, branchId: number | undefined) {
+    return await db
+      .select({
+        month: sql<number>`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`,
+        month_name: sql<string>`TO_CHAR(${dailyTransactions.transactionTime}, 'Month')`,
+        transaction_count: sql<number>`COUNT(*)`,
+        total_revenue: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
+        cash_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'cash' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        pos_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'pos' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        transfer_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.paymentMethod} = 'transfer' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        verified_revenue: sql<number>`SUM(CASE WHEN ${dailyTransactions.verificationStatus} = 'verified' THEN CAST(${dailyTransactions.amount} AS DECIMAL) ELSE 0 END)`,
+        avg_transaction: sql<number>`ROUND(AVG(CAST(${dailyTransactions.amount} AS DECIMAL)), 2)`,
+        unique_patients: sql<number>`COUNT(DISTINCT ${dailyTransactions.patientName})`
+      })
+      .from(dailyTransactions)
+      .where(
+        and(
+          sql`EXTRACT(YEAR FROM ${dailyTransactions.transactionTime}) = ${year}`,
+          branchId ? eq(dailyTransactions.branchId, branchId) : undefined
+        )
+      )
+      .groupBy(sql`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`, sql`TO_CHAR(${dailyTransactions.transactionTime}, 'Month')`)
+      .orderBy(sql`EXTRACT(MONTH FROM ${dailyTransactions.transactionTime})`);
+  }
+
   // Generate consolidated report for patient (combining multiple tests)
   app.get("/api/patients/:patientId/consolidated-report", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

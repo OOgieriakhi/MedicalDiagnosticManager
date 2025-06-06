@@ -923,6 +923,24 @@ export const bankDeposits = pgTable("bank_deposits", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Daily Transactions - Revenue tracking from billing
+export const dailyTransactions = pgTable("daily_transactions", {
+  id: serial("id").primaryKey(),
+  receiptNumber: text("receipt_number").notNull().unique(),
+  patientName: text("patient_name").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: text("payment_method").notNull(), // cash, pos, transfer
+  transactionTime: timestamp("transaction_time").notNull(),
+  cashierId: integer("cashier_id").notNull().references(() => users.id),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  verificationStatus: text("verification_status").notNull().default("pending"), // pending, verified, flagged
+  verificationNotes: text("verification_notes"),
+  verifiedBy: integer("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Daily Cash Reconciliation - links verified cash to bank deposits
 export const cashReconciliation = pgTable("cash_reconciliation", {
   id: serial("id").primaryKey(),
