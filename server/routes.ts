@@ -7109,7 +7109,7 @@ export function registerRoutes(app: Express): Server {
           status: "pending_posting"
         }));
 
-      // Always show sample data for demonstration
+      // Always show sample data for demonstration - multiple scenarios
       if (pendingEntries.length === 0) {
         pendingEntries = [
           {
@@ -7128,7 +7128,69 @@ export function registerRoutes(app: Express): Server {
             dueDate: "2025-06-20T00:00:00Z",
             vendorDetails: "Professional Training Institute",
             invoiceNumber: "INV-2025-002",
-            status: "pending_posting"
+            status: "pending_posting",
+            glAccount: "",
+            costCenter: ""
+          },
+          {
+            id: 3,
+            type: "Equipment Maintenance",
+            description: "Monthly service for CT scan machine",
+            amount: "125000",
+            requestedBy: "Radiology Manager",
+            department: "Radiology",
+            priority: "high",
+            approvedBy: "GED admin",
+            authorizedBy: "Finance Director admin",
+            authorizedAt: "2025-06-06T09:30:00Z",
+            paymentMethod: "immediate",
+            bankAccount: "cash_transfer",
+            dueDate: "2025-06-08T00:00:00Z",
+            vendorDetails: "MedTech Services Ltd",
+            invoiceNumber: "INV-2025-003",
+            status: "pending_posting",
+            glAccount: "",
+            costCenter: ""
+          },
+          {
+            id: 4,
+            type: "Software License",
+            description: "Annual lab information system renewal",
+            amount: "890000",
+            requestedBy: "IT Manager",
+            department: "Information Technology",
+            priority: "medium",
+            approvedBy: "GED admin",
+            authorizedBy: "Finance Director admin",
+            authorizedAt: "2025-06-06T11:00:00Z",
+            paymentMethod: "credit",
+            bankAccount: "accounts_payable",
+            dueDate: "2025-06-30T00:00:00Z",
+            vendorDetails: "LabSoft Solutions Inc",
+            invoiceNumber: "INV-2025-004",
+            status: "pending_posting",
+            glAccount: "",
+            costCenter: ""
+          },
+          {
+            id: 5,
+            type: "Office Supplies",
+            description: "Monthly stationery and printing supplies",
+            amount: "35000",
+            requestedBy: "Admin Officer",
+            department: "Administration",
+            priority: "low",
+            approvedBy: "GED admin",
+            authorizedBy: "Finance Director admin",
+            authorizedAt: "2025-06-06T08:45:00Z",
+            paymentMethod: "immediate",
+            bankAccount: "petty_cash",
+            dueDate: "2025-06-07T00:00:00Z",
+            vendorDetails: "Office Mart Ltd",
+            invoiceNumber: "INV-2025-005",
+            status: "pending_posting",
+            glAccount: "",
+            costCenter: ""
           }
         ];
       }
@@ -7208,6 +7270,58 @@ export function registerRoutes(app: Express): Server {
       });
     } catch (error: any) {
       console.error("Error posting to A/P:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Process immediate payment
+  app.post("/api/accounting/process-immediate-payment/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { glAccount, costCenter, postingNotes, paymentMethod, bankAccount, amount } = req.body;
+      const user = req.user!;
+
+      console.log(`Accountant ${user.username} processed immediate payment for expense ${id}`);
+      console.log(`GL Account: ${glAccount}, Cost Center: ${costCenter}`);
+      console.log(`Payment Method: ${paymentMethod}, Bank Account: ${bankAccount}`);
+      console.log(`Posting Notes: ${postingNotes}`);
+
+      // Initialize accounting status tracker
+      if (!global.accountingStatuses) {
+        global.accountingStatuses = {};
+      }
+
+      // Update accounting status to paid immediately
+      global.accountingStatuses[parseInt(id)] = "paid_immediately";
+
+      // Create journal entry documentation
+      const journalEntry = {
+        entryNumber: `JE-${Date.now()}`,
+        description: `Immediate payment: ${postingNotes}`,
+        debitAccount: glAccount,
+        creditAccount: bankAccount === 'cash' ? 'Cash Account' : 'Bank Account',
+        amount: amount,
+        paymentMethod: paymentMethod,
+        documentationRequired: true,
+        receiptNumber: `RCP-${Date.now()}`
+      };
+
+      res.json({
+        success: true,
+        message: "Payment processed immediately with proper documentation",
+        paidBy: user.username,
+        paidAt: new Date().toISOString(),
+        glAccount,
+        costCenter,
+        postingNotes,
+        journalEntry
+      });
+    } catch (error: any) {
+      console.error("Error processing immediate payment:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

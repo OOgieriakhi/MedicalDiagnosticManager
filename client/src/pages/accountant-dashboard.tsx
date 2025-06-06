@@ -121,6 +121,46 @@ export default function AccountantDashboard() {
     }
   });
 
+  // Immediate payment processing mutation
+  const immediatePaymentMutation = useMutation({
+    mutationFn: async ({ id, glAccount, costCenter, postingNotes, paymentMethod, bankAccount, amount }: { 
+      id: number; 
+      glAccount: string; 
+      costCenter: string; 
+      postingNotes: string;
+      paymentMethod: string;
+      bankAccount: string;
+      amount: string;
+    }) => {
+      const response = await fetch(`/api/accounting/process-immediate-payment/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ glAccount, costCenter, postingNotes, paymentMethod, bankAccount, amount }),
+      });
+      if (!response.ok) throw new Error("Failed to process immediate payment");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounting/pending-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/accounting/metrics"] });
+      toast({ 
+        title: "Payment processed immediately", 
+        description: `Receipt: ${data.journalEntry?.receiptNumber}` 
+      });
+      setSelectedEntry(null);
+      setGlAccount("");
+      setCostCenter("");
+      setPostingNotes("");
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Payment processing failed", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
   // Reject posting mutation
   const rejectPostingMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
@@ -475,19 +515,21 @@ export default function AccountantDashboard() {
                                     className="bg-green-600 hover:bg-green-700"
                                     onClick={() => {
                                       if (selectedEntry && glAccount && costCenter) {
-                                        // Process immediate payment
-                                        console.log("Processing immediate payment");
-                                        toast({ title: "Payment processed immediately with proper documentation" });
-                                        setSelectedEntry(null);
-                                        setGlAccount("");
-                                        setCostCenter("");
-                                        setPostingNotes("");
+                                        immediatePaymentMutation.mutate({
+                                          id: selectedEntry.id,
+                                          glAccount,
+                                          costCenter,
+                                          postingNotes: postingNotes + " - Immediate payment processed",
+                                          paymentMethod: selectedEntry.paymentMethod === 'immediate' ? 'bank_transfer' : 'cash',
+                                          bankAccount: selectedEntry.bankAccount || 'main_account',
+                                          amount: selectedEntry.amount
+                                        });
                                       }
                                     }}
-                                    disabled={!glAccount || !costCenter}
+                                    disabled={!glAccount || !costCenter || immediatePaymentMutation.isPending}
                                   >
                                     <Banknote className="w-4 h-4 mr-2" />
-                                    Pay Immediately
+                                    {immediatePaymentMutation.isPending ? "Processing..." : "Pay Immediately"}
                                   </Button>
                                 </div>
                               </div>
