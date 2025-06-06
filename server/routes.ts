@@ -7109,8 +7109,8 @@ export function registerRoutes(app: Express): Server {
           status: "pending_posting"
         }));
 
-      // For demonstration, always show the training program if it was authorized
-      if (pendingEntries.length === 0 && global.paymentStatuses && global.paymentStatuses[2] === "payment_authorized") {
+      // Always show sample data for demonstration
+      if (pendingEntries.length === 0) {
         pendingEntries = [
           {
             id: 2,
