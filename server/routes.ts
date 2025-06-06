@@ -6821,6 +6821,191 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Finance Director Payment Processing APIs
+  // Get payment requests (approved expenses from GED)
+  app.get("/api/finance/payment-requests", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
+
+      // Get approved expenses that need payment authorization
+      const approvedExpenseIds = Object.keys(global.approvalStatuses)
+        .filter(id => global.approvalStatuses[id] === "approved")
+        .map(id => parseInt(id));
+
+      const allExpenses = [
+        {
+          id: 1,
+          type: "Equipment Purchase",
+          description: "New ultrasound machine for cardiology unit",
+          amount: "850000",
+          requestedBy: "Dr. Sarah Johnson",
+          department: "Cardiology",
+          priority: "high",
+          approvedBy: "GED admin",
+          approvedAt: "2025-06-06T09:30:00Z",
+          paymentMethod: "",
+          dueDate: "2025-06-15T00:00:00Z",
+          vendorDetails: "Medical Equipment Suppliers Ltd",
+          invoiceNumber: "INV-2025-001"
+        },
+        {
+          id: 2,
+          type: "Training Program",
+          description: "Advanced laboratory training certification",
+          amount: "450000",
+          requestedBy: "Lab Manager",
+          department: "Laboratory",
+          priority: "medium",
+          approvedBy: "GED admin",
+          approvedAt: "2025-06-06T09:15:00Z",
+          paymentMethod: "",
+          dueDate: "2025-06-20T00:00:00Z",
+          vendorDetails: "Professional Training Institute",
+          invoiceNumber: "INV-2025-002"
+        },
+        {
+          id: 4,
+          type: "Software License",
+          description: "Laboratory management system upgrade",
+          amount: "300000",
+          requestedBy: "IT Manager",
+          department: "Information Technology",
+          priority: "medium",
+          approvedBy: "GED admin",
+          approvedAt: "2025-06-06T09:45:00Z",
+          paymentMethod: "",
+          dueDate: "2025-06-25T00:00:00Z",
+          vendorDetails: "TechSoft Solutions",
+          invoiceNumber: "INV-2025-003"
+        }
+      ];
+
+      // Filter to only show approved expenses awaiting payment
+      const paymentRequests = allExpenses
+        .filter(expense => approvedExpenseIds.includes(expense.id))
+        .map(expense => ({
+          ...expense,
+          status: "pending_payment"
+        }));
+
+      res.json(paymentRequests);
+    } catch (error: any) {
+      console.error("Error fetching payment requests:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get finance metrics
+  app.get("/api/finance/metrics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
+
+      const approvedCount = Object.values(global.approvalStatuses)
+        .filter(status => status === "approved").length;
+
+      const metrics = {
+        pendingPayments: approvedCount,
+        paymentsProcessedToday: 2,
+        totalPaymentValue: (approvedCount * 500000).toString(),
+        averageProcessingTime: "1.5 hours",
+        approvalRate: 95,
+        overduePayments: 0
+      };
+
+      res.json(metrics);
+    } catch (error: any) {
+      console.error("Error fetching finance metrics:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Authorize payment
+  app.post("/api/finance/authorize-payment/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { paymentMethod, bankAccount, comments } = req.body;
+      const user = req.user!;
+
+      console.log(`Finance Director ${user.username} authorized payment for expense ${id}`);
+      console.log(`Payment method: ${paymentMethod}, Bank account: ${bankAccount}`);
+      console.log(`Comments: ${comments}`);
+
+      // Initialize payment status tracker if needed
+      if (!global.paymentStatuses) {
+        global.paymentStatuses = {};
+      }
+
+      // Update payment status
+      global.paymentStatuses[parseInt(id)] = "payment_authorized";
+
+      res.json({
+        success: true,
+        message: "Payment authorized successfully",
+        authorizedBy: user.username,
+        authorizedAt: new Date().toISOString(),
+        paymentMethod,
+        bankAccount,
+        comments
+      });
+    } catch (error: any) {
+      console.error("Error authorizing payment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Reject payment
+  app.post("/api/finance/reject-payment/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { reason } = req.body;
+      const user = req.user!;
+
+      console.log(`Finance Director ${user.username} rejected payment for expense ${id}`);
+      console.log(`Rejection reason: ${reason}`);
+
+      // Initialize payment status tracker if needed
+      if (!global.paymentStatuses) {
+        global.paymentStatuses = {};
+      }
+
+      // Update payment status
+      global.paymentStatuses[parseInt(id)] = "payment_rejected";
+
+      res.json({
+        success: true,
+        message: "Payment rejected successfully",
+        rejectedBy: user.username,
+        rejectedAt: new Date().toISOString(),
+        reason
+      });
+    } catch (error: any) {
+      console.error("Error rejecting payment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Generate Laboratory PDF Report
   app.post("/api/generate-lab-report", async (req, res) => {
     try {
