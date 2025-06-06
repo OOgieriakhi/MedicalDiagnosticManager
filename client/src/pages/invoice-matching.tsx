@@ -125,7 +125,7 @@ export default function InvoiceMatching() {
       goodsReceiptId: selectedMatching.id,
       purchaseOrderId: selectedMatching.purchaseOrderId,
       invoiceNumber,
-      invoiceDate: new Date(invoiceDate).toISOString(),
+      invoiceDate: invoiceDate ? new Date(invoiceDate).toISOString() : new Date().toISOString(),
       invoiceAmount: parseFloat(invoiceAmount),
       invoiceUrl,
       notes: matchingNotes,
