@@ -7941,6 +7941,126 @@ Medical System Procurement Team
     }
   });
 
+  // Get unmatched goods receipts for invoice matching
+  app.get("/api/goods-receipts/unmatched", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Mock unmatched receipts data
+      const mockUnmatchedReceipts = [
+        {
+          id: 1,
+          receiptNumber: "GR-2024-001",
+          poNumber: "PO-2024-001",
+          vendorName: "MedSupply Corp",
+          receivedDate: "2024-06-05T09:30:00Z",
+          expectedAmount: 250000,
+          itemCount: 2,
+          purchaseOrderId: 1,
+          poAmount: 250000,
+          items: [
+            {
+              id: 1,
+              itemDescription: "Disposable Syringes",
+              receivedQuantity: 500,
+              unitPrice: 200,
+              condition: "good"
+            },
+            {
+              id: 2,
+              itemDescription: "Medical Gloves",
+              receivedQuantity: 1000,
+              unitPrice: 150,
+              condition: "good"
+            }
+          ]
+        }
+      ];
+
+      res.json(mockUnmatchedReceipts);
+    } catch (error: any) {
+      console.error("Error fetching unmatched goods receipts:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get invoice matches
+  app.get("/api/invoice-matches", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Return stored matches or empty array
+      const matches = global.invoiceMatches || [];
+      res.json(matches);
+    } catch (error: any) {
+      console.error("Error fetching invoice matches:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create invoice match
+  app.post("/api/invoice-matches", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { goodsReceiptId, purchaseOrderId, invoiceNumber, invoiceDate, invoiceAmount, invoiceUrl, notes, totalVariance, items, status } = req.body;
+
+      // Generate match number
+      const matchNumber = `IM-${Date.now()}`;
+
+      // Create invoice match record
+      const invoiceMatch = {
+        id: Date.now(),
+        matchNumber,
+        goodsReceiptId,
+        purchaseOrderId,
+        invoiceNumber,
+        invoiceDate: new Date(invoiceDate),
+        invoiceAmount,
+        invoiceUrl: invoiceUrl || null,
+        notes,
+        totalVariance,
+        status,
+        items: items || [],
+        matchedBy: user.id,
+        matchedByName: user.username,
+        matchedAt: new Date(),
+        // Additional fields for display
+        poNumber: "PO-2024-001",
+        vendorName: "MedSupply Corp"
+      };
+
+      // Store in global state for demonstration
+      if (!global.invoiceMatches) {
+        global.invoiceMatches = [];
+      }
+      global.invoiceMatches.push(invoiceMatch);
+
+      console.log(`Invoice match created: ${matchNumber} by ${user.username}`);
+      console.log(`Invoice: ${invoiceNumber}, Amount: ₦${invoiceAmount}, Variance: ₦${totalVariance}`);
+
+      res.json({
+        success: true,
+        invoiceMatch,
+        message: "Invoice match created successfully"
+      });
+    } catch (error: any) {
+      console.error("Error creating invoice match:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get unmatched goods receipts
   app.get("/api/goods-receipts/unmatched", async (req, res) => {
     try {
