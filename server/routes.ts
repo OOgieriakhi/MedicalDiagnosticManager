@@ -3813,6 +3813,52 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Check user approval permissions for transactions
+  app.get("/api/petty-cash/user-permissions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userId = req.user?.id || 2;
+      const tenantId = req.user?.tenantId || 1;
+      const userRole = req.user?.role || 'admin';
+
+      // Get approval thresholds
+      const thresholds = await approvalConfigService.getApprovalThresholds(tenantId, req.user?.branchId || 1);
+
+      let maxApprovalLimit = 0;
+      switch (userRole) {
+        case 'branch_manager':
+        case 'manager':
+          maxApprovalLimit = thresholds.managerThreshold;
+          break;
+        case 'finance_manager':
+        case 'accountant':
+        case 'admin':
+          maxApprovalLimit = thresholds.financeThreshold;
+          break;
+        case 'ceo':
+        case 'director':
+          maxApprovalLimit = thresholds.ceoThreshold;
+          break;
+        default:
+          maxApprovalLimit = 0;
+      }
+
+      res.json({
+        userId,
+        userRole,
+        maxApprovalLimit,
+        thresholds,
+        canApprove: maxApprovalLimit > 0
+      });
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ message: "Failed to fetch user permissions" });
+    }
+  });
+
   app.post("/api/petty-cash/approve/:transactionId", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
