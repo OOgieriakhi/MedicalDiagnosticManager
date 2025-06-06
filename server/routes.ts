@@ -8148,6 +8148,33 @@ Medical System Procurement Team
     }
   });
 
+  // Get payments due (scheduled for today or past due)
+  app.get("/api/payment-orders/due", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // End of today
+      
+      // Filter payment orders that are due for payment
+      const paymentOrders = global.paymentOrders || [];
+      const duePayments = paymentOrders.filter((payment: any) => {
+        const paymentDate = new Date(payment.paymentDate);
+        return payment.status === 'approved' && 
+               payment.paymentStatus !== 'paid' && 
+               paymentDate <= today;
+      });
+
+      res.json(duePayments);
+    } catch (error: any) {
+      console.error("Error fetching due payments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Create payment order
   app.post("/api/payment-orders", async (req, res) => {
     try {
@@ -8241,8 +8268,17 @@ Medical System Procurement Team
       if (action === 'approve') {
         const paymentOrder = paymentOrders[paymentIndex];
         const entryNumber = `JE-PAY-${Date.now()}`;
+        const paymentDate = new Date(paymentOrder.paymentDate);
+        const today = new Date();
+        const isImmediatePayment = paymentDate <= today;
         
         try {
+          // Determine journal entry status and type based on payment timing
+          const entryStatus = isImmediatePayment ? 'posted' : 'pending';
+          const entryDescription = isImmediatePayment 
+            ? `Payment to vendor - ${paymentOrder.vendorName}` 
+            : `Scheduled payment to vendor - ${paymentOrder.vendorName}`;
+
           // Insert journal entry header
           const journalResult = await db.execute(sql`
             INSERT INTO journal_entries (
@@ -8251,9 +8287,9 @@ Medical System Procurement Team
               entry_date, created_at, updated_at
             ) VALUES (
               ${user.tenantId}, ${user.branchId || 1}, ${entryNumber}, 
-              ${'Payment to vendor - ' + paymentOrder.vendorName}, 'payment_order',
+              ${entryDescription}, 'payment_order',
               ${paymentOrder.paymentNumber}, ${paymentOrder.amount}, ${paymentOrder.amount},
-              'posted', ${user.id}, ${new Date().toISOString()}, 
+              ${entryStatus}, ${user.id}, ${paymentOrder.paymentDate}, 
               ${new Date().toISOString()}, ${new Date().toISOString()}
             ) RETURNING id
           `);
@@ -8261,19 +8297,41 @@ Medical System Procurement Team
           const journalEntryId = journalResult.rows[0]?.id;
 
           if (journalEntryId) {
-            // Create line items: Credit Cash/Bank, Debit Accounts Payable
-            await db.execute(sql`
-              INSERT INTO journal_entry_line_items (
-                journal_entry_id, account_id, account_code, account_name, 
-                description, debit_amount, credit_amount, created_at
-              ) VALUES 
-              (${journalEntryId}, 1100, '1100', 'Cash - Main Operating Account', 
-               'Payment to ${paymentOrder.vendorName}', 0, ${paymentOrder.amount}, ${new Date().toISOString()}),
-              (${journalEntryId}, 2100, '2100', 'Accounts Payable', 
-               'Payment to ${paymentOrder.vendorName}', ${paymentOrder.amount}, 0, ${new Date().toISOString()})
-            `);
+            if (isImmediatePayment) {
+              // Immediate payment: Credit Cash, Debit Accounts Payable (closes AP)
+              await db.execute(sql`
+                INSERT INTO journal_entry_line_items (
+                  journal_entry_id, account_id, account_code, account_name, 
+                  description, debit_amount, credit_amount, created_at
+                ) VALUES 
+                (${journalEntryId}, 1100, '1100', 'Cash - Main Operating Account', 
+                 'Payment to ${paymentOrder.vendorName}', 0, ${paymentOrder.amount}, ${new Date().toISOString()}),
+                (${journalEntryId}, 2100, '2100', 'Accounts Payable', 
+                 'Payment to ${paymentOrder.vendorName}', ${paymentOrder.amount}, 0, ${new Date().toISOString()})
+              `);
+              
+              // Update payment order status to indicate payment processed
+              paymentOrders[paymentIndex].paymentStatus = 'paid';
+              paymentOrders[paymentIndex].paidAt = new Date();
+            } else {
+              // Future payment: Debit Expense/Asset, Credit Accounts Payable (creates AP liability)
+              await db.execute(sql`
+                INSERT INTO journal_entry_line_items (
+                  journal_entry_id, account_id, account_code, account_name, 
+                  description, debit_amount, credit_amount, created_at
+                ) VALUES 
+                (${journalEntryId}, 5100, '5100', 'Operating Expenses', 
+                 'Purchase from ${paymentOrder.vendorName}', ${paymentOrder.amount}, 0, ${new Date().toISOString()}),
+                (${journalEntryId}, 2100, '2100', 'Accounts Payable', 
+                 'Amount due to ${paymentOrder.vendorName}', 0, ${paymentOrder.amount}, ${new Date().toISOString()})
+              `);
+              
+              // Update payment order status to indicate AP created, payment pending
+              paymentOrders[paymentIndex].paymentStatus = 'scheduled';
+              paymentOrders[paymentIndex].apCreated = true;
+            }
             
-            console.log(`Journal entry ${entryNumber} created for payment ${paymentOrder.paymentNumber}`);
+            console.log(`Journal entry ${entryNumber} created for payment ${paymentOrder.paymentNumber} (${isImmediatePayment ? 'immediate' : 'scheduled'})`);
           }
         } catch (error) {
           console.error('Error creating journal entry for payment:', error);
