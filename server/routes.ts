@@ -7901,6 +7901,242 @@ Medical System Procurement Team
     }
   });
 
+  // Generate monthly referral invoice for a specific provider
+  app.post("/api/referral-invoices/generate", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { referralProviderId, periodStart, periodEnd, branchId, tenantId } = req.body;
+
+      // Generate unique invoice number
+      const timestamp = Date.now();
+      const invoiceNumber = `REF-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${timestamp.toString().slice(-6)}`;
+
+      // Get all invoices for this referral provider within the period
+      const invoicesResult = await db.execute(sql`
+        SELECT 
+          i.id,
+          i.total_amount,
+          i.commission_amount,
+          i.created_at,
+          i.tests,
+          p.first_name,
+          p.last_name,
+          rp.name as provider_name,
+          rp.commission_rate
+        FROM invoices i
+        JOIN patients p ON i.patient_id = p.id
+        JOIN referral_providers rp ON i.referral_provider_id = rp.id
+        WHERE i.referral_provider_id = ${referralProviderId}
+          AND i.referral_type = 'referral'
+          AND i.created_at >= ${periodStart}
+          AND i.created_at <= ${periodEnd}
+          AND i.branch_id = ${branchId}
+          AND i.tenant_id = ${tenantId}
+        ORDER BY i.created_at
+      `);
+
+      const invoices = invoicesResult.rows;
+
+      if (invoices.length === 0) {
+        return res.status(400).json({ message: "No referral activity found for this period" });
+      }
+
+      // Calculate totals
+      const totalRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0);
+      const totalCommission = invoices.reduce((sum, inv) => sum + parseFloat(inv.commission_amount), 0);
+      const totalPatients = new Set(invoices.map(inv => `${inv.first_name} ${inv.last_name}`)).size;
+      const totalServices = invoices.reduce((sum, inv) => {
+        const tests = JSON.parse(inv.tests || '[]');
+        return sum + tests.length;
+      }, 0);
+
+      // Create referral invoice
+      const referralInvoiceResult = await db.execute(sql`
+        INSERT INTO referral_invoices 
+          (invoice_number, referral_provider_id, period_start, period_end, 
+           total_patients, total_services, total_revenue, total_commission,
+           status, generated_by, branch_id, tenant_id)
+        VALUES 
+          (${invoiceNumber}, ${referralProviderId}, ${periodStart}, ${periodEnd},
+           ${totalPatients}, ${totalServices}, ${totalRevenue.toString()}, ${totalCommission.toString()},
+           'pending', ${req.user?.id || 1}, ${branchId}, ${tenantId})
+        RETURNING *
+      `);
+
+      const referralInvoice = referralInvoiceResult.rows[0];
+
+      // Create invoice items
+      for (const invoice of invoices) {
+        const tests = JSON.parse(invoice.tests || '[]');
+        const patientName = `${invoice.first_name} ${invoice.last_name}`;
+        
+        for (const test of tests) {
+          await db.execute(sql`
+            INSERT INTO referral_invoice_items 
+              (referral_invoice_id, original_invoice_id, patient_name, service_name,
+               service_amount, commission_rate, commission_amount, service_date)
+            VALUES 
+              (${referralInvoice.id}, ${invoice.id}, ${patientName}, ${test.testName},
+               ${test.price}, ${invoice.commission_rate}, ${(parseFloat(test.price) * parseFloat(invoice.commission_rate) / 100).toString()}, ${invoice.created_at})
+          `);
+        }
+      }
+
+      console.log(`Generated referral invoice ${invoiceNumber} for ${invoices[0].provider_name}`);
+      res.json(referralInvoice);
+
+    } catch (error: any) {
+      console.error("Error generating referral invoice:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get referral invoices with filters
+  app.get("/api/referral-invoices", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { status, providerId, month, year } = req.query;
+      const conditions = ['ri.tenant_id = $1'];
+      const params = [req.user?.tenantId || 1];
+
+      if (status && status !== 'all') {
+        conditions.push(`ri.status = $${params.length + 1}`);
+        params.push(status);
+      }
+
+      if (providerId) {
+        conditions.push(`ri.referral_provider_id = $${params.length + 1}`);
+        params.push(parseInt(providerId as string));
+      }
+
+      if (month && year) {
+        conditions.push(`EXTRACT(MONTH FROM ri.period_start) = $${params.length + 1}`);
+        params.push(parseInt(month as string));
+        conditions.push(`EXTRACT(YEAR FROM ri.period_start) = $${params.length + 1}`);
+        params.push(parseInt(year as string));
+      }
+
+      const result = await db.execute(sql`
+        SELECT 
+          ri.*,
+          rp.name as provider_name,
+          rp.commission_rate,
+          u.username as generated_by_name,
+          pu.username as paid_by_name
+        FROM referral_invoices ri
+        JOIN referral_providers rp ON ri.referral_provider_id = rp.id
+        JOIN users u ON ri.generated_by = u.id
+        LEFT JOIN users pu ON ri.paid_by = pu.id
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY ri.created_at DESC
+      `);
+
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error("Error fetching referral invoices:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get referral invoice details with items
+  app.get("/api/referral-invoices/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceId = parseInt(req.params.id);
+
+      // Get invoice header
+      const invoiceResult = await db.execute(sql`
+        SELECT 
+          ri.*,
+          rp.name as provider_name,
+          rp.commission_rate,
+          rp.contact_person,
+          rp.email,
+          rp.phone,
+          u.username as generated_by_name,
+          pu.username as paid_by_name
+        FROM referral_invoices ri
+        JOIN referral_providers rp ON ri.referral_provider_id = rp.id
+        JOIN users u ON ri.generated_by = u.id
+        LEFT JOIN users pu ON ri.paid_by = pu.id
+        WHERE ri.id = ${invoiceId}
+      `);
+
+      if (invoiceResult.rows.length === 0) {
+        return res.status(404).json({ message: "Referral invoice not found" });
+      }
+
+      // Get invoice items
+      const itemsResult = await db.execute(sql`
+        SELECT * FROM referral_invoice_items 
+        WHERE referral_invoice_id = ${invoiceId}
+        ORDER BY service_date, patient_name
+      `);
+
+      const invoice = invoiceResult.rows[0];
+      const items = itemsResult.rows;
+
+      res.json({ ...invoice, items });
+    } catch (error: any) {
+      console.error("Error fetching referral invoice details:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update referral invoice status (mark as paid/pending)
+  app.patch("/api/referral-invoices/:id/status", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceId = parseInt(req.params.id);
+      const { status, notes } = req.body;
+
+      const updateFields = ['status = $2', 'updated_at = NOW()'];
+      const params = [invoiceId, status];
+
+      if (status === 'paid') {
+        updateFields.push(`paid_by = $${params.length + 1}`);
+        params.push(req.user?.id || 1);
+        updateFields.push(`paid_at = NOW()`);
+      } else if (status === 'pending') {
+        updateFields.push('paid_by = NULL', 'paid_at = NULL');
+      }
+
+      if (notes) {
+        updateFields.push(`notes = $${params.length + 1}`);
+        params.push(notes);
+      }
+
+      const result = await db.execute(sql`
+        UPDATE referral_invoices 
+        SET ${updateFields.join(', ')}
+        WHERE id = $1
+        RETURNING *
+      `);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Referral invoice not found" });
+      }
+
+      console.log(`Updated referral invoice ${invoiceId} status to ${status}`);
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      console.error("Error updating referral invoice status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Finance Director Payment Processing APIs
   // Get payment requests (approved expenses from GED)
   app.get("/api/finance/payment-requests", async (req, res) => {

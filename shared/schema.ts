@@ -2064,5 +2064,62 @@ export type InsertMarketingReport = z.infer<typeof insertMarketingReportSchema>;
 export type WorkTask = typeof workTasks.$inferSelect;
 export type InsertWorkTask = z.infer<typeof insertWorkTaskSchema>;
 
+// Referral invoice tables for monthly commission tracking
+export const referralInvoices = pgTable("referral_invoices", {
+  id: serial("id").primaryKey(),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  referralProviderId: integer("referral_provider_id").references(() => referralProviders.id).notNull(),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  totalPatients: integer("total_patients").notNull(),
+  totalServices: integer("total_services").notNull(),
+  totalRevenue: text("total_revenue").notNull(),
+  totalCommission: text("total_commission").notNull(),
+  status: text("status").default("pending").notNull(), // 'pending', 'paid', 'cancelled'
+  generatedBy: integer("generated_by").references(() => users.id).notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  paidBy: integer("paid_by").references(() => users.id),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+  branchId: integer("branch_id").references(() => branches.id).notNull(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+export const referralInvoiceItems = pgTable("referral_invoice_items", {
+  id: serial("id").primaryKey(),
+  referralInvoiceId: integer("referral_invoice_id").references(() => referralInvoices.id).notNull(),
+  originalInvoiceId: integer("original_invoice_id").references(() => invoices.id).notNull(),
+  patientName: text("patient_name").notNull(),
+  serviceName: text("service_name").notNull(),
+  serviceAmount: text("service_amount").notNull(),
+  commissionRate: text("commission_rate").notNull(),
+  commissionAmount: text("commission_amount").notNull(),
+  serviceDate: timestamp("service_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// Referral invoice schema validations
+export const insertReferralInvoiceSchema = createInsertSchema(referralInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  generatedAt: true,
+  paidAt: true,
+});
+
+export const insertReferralInvoiceItemSchema = createInsertSchema(referralInvoiceItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Referral invoice type exports
+export type ReferralInvoice = typeof referralInvoices.$inferSelect;
+export type InsertReferralInvoice = z.infer<typeof insertReferralInvoiceSchema>;
+
+export type ReferralInvoiceItem = typeof referralInvoiceItems.$inferSelect;
+export type InsertReferralInvoiceItem = z.infer<typeof insertReferralInvoiceItemSchema>;
+
 // Export RBAC schemas
 export * from "./rbac-schema";
