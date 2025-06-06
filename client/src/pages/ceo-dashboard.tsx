@@ -282,7 +282,7 @@ export default function CEODashboard() {
                   </TableCell>
                 </TableRow>
               ) : (
-                pendingTransactions.map((transaction: any) => {
+                pendingTransactions.map((transaction: any, index: number) => {
                   const amount = parseFloat(transaction.amount);
                   let levelColor = 'bg-green-100 text-green-800';
                   let levelText = 'Branch Manager';

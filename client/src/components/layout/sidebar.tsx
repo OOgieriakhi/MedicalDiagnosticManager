@@ -87,6 +87,13 @@ export default function Sidebar() {
       ]
     },
     {
+      section: "Executive Dashboards",
+      items: [
+        { icon: Crown, label: "CEO Dashboard", path: "/ceo-dashboard", active: location === "/ceo-dashboard" },
+        { icon: TrendingUp, label: "Finance Director", path: "/finance-director-dashboard", active: location === "/finance-director-dashboard" },
+      ]
+    },
+    {
       section: "Reports & Analytics",
       items: [
         { icon: FileText, label: "Reports", path: "/reports", active: location === "/reports" },
