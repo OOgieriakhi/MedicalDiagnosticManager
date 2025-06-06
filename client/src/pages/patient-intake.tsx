@@ -402,8 +402,28 @@ export default function PatientIntake() {
     if (billingInfo.pathway !== "referral" || !billingInfo.referralProviderId) return 0;
     
     const provider = (referralProviders as any[]).find((p: any) => p.id === billingInfo.referralProviderId);
-    const total = calculateTotal();
-    return Math.round(total * (provider?.commissionRate || 0) / 100);
+    if (!provider || !provider.commissionRate) return 0;
+
+    let totalRebate = 0;
+    
+    // Calculate rebate per service with individual caps
+    selectedTests.forEach(testId => {
+      const test = (tests as any[]).find((t: any) => t.id === testId);
+      if (test) {
+        const price = parseFloat(test.price) || 0;
+        const commissionRate = parseFloat(provider.commissionRate) || 0;
+        const maxRebateAmount = parseFloat(test.maxRebateAmount) || 0;
+        
+        // Calculate percentage-based rebate
+        const percentageRebate = (price * commissionRate) / 100;
+        
+        // Apply the lower of percentage rebate or service maximum
+        const serviceRebate = Math.min(percentageRebate, maxRebateAmount);
+        totalRebate += serviceRebate;
+      }
+    });
+
+    return Math.round(totalRebate);
   };
 
   // Filter tests based on search term

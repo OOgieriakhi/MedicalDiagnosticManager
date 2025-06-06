@@ -111,6 +111,7 @@ export const tests = pgTable("tests", {
   requiresConsultant: boolean("requires_consultant").default(false),
   department: text("department").notNull().default("laboratory"), // laboratory, radiology, ultrasound, cardiology, pharmacy, nursing, physiotherapy
   serviceUnit: text("service_unit").notNull().default("laboratory"),
+  maxRebateAmount: decimal("max_rebate_amount", { precision: 10, scale: 2 }).default("0.00"), // Maximum rebate amount for this specific service
   tenantId: integer("tenant_id").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
