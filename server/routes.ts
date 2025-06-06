@@ -3930,17 +3930,17 @@ export function registerRoutes(app: Express): Server {
 
       // Combine and format all approvals
       const allApprovals = [
-        ...pettyCashApprovals.map(approval => ({
+        ...pettyCashApprovals.map((approval: any) => ({
           ...approval,
           type: 'petty_cash',
           module: 'Petty Cash'
         })),
-        ...purchaseOrderApprovals.map(approval => ({
+        ...purchaseOrderApprovals.map((approval: any) => ({
           ...approval,
           type: 'purchase_order',
           module: 'Purchase Orders'
         })),
-        ...otherApprovals.map(approval => ({
+        ...otherApprovals.map((approval: any) => ({
           ...approval,
           type: 'financial',
           module: 'Financial'

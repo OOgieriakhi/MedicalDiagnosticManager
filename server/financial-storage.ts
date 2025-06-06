@@ -555,35 +555,13 @@ export class FinancialStorage {
   // Approval details and query management
   async getApprovalDetails(approvalId: number, tenantId: number) {
     // Check petty cash transactions first
-    const pettyCashResult = await db.select({
-      id: pettyCashTransactions.id,
-      type: sql<string>`'petty_cash'`,
-      module: sql<string>`'Petty Cash'`,
-      transactionNumber: pettyCashTransactions.transactionNumber,
-      amount: pettyCashTransactions.amount,
-      purpose: pettyCashTransactions.purpose,
-      description: pettyCashTransactions.description,
-      category: pettyCashTransactions.category,
-      priority: pettyCashTransactions.priority,
-      justification: pettyCashTransactions.justification,
-      requestedBy: pettyCashTransactions.requestedBy,
-      recipient: pettyCashTransactions.recipient,
-      receiptNumber: pettyCashTransactions.receiptNumber,
-      status: pettyCashTransactions.status,
-      approvalLevel: pettyCashTransactions.approvalLevel,
-      currentApprover: pettyCashTransactions.currentApprover,
-      createdAt: pettyCashTransactions.createdAt,
-      requesterName: users.firstName,
-      requesterLastName: users.lastName,
-      requesterEmail: users.email
-    })
-    .from(pettyCashTransactions)
-    .leftJoin(users, eq(pettyCashTransactions.requestedBy, users.id))
-    .where(and(
-      eq(pettyCashTransactions.id, approvalId),
-      eq(pettyCashTransactions.tenantId, tenantId)
-    ))
-    .limit(1);
+    const pettyCashResult = await db.select()
+      .from(pettyCashTransactions)
+      .where(and(
+        eq(pettyCashTransactions.id, approvalId),
+        eq(pettyCashTransactions.tenantId, tenantId)
+      ))
+      .limit(1);
 
     if (pettyCashResult.length > 0) {
       const approval = pettyCashResult[0];
@@ -591,6 +569,8 @@ export class FinancialStorage {
       
       return {
         ...approval,
+        type: 'petty_cash',
+        module: 'Petty Cash',
         queries,
         attachments: [],
         approvalHistory: []
@@ -598,35 +578,13 @@ export class FinancialStorage {
     }
 
     // Check purchase orders
-    const purchaseOrderResult = await db.select({
-      id: purchaseOrders.id,
-      type: sql<string>`'purchase_order'`,
-      module: sql<string>`'Purchase Orders'`,
-      transactionNumber: purchaseOrders.poNumber,
-      amount: purchaseOrders.totalAmount,
-      purpose: purchaseOrders.description,
-      description: purchaseOrders.description,
-      category: sql<string>`'Procurement'`,
-      priority: purchaseOrders.priority,
-      justification: purchaseOrders.justification,
-      requestedBy: purchaseOrders.requestedBy,
-      recipient: purchaseOrders.vendor,
-      receiptNumber: sql<string>`''`,
-      status: purchaseOrders.status,
-      approvalLevel: sql<number>`1`,
-      currentApprover: purchaseOrders.approvedBy,
-      createdAt: purchaseOrders.createdAt,
-      requesterName: users.firstName,
-      requesterLastName: users.lastName,
-      requesterEmail: users.email
-    })
-    .from(purchaseOrders)
-    .leftJoin(users, eq(purchaseOrders.requestedBy, users.id))
-    .where(and(
-      eq(purchaseOrders.id, approvalId),
-      eq(purchaseOrders.tenantId, tenantId)
-    ))
-    .limit(1);
+    const purchaseOrderResult = await db.select()
+      .from(purchaseOrders)
+      .where(and(
+        eq(purchaseOrders.id, approvalId),
+        eq(purchaseOrders.tenantId, tenantId)
+      ))
+      .limit(1);
 
     if (purchaseOrderResult.length > 0) {
       const approval = purchaseOrderResult[0];
@@ -634,6 +592,8 @@ export class FinancialStorage {
       
       return {
         ...approval,
+        type: 'purchase_order',
+        module: 'Purchase Orders',
         queries,
         attachments: [],
         approvalHistory: []
@@ -657,26 +617,14 @@ export class FinancialStorage {
   }
 
   async getPendingPurchaseOrderApprovals(tenantId: number, branchId: number) {
-    const result = await db.select({
-      id: purchaseOrders.id,
-      transactionNumber: purchaseOrders.poNumber,
-      amount: purchaseOrders.totalAmount,
-      purpose: purchaseOrders.description,
-      category: sql<string>`'Procurement'`,
-      priority: purchaseOrders.priority,
-      requestedBy: purchaseOrders.requestedBy,
-      createdAt: purchaseOrders.createdAt,
-      status: purchaseOrders.status,
-      vendor: purchaseOrders.vendor,
-      justification: purchaseOrders.justification
-    })
-    .from(purchaseOrders)
-    .where(and(
-      eq(purchaseOrders.tenantId, tenantId),
-      eq(purchaseOrders.branchId, branchId),
-      eq(purchaseOrders.status, 'pending_approval')
-    ))
-    .orderBy(desc(purchaseOrders.createdAt));
+    const result = await db.select()
+      .from(purchaseOrders)
+      .where(and(
+        eq(purchaseOrders.tenantId, tenantId),
+        eq(purchaseOrders.branchId, branchId),
+        eq(purchaseOrders.status, 'pending_approval')
+      ))
+      .orderBy(desc(purchaseOrders.createdAt));
 
     return result;
   }

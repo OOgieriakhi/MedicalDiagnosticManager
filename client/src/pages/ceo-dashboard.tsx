@@ -14,12 +14,16 @@ import { useState } from "react";
 export default function CEODashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [selectedApproval, setSelectedApproval] = useState<any>(null);
+  const [queryText, setQueryText] = useState("");
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showQueryModal, setShowQueryModal] = useState(false);
 
   // CEO approval limit: 500,000 NGN (highest authority)
   const CEO_LIMIT = 500000;
 
   const { data: transactions } = useQuery({
-    queryKey: ['/api/petty-cash/transactions'],
+    queryKey: ['/api/approvals/all-pending'],
   });
 
   const { data: userPermissions } = useQuery({
@@ -27,10 +31,14 @@ export default function CEODashboard() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (transactionId: number) => 
-      apiRequest(`/api/petty-cash/approve/${transactionId}`, { method: 'POST' }),
+    mutationFn: (data: {transactionId: number, type: string}) => {
+      const endpoint = data.type === 'petty_cash' 
+        ? `/api/petty-cash/approve/${data.transactionId}`
+        : `/api/purchase-orders/approve/${data.transactionId}`;
+      return fetch(endpoint, { method: 'POST', credentials: 'include' });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/petty-cash/transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/approvals/all-pending'] });
       toast({ title: "Transaction approved successfully" });
     },
     onError: (error: any) => {
@@ -43,10 +51,14 @@ export default function CEODashboard() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (transactionId: number) => 
-      apiRequest(`/api/petty-cash/reject/${transactionId}`, { method: 'POST' }),
+    mutationFn: (data: {transactionId: number, type: string}) => {
+      const endpoint = data.type === 'petty_cash' 
+        ? `/api/petty-cash/reject/${data.transactionId}`
+        : `/api/purchase-orders/reject/${data.transactionId}`;
+      return fetch(endpoint, { method: 'POST', credentials: 'include' });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/petty-cash/transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/approvals/all-pending'] });
       toast({ title: "Transaction rejected successfully" });
     },
     onError: (error: any) => {
@@ -58,18 +70,60 @@ export default function CEODashboard() {
     }
   });
 
+  const queryMutation = useMutation({
+    mutationFn: (data: {approvalId: number, query: string, queryType: string}) => 
+      fetch(`/api/approvals/${data.approvalId}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ query: data.query, queryType: data.queryType })
+      }),
+    onSuccess: () => {
+      setShowQueryModal(false);
+      setQueryText("");
+      toast({ title: "Query submitted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to submit query", 
+        description: error.message || "Please try again",
+        variant: "destructive" 
+      });
+    }
+  });
+
   const pendingTransactions = Array.isArray(transactions) 
     ? transactions.filter((t: any) => t.status === 'pending')
     : [];
 
   const canApproveAmount = (amount: number) => amount <= CEO_LIMIT;
 
-  const handleApprove = (transactionId: number) => {
-    approveMutation.mutate(transactionId);
+  const handleApprove = (transactionId: number, type: string) => {
+    approveMutation.mutate({ transactionId, type });
   };
 
-  const handleReject = (transactionId: number) => {
-    rejectMutation.mutate(transactionId);
+  const handleReject = (transactionId: number, type: string) => {
+    rejectMutation.mutate({ transactionId, type });
+  };
+
+  const handleViewDetails = async (approval: any) => {
+    setSelectedApproval(approval);
+    setShowDetailsModal(true);
+  };
+
+  const handleRaiseQuery = (approval: any) => {
+    setSelectedApproval(approval);
+    setShowQueryModal(true);
+  };
+
+  const submitQuery = () => {
+    if (!selectedApproval || !queryText.trim()) return;
+    
+    queryMutation.mutate({
+      approvalId: selectedApproval.id,
+      query: queryText,
+      queryType: 'clarification_request'
+    });
   };
 
   // Calculate metrics
@@ -269,8 +323,24 @@ export default function CEODashboard() {
                         <div className="flex gap-2">
                           <Button 
                             size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewDetails(transaction)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleRaiseQuery(transaction)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Query
+                          </Button>
+                          <Button 
+                            size="sm" 
                             className="bg-green-600 hover:bg-green-700"
-                            onClick={() => handleApprove(transaction.id)}
+                            onClick={() => handleApprove(transaction.id, transaction.type || 'petty_cash')}
                             disabled={approveMutation.isPending}
                           >
                             <CheckCircle className="h-4 w-4 mr-1" />
@@ -279,7 +349,7 @@ export default function CEODashboard() {
                           <Button 
                             size="sm" 
                             variant="destructive"
-                            onClick={() => handleReject(transaction.id)}
+                            onClick={() => handleReject(transaction.id, transaction.type || 'petty_cash')}
                             disabled={rejectMutation.isPending}
                           >
                             <XCircle className="h-4 w-4 mr-1" />
@@ -295,6 +365,177 @@ export default function CEODashboard() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Approval Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <FileText className="h-5 w-5" />
+              <span>Approval Details - {selectedApproval?.module}</span>
+            </DialogTitle>
+            <DialogDescription>
+              Review comprehensive details for {selectedApproval?.transactionNumber}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedApproval && (
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground">Transaction Details</h4>
+                  <div className="space-y-2 mt-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Transaction #:</span>
+                      <span className="font-medium">{selectedApproval.transactionNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Amount:</span>
+                      <span className="font-bold text-lg">₦{parseFloat(selectedApproval.amount || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Purpose:</span>
+                      <span className="font-medium">{selectedApproval.purpose}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Category:</span>
+                      <Badge variant="outline">{selectedApproval.category}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Priority:</span>
+                      <Badge variant={selectedApproval.priority === 'urgent' ? 'destructive' : 'secondary'}>
+                        {selectedApproval.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground">Requester Information</h4>
+                  <div className="space-y-2 mt-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Requested By:</span>
+                      <span className="font-medium">{selectedApproval.requestedBy}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Date Requested:</span>
+                      <span className="font-medium">{new Date(selectedApproval.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground">Justification</h4>
+                  <p className="text-sm mt-2 p-3 bg-gray-50 rounded-md">
+                    {selectedApproval.justification || selectedApproval.description || "No additional justification provided"}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground">Approval Level</h4>
+                  <div className="mt-2">
+                    {parseFloat(selectedApproval.amount || 0) <= 25000 && (
+                      <Badge className="bg-green-100 text-green-800">Branch Manager Level</Badge>
+                    )}
+                    {parseFloat(selectedApproval.amount || 0) > 25000 && parseFloat(selectedApproval.amount || 0) <= 100000 && (
+                      <Badge className="bg-orange-100 text-orange-800">Finance Manager Level</Badge>
+                    )}
+                    {parseFloat(selectedApproval.amount || 0) > 100000 && (
+                      <Badge className="bg-red-100 text-red-800">CEO Level Required</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground">Status</h4>
+                  <Badge variant="outline" className="mt-2">
+                    {selectedApproval.status?.replace('_', ' ').toUpperCase()}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex justify-between">
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => handleRaiseQuery(selectedApproval)}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Raise Query
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  handleApprove(selectedApproval.id, selectedApproval.type || 'petty_cash');
+                  setShowDetailsModal(false);
+                }}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Approve
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => {
+                  handleReject(selectedApproval.id, selectedApproval.type || 'petty_cash');
+                  setShowDetailsModal(false);
+                }}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Reject
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Query Modal */}
+      <Dialog open={showQueryModal} onOpenChange={setShowQueryModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Raise Query</DialogTitle>
+            <DialogDescription>
+              Request clarification or additional information for this approval
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Transaction: {selectedApproval?.transactionNumber}</label>
+              <p className="text-sm text-muted-foreground">Amount: ₦{parseFloat(selectedApproval?.amount || 0).toLocaleString()}</p>
+            </div>
+            
+            <div>
+              <label htmlFor="query" className="text-sm font-medium">Your Query</label>
+              <Textarea
+                id="query"
+                placeholder="Please provide additional details about..."
+                value={queryText}
+                onChange={(e) => setQueryText(e.target.value)}
+                className="mt-2"
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQueryModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={submitQuery}
+              disabled={!queryText.trim() || queryMutation.isPending}
+            >
+              Submit Query
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
