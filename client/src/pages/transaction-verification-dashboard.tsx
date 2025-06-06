@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -82,9 +83,9 @@ export default function TransactionVerificationDashboard() {
   // Verification mutation
   const verifyTransactionMutation = useMutation({
     mutationFn: async ({ transactionId, status, notes }: { transactionId: number; status: string; notes: string }) => {
-      return apiRequest(`/api/transactions/${transactionId}/verify`, {
-        method: 'POST',
-        body: { verification_status: status, notes }
+      return apiRequest('POST', `/api/transactions/${transactionId}/verify`, {
+        verification_status: status,
+        notes
       });
     },
     onSuccess: () => {
@@ -205,44 +206,59 @@ export default function TransactionVerificationDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex flex-col h-screen overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-          <div>
-            <h1 className="text-2xl font-bold">Transaction Verification Center</h1>
-            <p className="text-blue-100 mt-1">Real-time transaction monitoring and verification</p>
+    <TooltipProvider delayDuration={300}>
+      <div className="min-h-screen bg-gray-50">
+        <div className="flex flex-col h-screen overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+            <div>
+              <h1 className="text-2xl font-bold">Transaction Verification Center</h1>
+              <p className="text-blue-100 mt-1">Real-time transaction monitoring and verification</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-blue-100">Active Session</p>
+                <p className="font-semibold">{user?.firstName} {user?.lastName}</p>
+              </div>
+              <div className="bg-blue-500 px-3 py-2 rounded-lg">
+                <p className="text-xs text-blue-100">Branch</p>
+                <p className="font-semibold">Main Branch</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => refetch()}
+                      disabled={transactionsLoading}
+                      className="bg-white text-blue-600 hover:bg-blue-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${transactionsLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Refresh transaction data manually</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      onClick={() => window.location.href = '/'}
+                      className="bg-white text-blue-600 hover:bg-blue-50"
+                    >
+                      Back to System
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Return to main ERP dashboard</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <p className="text-sm text-blue-100">Active Session</p>
-              <p className="font-semibold">{user?.firstName} {user?.lastName}</p>
-            </div>
-            <div className="bg-blue-500 px-3 py-2 rounded-lg">
-              <p className="text-xs text-blue-100">Branch</p>
-              <p className="font-semibold">Main Branch</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={() => refetch()}
-                disabled={transactionsLoading}
-                className="bg-white text-blue-600 hover:bg-blue-50"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${transactionsLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={() => window.location.href = '/'}
-                className="bg-white text-blue-600 hover:bg-blue-50"
-              >
-                Back to System
-              </Button>
-            </div>
-          </div>
-        </div>
         
         {/* Quick Stats Bar */}
         <div className="bg-white border-b px-6 py-4">
@@ -592,5 +608,6 @@ export default function TransactionVerificationDashboard() {
         </main>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
