@@ -7813,61 +7813,32 @@ Medical System Procurement Team
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Mock data for demonstration
-      const mockDeliveryPendingPOs = [
-        {
-          id: 1,
-          poNumber: "PO-2024-001",
-          vendorName: "MedSupply Corp",
-          createdAt: "2024-06-01T10:00:00Z",
-          expectedDeliveryDate: "2024-06-15T00:00:00Z",
-          totalAmount: "250000",
-          status: "approved",
-          items: [
-            {
-              id: 1,
-              description: "Blood Test Reagents",
-              quantity: 100,
-              unit: "vials",
-              unitPrice: "1500"
-            },
-            {
-              id: 2,
-              description: "Disposable Syringes",
-              quantity: 500,
-              unit: "pieces",
-              unitPrice: "200"
-            }
-          ]
-        },
-        {
-          id: 2,
-          poNumber: "PO-2024-002",
-          vendorName: "LabEquip Solutions",
-          createdAt: "2024-06-02T14:30:00Z",
-          expectedDeliveryDate: "2024-06-16T00:00:00Z",
-          totalAmount: "180000",
-          status: "approved",
-          items: [
-            {
-              id: 3,
-              description: "Laboratory Gloves",
-              quantity: 1000,
-              unit: "pieces",
-              unitPrice: "150"
-            },
-            {
-              id: 4,
-              description: "Test Tubes",
-              quantity: 200,
-              unit: "pieces",
-              unitPrice: "75"
-            }
-          ]
-        }
-      ];
+      const user = req.user!;
+      
+      // Get approved purchase orders from database that are ready for delivery
+      const result = await db.execute(
+        sql`SELECT 
+          id,
+          po_number as "poNumber",
+          vendor_name as "vendorName", 
+          total_amount as "totalAmount",
+          created_at as "createdAt",
+          notes as description,
+          items,
+          status,
+          (SELECT COUNT(*) FROM jsonb_array_elements(items::jsonb)) as "itemCount"
+        FROM purchase_orders 
+        WHERE tenant_id = ${user.tenantId || 1} AND status = 'approved'
+        ORDER BY approved_at DESC`
+      );
+      
+      const deliveryPendingPOs = result.rows.map((po: any) => ({
+        ...po,
+        expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+        items: typeof po.items === 'string' ? JSON.parse(po.items) : po.items || []
+      }));
 
-      res.json(mockDeliveryPendingPOs);
+      res.json(deliveryPendingPOs);
     } catch (error: any) {
       console.error("Error fetching delivery pending POs:", error);
       res.status(500).json({ message: "Internal server error" });
