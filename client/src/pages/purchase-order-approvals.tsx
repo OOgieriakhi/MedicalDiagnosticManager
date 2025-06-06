@@ -14,7 +14,10 @@ import {
   FileText,
   DollarSign,
   User,
-  Calendar
+  Calendar,
+  Send,
+  Printer,
+  Mail
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -271,10 +274,22 @@ export default function PurchaseOrderApprovals() {
                     <TableCell>{new Date(po.approvedAt).toLocaleDateString()}</TableCell>
                     <TableCell>{getStatusBadge(po.status)}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline">
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        {po.status === 'approved' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleExecuteOrder(po)}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <Send className="h-4 w-4 mr-1" />
+                            Execute
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
