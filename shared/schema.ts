@@ -750,6 +750,130 @@ export const vendors = pgTable("vendors", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Goods Receipt table - for tracking delivery confirmations
+export const goodsReceipts = pgTable("goods_receipts", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id).notNull(),
+  receiptNumber: varchar("receipt_number", { length: 50 }).notNull().unique(),
+  receivedBy: integer("received_by").references(() => users.id).notNull(),
+  receivedDate: timestamp("received_date").notNull(),
+  confirmedBy: integer("confirmed_by").references(() => users.id),
+  confirmedDate: timestamp("confirmed_date"),
+  status: varchar("status", { length: 50 }).notNull().default('pending'), // pending, confirmed, discrepancy
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Goods Receipt Items - detailed line items for what was received
+export const goodsReceiptItems = pgTable("goods_receipt_items", {
+  id: serial("id").primaryKey(),
+  goodsReceiptId: integer("goods_receipt_id").references(() => goodsReceipts.id).notNull(),
+  purchaseOrderItemId: integer("purchase_order_item_id").references(() => purchaseOrderItems.id),
+  itemDescription: varchar("item_description", { length: 255 }).notNull(),
+  orderedQuantity: decimal("ordered_quantity", { precision: 10, scale: 2 }).notNull(),
+  receivedQuantity: decimal("received_quantity", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  condition: varchar("condition", { length: 50 }).notNull().default('good'), // good, damaged, partial
+  batchNumber: varchar("batch_number", { length: 100 }),
+  expiryDate: timestamp("expiry_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Vendor Invoices table - for tracking invoices from vendors
+export const vendorInvoices = pgTable("vendor_invoices", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  vendorId: integer("vendor_id").references(() => vendors.id).notNull(),
+  invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
+  invoiceDate: timestamp("invoice_date").notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default('0'),
+  currency: varchar("currency", { length: 3 }).notNull().default('NGN'),
+  status: varchar("status", { length: 50 }).notNull().default('received'), // received, matched, approved, paid
+  matchedBy: integer("matched_by").references(() => users.id),
+  matchedDate: timestamp("matched_date"),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedDate: timestamp("approved_date"),
+  paidBy: integer("paid_by").references(() => users.id),
+  paidDate: timestamp("paid_date"),
+  paymentReference: varchar("payment_reference", { length: 100 }),
+  attachmentUrl: varchar("attachment_url", { length: 500 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Invoice Line Items
+export const vendorInvoiceItems = pgTable("vendor_invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => vendorInvoices.id).notNull(),
+  description: varchar("description", { length: 255 }).notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default('0'),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Three-way matching table - links PO, Goods Receipt, and Invoice
+export const threeWayMatching = pgTable("three_way_matching", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id).notNull(),
+  goodsReceiptId: integer("goods_receipt_id").references(() => goodsReceipts.id),
+  invoiceId: integer("invoice_id").references(() => vendorInvoices.id),
+  matchingStatus: varchar("matching_status", { length: 50 }).notNull().default('pending'), // pending, matched, discrepancy, approved
+  totalVariance: decimal("total_variance", { precision: 12, scale: 2 }).default('0'),
+  quantityVariance: decimal("quantity_variance", { precision: 10, scale: 2 }).default('0'),
+  priceVariance: decimal("price_variance", { precision: 12, scale: 2 }).default('0'),
+  matchedBy: integer("matched_by").references(() => users.id),
+  matchedDate: timestamp("matched_date"),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedDate: timestamp("approved_date"),
+  discrepancyNotes: text("discrepancy_notes"),
+  resolutionNotes: text("resolution_notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Payment Orders table - for authorizing payments based on matched documents
+export const paymentOrders = pgTable("payment_orders", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
+  paymentOrderNumber: varchar("payment_order_number", { length: 50 }).notNull().unique(),
+  threeWayMatchingId: integer("three_way_matching_id").references(() => threeWayMatching.id).notNull(),
+  vendorId: integer("vendor_id").references(() => vendors.id).notNull(),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).notNull().default('NGN'),
+  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // bank_transfer, cheque, cash
+  bankAccount: varchar("bank_account", { length: 100 }),
+  priority: varchar("priority", { length: 20 }).notNull().default('normal'), // urgent, high, normal, low
+  requestedBy: integer("requested_by").references(() => users.id).notNull(),
+  approvedBy: integer("approved_by").references(() => users.id),
+  authorizedBy: integer("authorized_by").references(() => users.id),
+  executedBy: integer("executed_by").references(() => users.id),
+  status: varchar("status", { length: 50 }).notNull().default('pending'), // pending, approved, authorized, executed, cancelled
+  dueDate: timestamp("due_date").notNull(),
+  approvedDate: timestamp("approved_date"),
+  authorizedDate: timestamp("authorized_date"),
+  executedDate: timestamp("executed_date"),
+  paymentReference: varchar("payment_reference", { length: 100 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Schema validations for new tables
 export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
   id: true,
@@ -790,6 +914,40 @@ export const insertPettyCashTransactionSchema = createInsertSchema(pettyCashTran
 export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
   id: true,
   timestamp: true,
+});
+
+export const insertGoodsReceiptSchema = createInsertSchema(goodsReceipts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertGoodsReceiptItemSchema = createInsertSchema(goodsReceiptItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertVendorInvoiceSchema = createInsertSchema(vendorInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVendorInvoiceItemSchema = createInsertSchema(vendorInvoiceItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertThreeWayMatchingSchema = createInsertSchema(threeWayMatching).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPaymentOrderSchema = createInsertSchema(paymentOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertVendorSchema = createInsertSchema(vendors).omit({
