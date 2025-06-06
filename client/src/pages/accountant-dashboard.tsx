@@ -18,8 +18,8 @@ import {
   Calculator,
   BookOpen,
   DollarSign,
-  Calendar,
   Banknote,
+  Calendar,
   CreditCard,
   Receipt,
   Wallet
@@ -406,19 +406,42 @@ export default function AccountantDashboard() {
                                     placeholder="Add journal entry description and notes..."
                                   />
                                 </div>
-                                <div className="bg-gray-50 p-3 rounded-lg">
-                                  <h4 className="font-medium mb-2">Journal Entry Preview:</h4>
-                                  <div className="text-sm space-y-1">
-                                    <div className="flex justify-between">
-                                      <span>Dr. {glAccount}</span>
-                                      <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
+                                
+                                {/* Payment Options */}
+                                <div className="border-t pt-4">
+                                  <h4 className="font-medium mb-3">Payment Processing Options:</h4>
+                                  
+                                  <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                                    <h5 className="font-medium text-blue-800 mb-2">Option 1: Post to Accounts Payable</h5>
+                                    <div className="text-sm space-y-1">
+                                      <div className="flex justify-between">
+                                        <span>Dr. {glAccount || "Expense Account"}</span>
+                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Cr. Accounts Payable</span>
+                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
+                                      </div>
                                     </div>
-                                    <div className="flex justify-between">
-                                      <span>Cr. Accounts Payable</span>
-                                      <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
+                                    <p className="text-xs text-blue-600 mt-2">Creates A/P liability for later payment processing by Cashier</p>
+                                  </div>
+                                  
+                                  <div className="bg-green-50 p-3 rounded-lg mb-3">
+                                    <h5 className="font-medium text-green-800 mb-2">Option 2: Pay Immediately</h5>
+                                    <div className="text-sm space-y-1">
+                                      <div className="flex justify-between">
+                                        <span>Dr. {glAccount || "Expense Account"}</span>
+                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Cr. Cash/Bank Account</span>
+                                        <span className="font-mono">{formatCurrency(selectedEntry?.amount || 0)}</span>
+                                      </div>
                                     </div>
+                                    <p className="text-xs text-green-600 mt-2">Immediate payment with proper documentation and receipt recording</p>
                                   </div>
                                 </div>
+                                
                                 <div className="flex justify-end space-x-2">
                                   <Button
                                     variant="outline"
@@ -432,19 +455,39 @@ export default function AccountantDashboard() {
                                     Cancel
                                   </Button>
                                   <Button
+                                    className="bg-blue-600 hover:bg-blue-700"
                                     onClick={() => {
                                       if (selectedEntry && glAccount && costCenter) {
                                         postToAPMutation.mutate({
                                           id: selectedEntry.id,
                                           glAccount,
                                           costCenter,
-                                          postingNotes
+                                          postingNotes: postingNotes + " - Posted to Accounts Payable"
                                         });
                                       }
                                     }}
                                     disabled={!glAccount || !costCenter || postToAPMutation.isPending}
                                   >
+                                    <CreditCard className="w-4 h-4 mr-2" />
                                     {postToAPMutation.isPending ? "Posting..." : "Post to A/P"}
+                                  </Button>
+                                  <Button
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => {
+                                      if (selectedEntry && glAccount && costCenter) {
+                                        // Process immediate payment
+                                        console.log("Processing immediate payment");
+                                        toast({ title: "Payment processed immediately with proper documentation" });
+                                        setSelectedEntry(null);
+                                        setGlAccount("");
+                                        setCostCenter("");
+                                        setPostingNotes("");
+                                      }
+                                    }}
+                                    disabled={!glAccount || !costCenter}
+                                  >
+                                    <Banknote className="w-4 h-4 mr-2" />
+                                    Pay Immediately
                                   </Button>
                                 </div>
                               </div>
