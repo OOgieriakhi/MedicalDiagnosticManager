@@ -9051,6 +9051,52 @@ Medical System Procurement Team
     }
   });
 
+  // Verify transaction endpoint
+  app.post("/api/transactions/:id/verify", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const transactionId = parseInt(req.params.id);
+      const { verification_status, notes } = req.body;
+
+      if (isNaN(transactionId)) {
+        return res.status(400).json({ message: "Invalid transaction ID" });
+      }
+
+      const validStatuses = ['verified', 'flagged', 'pending'];
+      if (!validStatuses.includes(verification_status)) {
+        return res.status(400).json({ message: "Invalid verification status" });
+      }
+
+      const result = await pool.query(`
+        UPDATE daily_transactions 
+        SET verification_status = $1, 
+            verification_notes = $2,
+            verified_by = $3,
+            verified_at = NOW()
+        WHERE id = $4 AND tenant_id = $5
+        RETURNING id
+      `, [verification_status, notes || null, req.user!.id, transactionId, req.user!.tenantId]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Transaction verification updated successfully",
+        transactionId: transactionId,
+        status: verification_status
+      });
+
+    } catch (error: any) {
+      console.error("Error updating transaction verification:", error);
+      res.status(500).json({ message: "Failed to update verification" });
+    }
+  });
+
   // Get cashier handover summaries
   app.get("/api/cashier-handovers", async (req, res) => {
     try {

@@ -99,12 +99,15 @@ export default function TransactionVerificationDashboard() {
     }
   });
 
+  // Ensure transactions is always an array
+  const transactionsArray = Array.isArray(transactions) ? transactions : [];
+
   // Calculate verification metrics
   const verificationMetrics: VerificationMetrics = {
-    totalTransactions: transactions.length,
-    verifiedTransactions: transactions.filter((t: Transaction) => t.verification_status === 'verified').length,
-    pendingTransactions: transactions.filter((t: Transaction) => t.verification_status === 'pending').length,
-    flaggedTransactions: transactions.filter((t: Transaction) => t.verification_status === 'flagged').length,
+    totalTransactions: transactionsArray.length,
+    verifiedTransactions: transactionsArray.filter((t: Transaction) => t.verification_status === 'verified').length,
+    pendingTransactions: transactionsArray.filter((t: Transaction) => t.verification_status === 'pending').length,
+    flaggedTransactions: transactionsArray.filter((t: Transaction) => t.verification_status === 'flagged').length,
     totalRevenue: dashboardData?.revenue?.total || 0,
     cashRevenue: dashboardData?.revenue?.cash || 0,
     posRevenue: dashboardData?.revenue?.pos || 0,
@@ -112,7 +115,7 @@ export default function TransactionVerificationDashboard() {
   };
 
   // Filter transactions
-  const filteredTransactions = transactions.filter((transaction: Transaction) => {
+  const filteredTransactions = transactionsArray.filter((transaction: Transaction) => {
     const matchesSearch = transaction.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          transaction.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || transaction.verification_status === filterStatus;
