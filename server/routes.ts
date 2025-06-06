@@ -8193,6 +8193,91 @@ Medical System Procurement Team
     }
   });
 
+  // Get pending purchase orders for approval
+  app.get("/api/purchase-orders/pending-approval", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Get purchase orders with pending approval status
+      const purchaseOrders = global.purchaseOrders || [];
+      const pendingApprovals = purchaseOrders.filter((po: any) => 
+        po.status === 'pending_approval'
+      );
+
+      res.json(pendingApprovals);
+    } catch (error: any) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get approved purchase orders
+  app.get("/api/purchase-orders/approved", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Get approved purchase orders
+      const purchaseOrders = global.purchaseOrders || [];
+      const approvedOrders = purchaseOrders.filter((po: any) => 
+        po.status === 'approved' || po.status === 'executed'
+      );
+
+      res.json(approvedOrders);
+    } catch (error: any) {
+      console.error("Error fetching approved orders:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Approve/Reject purchase order
+  app.post("/api/purchase-orders/:id/:action", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const poId = parseInt(req.params.id);
+      const action = req.params.action; // 'approve' or 'reject'
+      const { comments } = req.body;
+
+      // Find and update purchase order
+      const purchaseOrders = global.purchaseOrders || [];
+      const poIndex = purchaseOrders.findIndex((po: any) => po.id === poId);
+      
+      if (poIndex === -1) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+
+      const newStatus = action === 'approve' ? 'approved' : 'rejected';
+      purchaseOrders[poIndex].status = newStatus;
+      purchaseOrders[poIndex].approvedBy = user.id;
+      purchaseOrders[poIndex].approvedByName = user.username;
+      purchaseOrders[poIndex].approvedAt = new Date();
+      purchaseOrders[poIndex].approvalComments = comments;
+
+      console.log(`Purchase order ${purchaseOrders[poIndex].poNumber} ${action}d by ${user.username}`);
+      console.log(`Comments: ${comments}`);
+
+      res.json({
+        success: true,
+        purchaseOrder: purchaseOrders[poIndex],
+        message: `Purchase order ${action}d successfully`
+      });
+    } catch (error: any) {
+      console.error(`Error ${req.params.action}ing purchase order:`, error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get unmatched goods receipts
   app.get("/api/goods-receipts/unmatched", async (req, res) => {
     try {

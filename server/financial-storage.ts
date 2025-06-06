@@ -45,7 +45,7 @@ export class FinancialStorage {
       vendorPhone: data.vendorPhone || null,
       vendorAddress: data.vendorAddress || null,
       requestedBy: data.requestedBy || 1,
-      status: 'pending',
+      status: 'pending_approval',
       priority: data.priority || 'normal',
       subtotal: parseFloat(data.subtotal) || 0,
       taxAmount: parseFloat(data.taxAmount) || 0,
