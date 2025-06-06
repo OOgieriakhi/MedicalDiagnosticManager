@@ -15,6 +15,7 @@ import { accountingEngine } from "./accounting-engine";
 import { pettyCashEngine } from "./petty-cash-engine";
 import { approvalConfigService } from "./approval-config";
 import { db } from "./db";
+import PDFDocument from 'pdfkit';
 import { 
   patients, 
   patientTests, 
@@ -3598,7 +3599,6 @@ export function registerRoutes(app: Express): Server {
     
     return new Promise((resolve, reject) => {
       try {
-        const PDFDocument = require('pdfkit');
         const doc = new PDFDocument({ margin: 50 });
         
         doc.on('data', (chunk: Buffer) => chunks.push(chunk));
