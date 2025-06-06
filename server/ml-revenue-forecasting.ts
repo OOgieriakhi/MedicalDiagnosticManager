@@ -193,17 +193,19 @@ class RevenueForecasting {
   async generateForecast(tenantId: number, branchId?: number, daysAhead: number = 30): Promise<ForecastResult> {
     const historicalData = await this.getHistoricalData(tenantId, branchId);
     
-    if (historicalData.length < 30) {
-      throw new Error('Insufficient historical data for accurate forecasting. Need at least 30 days of data.');
+    if (historicalData.length < 5) {
+      throw new Error('Insufficient historical data for forecasting. Need at least 5 days of transaction data.');
     }
 
     // Prepare data for analysis
     const revenues = historicalData.map(d => d.revenue);
     const dates = historicalData.map((_, index) => index);
     
-    // Calculate trends
-    const ma7 = this.calculateMovingAverage(revenues, 7);
-    const ma30 = this.calculateMovingAverage(revenues, 30);
+    // Calculate trends with adaptive window sizes
+    const shortWindow = Math.min(7, Math.floor(revenues.length / 2));
+    const longWindow = Math.min(30, revenues.length - 1);
+    const ma7 = this.calculateMovingAverage(revenues, shortWindow);
+    const ma30 = this.calculateMovingAverage(revenues, longWindow);
     const regression = this.linearRegression(dates, revenues);
     const seasonal = this.detectSeasonalPatterns(historicalData);
 
