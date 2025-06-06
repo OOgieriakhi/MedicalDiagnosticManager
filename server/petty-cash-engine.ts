@@ -136,6 +136,9 @@ export class PettyCashEngine {
   async getApprovalWorkflow(tenantId: number, branchId: number, amount: number): Promise<PettyCashApprovalWorkflow[]> {
     const workflow: PettyCashApprovalWorkflow[] = [];
 
+    // Get configured approval thresholds for this organization
+    const approvalThresholds = await approvalConfigService.getApprovalThresholds(tenantId, branchId);
+
     // Get relevant approvers based on amount thresholds
     const approvers = await db
       .select({
@@ -154,14 +157,7 @@ export class PettyCashEngine {
         )
       );
 
-    // Define approval thresholds and hierarchy (amounts in local currency)
-    // These thresholds can be configured per organization/branch in production
-    const approvalThresholds = {
-      ceoThreshold: 500000,      // Large amounts require CEO approval
-      financeThreshold: 100000,  // Medium amounts require Finance Manager
-      managerThreshold: 25000    // Small amounts require Branch Manager
-    };
-
+    // Build approval workflow based on configured thresholds
     if (amount > approvalThresholds.ceoThreshold) {
       const ceo = approvers.find(u => u.role === 'ceo' || u.role === 'director');
       if (ceo) {
@@ -170,7 +166,7 @@ export class PettyCashEngine {
           approverId: ceo.id,
           approverName: `${ceo.firstName} ${ceo.lastName}`,
           approverRole: ceo.role,
-          amountLimit: 1000000,
+          amountLimit: approvalThresholds.ceoThreshold * 2, // Higher limit for CEO
           isRequired: true,
         });
       }
