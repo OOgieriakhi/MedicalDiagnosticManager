@@ -116,6 +116,7 @@ function Router() {
       <ProtectedRoute path="/transaction-verification" component={TransactionVerificationDashboard} />
       <ProtectedRoute path="/bank-deposit-recording" component={BankDepositRecording} />
       <ProtectedRoute path="/revenue-forecasting" component={RevenueForecastingPage} />
+      <ProtectedRoute path="/enhanced-forecasting" component={EnhancedForecastingPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
