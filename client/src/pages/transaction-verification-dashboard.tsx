@@ -678,7 +678,7 @@ export default function TransactionVerificationDashboard() {
                                         disabled={verifyTransactionMutation.isPending}
                                         className="bg-green-600 hover:bg-green-700"
                                       >
-                                        <CheckCircle2 className="w-4 h-4" />
+                                        <Check className="w-4 h-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
@@ -787,7 +787,7 @@ export default function TransactionVerificationDashboard() {
                                         disabled={verifyTransactionMutation.isPending}
                                         className="bg-green-600 hover:bg-green-700"
                                       >
-                                        <CheckCircle2 className="w-4 h-4" />
+                                        <Check className="w-4 h-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
