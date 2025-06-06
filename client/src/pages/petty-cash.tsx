@@ -255,6 +255,53 @@ export default function PettyCash() {
     createReconciliationMutation.mutate(data);
   };
 
+  // Approval handlers
+  const handleApproveTransaction = async (transactionId: number) => {
+    try {
+      await apiRequest(`/api/petty-cash/transactions/${transactionId}/approve`, {
+        method: 'POST',
+        body: { action: 'approve' }
+      });
+      
+      toast({
+        title: "Transaction Approved",
+        description: "The transaction has been approved successfully.",
+      });
+      
+      // Refresh transactions data
+      queryClient.invalidateQueries({ queryKey: ["/api/petty-cash/transactions"] });
+    } catch (error) {
+      toast({
+        title: "Approval Failed",
+        description: "Failed to approve the transaction. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectTransaction = async (transactionId: number) => {
+    try {
+      await apiRequest(`/api/petty-cash/transactions/${transactionId}/approve`, {
+        method: 'POST',
+        body: { action: 'reject' }
+      });
+      
+      toast({
+        title: "Transaction Rejected",
+        description: "The transaction has been rejected.",
+      });
+      
+      // Refresh transactions data
+      queryClient.invalidateQueries({ queryKey: ["/api/petty-cash/transactions"] });
+    } catch (error) {
+      toast({
+        title: "Rejection Failed",
+        description: "Failed to reject the transaction. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending: { label: "Pending", variant: "default" as const },
@@ -386,6 +433,7 @@ export default function PettyCash() {
         <TabsList>
           <TabsTrigger value="overview">Funds Overview</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="approvals">Pending Approvals</TabsTrigger>
           <TabsTrigger value="reconciliations">Reconciliations</TabsTrigger>
         </TabsList>
 
@@ -504,6 +552,84 @@ export default function PettyCash() {
                         </TableCell>
                       </TableRow>
                     ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="approvals">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Approvals</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Review and approve or reject petty cash transactions waiting for your approval
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Transaction #</TableHead>
+                    <TableHead>Requestor</TableHead>
+                    <TableHead>Purpose</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Approval Level</TableHead>
+                    <TableHead>Date Requested</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoadingTransactions ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center">Loading...</TableCell>
+                    </TableRow>
+                  ) : transactions.filter((t: any) => t.status === 'pending').length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        No pending approvals
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    transactions
+                      .filter((t: any) => t.status === 'pending')
+                      .map((transaction: any) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell className="font-medium">{transaction.transactionNumber}</TableCell>
+                          <TableCell>{transaction.requestorName || "N/A"}</TableCell>
+                          <TableCell>{transaction.purpose}</TableCell>
+                          <TableCell className="font-semibold">₦{parseFloat(transaction.amount).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <Badge variant={transaction.priority === 'urgent' ? 'destructive' : 'default'}>
+                              {transaction.priority}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>Level {transaction.approvalLevel || 1}</TableCell>
+                          <TableCell>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => handleApproveTransaction(transaction.id)}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => handleRejectTransaction(transaction.id)}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
                   )}
                 </TableBody>
               </Table>
