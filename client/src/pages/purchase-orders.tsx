@@ -191,10 +191,7 @@ export default function PurchaseOrders() {
 
   const approvePO = useMutation({
     mutationFn: async (data: { id: number; comments?: string }) => {
-      return apiRequest(`/api/purchase-orders/${data.id}/approve`, {
-        method: 'POST',
-        body: JSON.stringify({ comments: data.comments })
-      });
+      return apiRequest('POST', `/api/purchase-orders/${data.id}/approve`, { comments: data.comments });
     },
     onSuccess: () => {
       toast({ title: "Purchase order approved successfully" });
@@ -209,10 +206,7 @@ export default function PurchaseOrders() {
 
   const rejectPO = useMutation({
     mutationFn: async (data: { id: number; comments: string }) => {
-      return apiRequest(`/api/purchase-orders/${data.id}/reject`, {
-        method: 'POST',
-        body: JSON.stringify({ comments: data.comments })
-      });
+      return apiRequest('POST', `/api/purchase-orders/${data.id}/reject`, { comments: data.comments });
     },
     onSuccess: () => {
       toast({ title: "Purchase order rejected" });
@@ -227,9 +221,7 @@ export default function PurchaseOrders() {
 
   const executePO = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/purchase-orders/${id}/confirm-execution`, {
-        method: 'POST'
-      });
+      return apiRequest('POST', `/api/purchase-orders/${id}/confirm-execution`);
     },
     onSuccess: (response) => {
       toast({ 
