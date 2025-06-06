@@ -83,6 +83,8 @@ export default function PurchaseOrders() {
   const [showNewPOForm, setShowNewPOForm] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalComments, setApprovalComments] = useState("");
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [previewPO, setPreviewPO] = useState<PurchaseOrder | null>(null);
 
   // Fetch real purchase orders from API
   const { data: purchaseOrders = [] } = useQuery({
@@ -222,6 +224,36 @@ export default function PurchaseOrders() {
       toast({ title: "Failed to reject purchase order", variant: "destructive" });
     }
   });
+
+  const executePO = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/purchase-orders/${id}/confirm-execution`, {
+        method: 'POST'
+      });
+    },
+    onSuccess: (response) => {
+      toast({ 
+        title: "Purchase order executed and sent to vendor",
+        description: response.emailStatus || "Order sent successfully"
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'] });
+      setShowPrintPreview(false);
+    },
+    onError: () => {
+      toast({ title: "Failed to execute purchase order", variant: "destructive" });
+    }
+  });
+
+  const handleExecuteOrder = (po: PurchaseOrder) => {
+    setPreviewPO(po);
+    setShowPrintPreview(true);
+  };
+
+  const confirmExecuteOrder = () => {
+    if (previewPO) {
+      executePO.mutate(previewPO.id);
+    }
+  };
 
   const filteredPOs = selectedStatus === "all" 
     ? purchaseOrders 
@@ -434,7 +466,7 @@ export default function PurchaseOrders() {
                             <Button 
                               size="sm" 
                               variant="secondary"
-                              onClick={() => confirmExecution.mutate(po.id)}
+                              onClick={() => handleExecuteOrder(po)}
                             >
                               <Truck className="w-4 h-4 mr-1" />
                               Execute Order

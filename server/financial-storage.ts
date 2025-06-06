@@ -269,11 +269,6 @@ export class FinancialStorage {
     await db.execute(sql`
       UPDATE purchase_orders 
       SET ${sql.raw(field)} = ${confirmedBy}, 
-          status = CASE 
-            WHEN accountant_confirmed_by IS NOT NULL AND unit_confirmed_by IS NOT NULL 
-            THEN 'completed' 
-            ELSE 'partially_received' 
-          END,
           workflow_stage = CASE 
             WHEN accountant_confirmed_by IS NOT NULL AND unit_confirmed_by IS NOT NULL 
             THEN 'completed' 
