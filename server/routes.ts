@@ -9187,6 +9187,15 @@ Medical System Procurement Team
         return res.status(401).json({ message: "Unauthorized" });
       }
 
+      // Check if user has verification permissions
+      const authorizedRoles = ['admin', 'manager', 'branch_manager', 'accountant', 'finance_director', 'ceo'];
+      if (!req.user?.role || !authorizedRoles.includes(req.user.role)) {
+        return res.status(403).json({ 
+          message: "Insufficient permissions for transaction verification",
+          requiredRoles: authorizedRoles
+        });
+      }
+
       const transactionId = parseInt(req.params.id);
       const { verification_status, notes } = req.body;
       const tenantId = req.user!.tenantId;

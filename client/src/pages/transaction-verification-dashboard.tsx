@@ -45,6 +45,9 @@ interface VerificationMetrics {
 export default function TransactionVerificationDashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Check if user has verification permissions
+  const canVerifyTransactions = user?.role && ['admin', 'manager', 'branch_manager', 'accountant', 'finance_director', 'ceo'].includes(user.role);
   const [selectedBranchId, setSelectedBranchId] = useState(user?.branchId || 1);
   const [activeTab, setActiveTab] = useState("overview");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -147,6 +150,39 @@ export default function TransactionVerificationDashboard() {
   };
 
   if (!user) return null;
+
+  // Show unauthorized message for users without verification permissions
+  if (!canVerifyTransactions) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-light-bg">
+        <Sidebar />
+        
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b bg-white">
+            <Header 
+              selectedBranchId={selectedBranchId} 
+              onBranchChange={setSelectedBranchId}
+            />
+          </div>
+          
+          <main className="flex-1 overflow-y-auto p-6">
+            <Card>
+              <CardContent className="p-8 text-center">
+                <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold mb-2">Access Restricted</h2>
+                <p className="text-gray-600 mb-4">
+                  You don't have permission to access the transaction verification dashboard.
+                </p>
+                <p className="text-sm text-gray-500">
+                  This feature is available to: Admin, Manager, Branch Manager, Accountant, Finance Director, and CEO roles.
+                </p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-light-bg">

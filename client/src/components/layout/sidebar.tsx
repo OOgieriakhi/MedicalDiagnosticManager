@@ -98,7 +98,10 @@ export default function Sidebar() {
       items: [
         { icon: FileText, label: "Reports", path: "/reports", active: location === "/reports" },
         { icon: Shield, label: "Audit Trail", path: "/audit", active: location === "/audit" },
-        { icon: Receipt, label: "Transaction Verification", path: "/transaction-verification", active: location === "/transaction-verification" },
+        ...(user?.role && ['admin', 'manager', 'branch_manager', 'accountant', 'finance_director', 'ceo'].includes(user.role) 
+          ? [{ icon: Receipt, label: "Transaction Verification", path: "/transaction-verification", active: location === "/transaction-verification" }]
+          : []
+        ),
       ]
     },
     {
