@@ -16,7 +16,8 @@ import {
   Truck,
   ClipboardCheck,
   FileText,
-  Calendar
+  Calendar,
+  Link
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -30,6 +31,7 @@ export default function GoodsReceipt() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receivedItems, setReceivedItems] = useState<any[]>([]);
   const [receiptNotes, setReceiptNotes] = useState("");
+  const [supplierReceiptUrl, setSupplierReceiptUrl] = useState("");
 
   // Fetch approved purchase orders ready for goods receipt
   const { data: deliveryPendingPOs = [] } = useQuery({
@@ -109,6 +111,7 @@ export default function GoodsReceipt() {
       purchaseOrderId: selectedPO.id,
       receivedDate: new Date().toISOString(),
       notes: receiptNotes,
+      supplierReceiptUrl: supplierReceiptUrl,
       items: receivedItems.map(item => ({
         purchaseOrderItemId: item.id,
         itemDescription: item.description,
@@ -378,6 +381,24 @@ export default function GoodsReceipt() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Supplier Receipt Attachment */}
+            <div>
+              <Label htmlFor="supplier-receipt">Supplier Receipt/Delivery Note</Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  id="supplier-receipt"
+                  value={supplierReceiptUrl}
+                  onChange={(e) => setSupplierReceiptUrl(e.target.value)}
+                  placeholder="https://drive.google.com/... or document storage URL"
+                  className="flex-1"
+                />
+                <Link className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Link to supplier receipt or delivery note (hosted externally to avoid large uploads)
+              </p>
             </div>
 
             {/* Receipt Notes */}

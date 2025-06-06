@@ -7868,12 +7868,12 @@ Medical System Procurement Team
       }
 
       const user = req.user!;
-      const { purchaseOrderId, receivedDate, notes, items } = req.body;
+      const { purchaseOrderId, receivedDate, notes, items, supplierReceiptUrl } = req.body;
 
       // Generate receipt number
       const receiptNumber = `GR-${Date.now()}`;
 
-      // Mock creating goods receipt for demonstration
+      // Create goods receipt record
       const goodsReceipt = {
         id: Date.now(),
         receiptNumber,
@@ -7882,12 +7882,23 @@ Medical System Procurement Team
         receivedBy: user.id,
         receivedByName: user.username,
         status: 'received',
-        notes
+        notes,
+        supplierReceiptUrl: supplierReceiptUrl || null,
+        items: items || []
       };
 
       // Log the receipt creation
       console.log(`Goods receipt created: ${receiptNumber} by ${user.username}`);
-      console.log(`Items received:`, items);
+      console.log(`Items received: ${items?.length || 0} items`);
+      if (supplierReceiptUrl) {
+        console.log(`Supplier receipt attached: ${supplierReceiptUrl}`);
+      }
+
+      // Store in global state for demonstration
+      if (!global.goodsReceipts) {
+        global.goodsReceipts = [];
+      }
+      global.goodsReceipts.push(goodsReceipt);
 
       res.json({
         success: true,
