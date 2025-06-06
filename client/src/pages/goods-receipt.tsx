@@ -86,15 +86,22 @@ export default function GoodsReceipt() {
 
   const handleStartReceipt = (po: any) => {
     setSelectedPO(po);
-    // Initialize received items with PO items
-    const items = po.items?.map((item: any) => ({
-      ...item,
-      receivedQuantity: 0,
-      condition: 'good',
-      batchNumber: '',
-      expiryDate: '',
-      notes: ''
-    })) || [];
+    // Initialize received items with PO items - parse JSON string if needed
+    let items = [];
+    try {
+      const poItems = typeof po.items === 'string' ? JSON.parse(po.items) : po.items || [];
+      items = poItems.map((item: any) => ({
+        ...item,
+        receivedQuantity: 0,
+        condition: 'good',
+        batchNumber: '',
+        expiryDate: '',
+        notes: ''
+      }));
+    } catch (e) {
+      console.error('Error parsing PO items:', e);
+      items = [];
+    }
     setReceivedItems(items);
     setShowReceiptModal(true);
   };
