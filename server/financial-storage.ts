@@ -84,10 +84,10 @@ export class FinancialStorage {
     try {
       const result = await db.execute(sql`
         SELECT COUNT(*) as count FROM purchase_orders 
-        WHERE tenant_id = ${tenantId}
+        WHERE tenant_id = ${tenantId};
       `);
       
-      const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(3, '0');
+      const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(4, '0');
       return `PO-${year}-${count}`;
     } catch (error) {
       console.error('Error generating PO number:', error);
