@@ -7720,6 +7720,136 @@ Medical System Procurement Team
     }
   });
 
+  // Get cumulative variance metrics for cash management oversight
+  app.get("/api/cash-variance-metrics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      // Get month-to-date cash collections
+      const mtdCashCollections = await db.select({
+        totalCollected: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0)`,
+        transactionCount: sql<number>`COUNT(CASE WHEN payment_method = 'cash' THEN 1 END)`,
+        collectionDays: sql<number>`COUNT(DISTINCT DATE(created_at))`
+      })
+      .from(transactions)
+      .where(and(
+        eq(transactions.tenantId, user.tenantId),
+        eq(transactions.paymentMethod, 'cash'),
+        sql`EXTRACT(YEAR FROM created_at) = ${currentYear}`,
+        sql`EXTRACT(MONTH FROM created_at) = ${currentMonth}`
+      ));
+
+      // Get month-to-date deposits
+      const mtdDeposits = await db.select({
+        totalDeposited: sql<number>`COALESCE(SUM(deposit_amount), 0)`,
+        depositCount: sql<number>`COUNT(*)`,
+        flaggedCount: sql<number>`COUNT(CASE WHEN status = 'flagged' THEN 1 END)`,
+        verifiedCount: sql<number>`COUNT(CASE WHEN status = 'verified' THEN 1 END)`
+      })
+      .from(bankDeposits)
+      .where(and(
+        eq(bankDeposits.tenantId, user.tenantId),
+        sql`EXTRACT(YEAR FROM deposit_date) = ${currentYear}`,
+        sql`EXTRACT(MONTH FROM deposit_date) = ${currentMonth}`
+      ));
+
+      // Get year-to-date cash collections
+      const ytdCashCollections = await db.select({
+        totalCollected: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0)`,
+        transactionCount: sql<number>`COUNT(CASE WHEN payment_method = 'cash' THEN 1 END)`,
+        collectionDays: sql<number>`COUNT(DISTINCT DATE(created_at))`
+      })
+      .from(transactions)
+      .where(and(
+        eq(transactions.tenantId, user.tenantId),
+        eq(transactions.paymentMethod, 'cash'),
+        sql`EXTRACT(YEAR FROM created_at) = ${currentYear}`
+      ));
+
+      // Get year-to-date deposits
+      const ytdDeposits = await db.select({
+        totalDeposited: sql<number>`COALESCE(SUM(deposit_amount), 0)`,
+        depositCount: sql<number>`COUNT(*)`,
+        flaggedCount: sql<number>`COUNT(CASE WHEN status = 'flagged' THEN 1 END)`,
+        verifiedCount: sql<number>`COUNT(CASE WHEN status = 'verified' THEN 1 END)`
+      })
+      .from(bankDeposits)
+      .where(and(
+        eq(bankDeposits.tenantId, user.tenantId),
+        sql`EXTRACT(YEAR FROM deposit_date) = ${currentYear}`
+      ));
+
+      // Get daily variance breakdown for current month
+      const dailyVarianceBreakdown = await db.select({
+        businessDate: sql<string>`DATE(COALESCE(bd.deposit_date, t.created_at))`,
+        cashCollected: sql<number>`COALESCE(SUM(CASE WHEN t.payment_method = 'cash' THEN t.amount ELSE 0 END), 0)`,
+        cashDeposited: sql<number>`COALESCE(SUM(bd.deposit_amount), 0)`,
+        variance: sql<number>`COALESCE(SUM(bd.deposit_amount), 0) - COALESCE(SUM(CASE WHEN t.payment_method = 'cash' THEN t.amount ELSE 0 END), 0)`,
+        depositCount: sql<number>`COUNT(DISTINCT bd.id)`,
+        flaggedDeposits: sql<number>`COUNT(CASE WHEN bd.status = 'flagged' THEN 1 END)`
+      })
+      .from(transactions.as('t'))
+      .fullJoin(bankDeposits.as('bd'), sql`DATE(t.created_at) = DATE(bd.deposit_date) AND t.tenant_id = bd.tenant_id`)
+      .where(and(
+        or(
+          and(eq(sql`t.tenant_id`, user.tenantId), eq(sql`t.payment_method`, 'cash')),
+          eq(sql`bd.tenant_id`, user.tenantId)
+        ),
+        sql`EXTRACT(YEAR FROM COALESCE(bd.deposit_date, t.created_at)) = ${currentYear}`,
+        sql`EXTRACT(MONTH FROM COALESCE(bd.deposit_date, t.created_at)) = ${currentMonth}`
+      ))
+      .groupBy(sql`DATE(COALESCE(bd.deposit_date, t.created_at))`)
+      .orderBy(desc(sql`DATE(COALESCE(bd.deposit_date, t.created_at))`));
+
+      const mtdCash = mtdCashCollections[0];
+      const mtdDep = mtdDeposits[0];
+      const ytdCash = ytdCashCollections[0];
+      const ytdDep = ytdDeposits[0];
+
+      const result = {
+        monthToDate: {
+          period: `${currentYear}-${String(currentMonth).padStart(2, '0')}`,
+          cashCollected: parseFloat(mtdCash?.totalCollected || '0'),
+          cashDeposited: parseFloat(mtdDep?.totalDeposited || '0'),
+          variance: parseFloat(mtdDep?.totalDeposited || '0') - parseFloat(mtdCash?.totalCollected || '0'),
+          variancePercentage: mtdCash?.totalCollected ? 
+            ((parseFloat(mtdDep?.totalDeposited || '0') - parseFloat(mtdCash?.totalCollected || '0')) / parseFloat(mtdCash?.totalCollected || '0')) * 100 : 0,
+          transactionCount: mtdCash?.transactionCount || 0,
+          depositCount: mtdDep?.depositCount || 0,
+          collectionDays: mtdCash?.collectionDays || 0,
+          flaggedDeposits: mtdDep?.flaggedCount || 0,
+          verifiedDeposits: mtdDep?.verifiedCount || 0
+        },
+        yearToDate: {
+          period: currentYear.toString(),
+          cashCollected: parseFloat(ytdCash?.totalCollected || '0'),
+          cashDeposited: parseFloat(ytdDep?.totalDeposited || '0'),
+          variance: parseFloat(ytdDep?.totalDeposited || '0') - parseFloat(ytdCash?.totalCollected || '0'),
+          variancePercentage: ytdCash?.totalCollected ? 
+            ((parseFloat(ytdDep?.totalDeposited || '0') - parseFloat(ytdCash?.totalCollected || '0')) / parseFloat(ytdCash?.totalCollected || '0')) * 100 : 0,
+          transactionCount: ytdCash?.transactionCount || 0,
+          depositCount: ytdDep?.depositCount || 0,
+          collectionDays: ytdCash?.collectionDays || 0,
+          flaggedDeposits: ytdDep?.flaggedCount || 0,
+          verifiedDeposits: ytdDep?.verifiedCount || 0
+        },
+        dailyBreakdown: dailyVarianceBreakdown
+      };
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error fetching cash variance metrics:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Process immediate payment
   app.post("/api/accounting/process-immediate-payment/:id", async (req, res) => {
     try {

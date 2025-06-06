@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import {
   Building2, Plus, Upload, AlertTriangle, Check, X, Eye,
   Calendar, DollarSign, CreditCard, FileText, Banknote,
-  ChevronDown, Filter, Search, Download
+  ChevronDown, Filter, Search, Download, TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,6 +92,11 @@ export default function BankDepositRecording() {
   const { data: verifiedCash = [], isLoading: cashLoading } = useQuery({
     queryKey: ["/api/verified-cash-summary", selectedDate],
     enabled: !!selectedDate,
+  });
+
+  // Fetch cumulative variance metrics
+  const { data: varianceMetrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ["/api/cash-variance-metrics"],
   });
 
   // Create deposit mutation
