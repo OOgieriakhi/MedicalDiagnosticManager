@@ -83,13 +83,11 @@ export class FinancialStorage {
   async generatePONumber(tenantId: number) {
     const year = new Date().getFullYear();
     const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    const monthNum = new Date().getMonth() + 1;
     
     const result = await db.execute(sql`
       SELECT COUNT(*) as count FROM purchase_orders 
       WHERE tenant_id = ${tenantId} 
-        AND EXTRACT(YEAR FROM created_at) = ${year}
-        AND EXTRACT(MONTH FROM created_at) = ${monthNum}
+      AND created_at >= date_trunc('month', CURRENT_DATE)
     `);
     
     const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(4, '0');
