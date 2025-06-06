@@ -84,13 +84,20 @@ export class FinancialStorage {
     const year = new Date().getFullYear();
     const month = String(new Date().getMonth() + 1).padStart(2, '0');
     
-    const result = await db.execute(sql`
-      SELECT COUNT(*) as count FROM purchase_orders 
-      WHERE tenant_id = ${tenantId}
-    `);
-    
-    const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(4, '0');
-    return `PO-${year}${month}-${count}`;
+    try {
+      const result = await db.execute(sql`
+        SELECT COUNT(*) as count FROM purchase_orders 
+        WHERE tenant_id = ${tenantId}
+      `);
+      
+      const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(4, '0');
+      return `PO-${year}${month}-${count}`;
+    } catch (error) {
+      console.error('Error generating PO number:', error);
+      // Fallback to timestamp-based number
+      const timestamp = Date.now().toString().slice(-4);
+      return `PO-${year}${month}-${timestamp}`;
+    }
   }
 
   async getUnitManager(tenantId: number, branchId: number, requestedBy: number) {
