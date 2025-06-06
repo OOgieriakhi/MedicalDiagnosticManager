@@ -9623,24 +9623,26 @@ Medical System Procurement Team
 
       const result = await db.execute(
         sql`SELECT 
-          id,
-          receipt_number,
-          patient_name,
-          amount,
-          payment_method,
-          transaction_time,
-          cashier_name,
-          verification_status,
-          verification_notes,
-          verified_by,
-          verified_at
-        FROM daily_transactions 
-        WHERE tenant_id = ${user.tenantId || 1}
-          AND branch_id = ${branchId || user.branchId || 1}
-          AND transaction_time >= ${startDate.toISOString()}
-          AND transaction_time <= ${endDate.toISOString()}
-          ${filterStatus && filterStatus !== 'all' ? sql`AND verification_status = ${filterStatus}` : sql``}
-        ORDER BY transaction_time DESC`
+          dt.id,
+          dt.receipt_number,
+          dt.patient_name,
+          dt.amount,
+          dt.payment_method,
+          dt.transaction_time,
+          u.username as cashier_name,
+          dt.verification_status,
+          dt.verification_notes,
+          vb.username as verified_by_name,
+          dt.verified_at
+        FROM daily_transactions dt
+        LEFT JOIN users u ON dt.cashier_id = u.id
+        LEFT JOIN users vb ON dt.verified_by = vb.id
+        WHERE dt.tenant_id = ${user.tenantId || 1}
+          AND dt.branch_id = ${branchId || user.branchId || 1}
+          AND dt.transaction_time >= ${startDate.toISOString()}
+          AND dt.transaction_time <= ${endDate.toISOString()}
+          ${filterStatus && filterStatus !== 'all' ? sql`AND dt.verification_status = ${filterStatus}` : sql``}
+        ORDER BY dt.transaction_time DESC`
       );
 
       const transactions = result.rows;
@@ -9667,10 +9669,10 @@ Medical System Procurement Team
           txn.amount,
           txn.payment_method,
           new Date(txn.transaction_time).toLocaleString(),
-          `"${txn.cashier_name}"`,
+          `"${txn.cashier_name || ''}"`,
           txn.verification_status || 'pending',
           `"${txn.verification_notes || ''}"`,
-          `"${txn.verified_by || ''}"`,
+          `"${txn.verified_by_name || ''}"`,
           txn.verified_at ? new Date(txn.verified_at).toLocaleString() : ''
         ].join(','))
       ];

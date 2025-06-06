@@ -563,9 +563,9 @@ export default function TransactionVerificationDashboard() {
                                   </TooltipContent>
                                 </Tooltip>
                                 <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <DialogTrigger asChild>
                                         <Button
                                           size="sm"
                                           variant="outline"
@@ -573,12 +573,12 @@ export default function TransactionVerificationDashboard() {
                                         >
                                           <Eye className="w-4 h-4" />
                                         </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>View transaction details</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </DialogTrigger>
+                                      </DialogTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>View transaction details</p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                   <DialogContent>
                                     <DialogHeader>
                                       <DialogTitle>Transaction Details</DialogTitle>
