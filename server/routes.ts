@@ -3538,13 +3538,21 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const orderData = {
-        ...req.body,
+      const user = req.user!;
+      const { lineItems, ...orderData } = req.body;
+
+      // Map lineItems to items for storage
+      const processedOrderData = {
+        ...orderData,
+        tenantId: user.tenantId,
+        branchId: user.branchId || 1,
+        requestedBy: user.id,
+        items: lineItems || [], // Use lineItems as items
         createdAt: new Date(),
-        status: "pending"
+        status: "pending_approval"
       };
 
-      const order = await financialStorage.createPurchaseOrder(orderData);
+      const order = await financialStorage.createPurchaseOrder(processedOrderData);
 
       res.status(201).json(order);
     } catch (error) {
