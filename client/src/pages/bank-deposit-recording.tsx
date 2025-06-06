@@ -136,7 +136,7 @@ export default function BankDepositRecording() {
   // Verify deposit mutation
   const verifyDepositMutation = useMutation({
     mutationFn: ({ id, status, notes }: { id: number; status: string; notes?: string }) =>
-      apiRequest(`/api/bank-deposits/${id}/verify`, "PATCH", { status, notes }),
+      apiRequest("PATCH", `/api/bank-deposits/${id}/verify`, { status, notes }),
     onSuccess: () => {
       toast({
         title: "Success",
