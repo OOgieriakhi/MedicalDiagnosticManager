@@ -9180,6 +9180,47 @@ Medical System Procurement Team
     }
   });
 
+  // Individual transaction verification endpoint
+  app.post("/api/transactions/:id/verify", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const transactionId = parseInt(req.params.id);
+      const { verification_status, notes } = req.body;
+      const tenantId = req.user!.tenantId;
+      const verifiedBy = req.user!.id;
+
+      // Update transaction verification status
+      const updateQuery = `
+        UPDATE daily_transactions 
+        SET verification_status = $1, 
+            verification_notes = $2,
+            verified_by = $3,
+            verified_at = NOW()
+        WHERE id = $4 AND tenant_id = $5
+      `;
+
+      await pool.query(updateQuery, [
+        verification_status,
+        notes,
+        verifiedBy,
+        transactionId,
+        tenantId
+      ]);
+
+      res.json({ 
+        success: true, 
+        message: "Transaction verification updated successfully" 
+      });
+
+    } catch (error: any) {
+      console.error("Error updating transaction verification:", error);
+      res.status(500).json({ message: "Failed to update transaction verification" });
+    }
+  });
+
   // Verify daily transactions (management function)
   app.post("/api/verify-daily-transactions", async (req, res) => {
     try {
