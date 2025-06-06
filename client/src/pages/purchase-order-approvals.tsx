@@ -498,6 +498,48 @@ export default function PurchaseOrderApprovals() {
                     <span className="font-medium">Description:</span> {selectedPO.description}
                   </div>
                 </div>
+                
+                {/* Order Items */}
+                <div className="mt-4">
+                  <h4 className="font-semibold mb-2">Order Items</h4>
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Unit</TableHead>
+                          <TableHead>Unit Price</TableHead>
+                          <TableHead>Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          try {
+                            const items = typeof selectedPO.items === 'string' ? JSON.parse(selectedPO.items) : selectedPO.items || [];
+                            return items.map((item: any, index: number) => (
+                              <TableRow key={index}>
+                                <TableCell>{item.description}</TableCell>
+                                <TableCell>{item.quantity}</TableCell>
+                                <TableCell>{item.unit}</TableCell>
+                                <TableCell>₦{parseFloat(item.unitPrice || 0).toLocaleString()}</TableCell>
+                                <TableCell>₦{(parseFloat(item.unitPrice || 0) * parseFloat(item.quantity || 0)).toLocaleString()}</TableCell>
+                              </TableRow>
+                            ));
+                          } catch (e) {
+                            return (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                  Unable to display items
+                                </TableCell>
+                              </TableRow>
+                            );
+                          }
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -551,19 +593,20 @@ export default function PurchaseOrderApprovals() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <Button
-                variant={executionMethod === 'email' ? 'default' : 'outline'}
-                onClick={() => setExecutionMethod('email')}
-                className="flex items-center gap-2"
+                onClick={() => executeMutation.mutate({ poId: selectedPO?.id, method: 'email' })}
+                disabled={executeMutation.isPending}
+                variant="outline"
+                className="flex items-center gap-2 h-12"
               >
                 <Mail className="h-4 w-4" />
                 Email Vendor
               </Button>
               <Button
-                variant={executionMethod === 'print' ? 'default' : 'outline'}
-                onClick={() => setExecutionMethod('print')}
-                className="flex items-center gap-2"
+                onClick={() => executeMutation.mutate({ poId: selectedPO?.id, method: 'print' })}
+                disabled={executeMutation.isPending}
+                className="flex items-center gap-2 h-12 bg-green-600 hover:bg-green-700"
               >
                 <Printer className="h-4 w-4" />
                 Print Order
@@ -573,13 +616,6 @@ export default function PurchaseOrderApprovals() {
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => setShowExecutionModal(false)}>
                 Cancel
-              </Button>
-              <Button 
-                onClick={() => executeMutation.mutate({ poId: selectedPO?.id, method: executionMethod })}
-                disabled={executeMutation.isPending}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {executeMutation.isPending ? 'Executing...' : 'Execute Order'}
               </Button>
             </div>
           </div>
