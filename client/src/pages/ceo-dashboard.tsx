@@ -81,6 +81,7 @@ export default function CEODashboard() {
     onSuccess: () => {
       setShowQueryModal(false);
       setQueryText("");
+      queryClient.invalidateQueries({ queryKey: ['/api/approvals/all-pending'] });
       toast({ title: "Query submitted successfully" });
     },
     onError: (error: any) => {
@@ -313,9 +314,16 @@ export default function CEODashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={levelColor}>
-                          {levelText}
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge className={levelColor}>
+                            {levelText}
+                          </Badge>
+                          {transaction.status === 'queried' && (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                              Query Sent
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{transaction.requestedBy}</TableCell>
                       <TableCell>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
@@ -333,6 +341,7 @@ export default function CEODashboard() {
                             size="sm" 
                             variant="outline"
                             onClick={() => handleRaiseQuery(transaction)}
+                            disabled={['approved', 'rejected', 'queried'].includes(transaction.status)}
                           >
                             <MessageSquare className="h-4 w-4 mr-1" />
                             Query
@@ -341,19 +350,19 @@ export default function CEODashboard() {
                             size="sm" 
                             className="bg-green-600 hover:bg-green-700"
                             onClick={() => handleApprove(transaction.id, transaction.type || 'petty_cash')}
-                            disabled={approveMutation.isPending}
+                            disabled={approveMutation.isPending || ['approved', 'rejected', 'queried'].includes(transaction.status)}
                           >
                             <CheckCircle className="h-4 w-4 mr-1" />
-                            Approve
+                            {transaction.status === 'approved' ? 'Approved' : 'Approve'}
                           </Button>
                           <Button 
                             size="sm" 
                             variant="destructive"
                             onClick={() => handleReject(transaction.id, transaction.type || 'petty_cash')}
-                            disabled={rejectMutation.isPending}
+                            disabled={rejectMutation.isPending || ['approved', 'rejected', 'queried'].includes(transaction.status)}
                           >
                             <XCircle className="h-4 w-4 mr-1" />
-                            Reject
+                            {transaction.status === 'rejected' ? 'Rejected' : 'Reject'}
                           </Button>
                         </div>
                       </TableCell>

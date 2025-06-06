@@ -608,6 +608,16 @@ export class FinancialStorage {
   }
 
   async addApprovalQuery(data: any) {
+    // Update the purchase order status to 'queried'
+    if (data.queryType === 'clarification_request') {
+      await db.update(purchaseOrders)
+        .set({ 
+          status: 'queried',
+          updatedAt: new Date()
+        })
+        .where(eq(purchaseOrders.id, data.approvalId));
+    }
+
     return {
       id: Date.now(),
       ...data,
