@@ -8184,6 +8184,333 @@ Medical System Procurement Team
     }
   });
 
+  // ERP Payment Settlement System for Referral Rebates
+
+  // Create payment authorization request
+  app.post("/api/referral-invoices/:id/payment-authorization", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceId = parseInt(req.params.id);
+      const { amountRequested, paymentMethod, justification, supportingDocuments } = req.body;
+
+      // Verify invoice exists and is pending
+      const invoiceCheck = await db.execute(sql`
+        SELECT id, total_commission, status FROM referral_invoices WHERE id = ${invoiceId}
+      `);
+
+      if (invoiceCheck.rows.length === 0) {
+        return res.status(404).json({ message: "Referral invoice not found" });
+      }
+
+      const invoice = invoiceCheck.rows[0];
+      if (invoice.status !== 'pending') {
+        return res.status(400).json({ message: "Invoice is not in pending status" });
+      }
+
+      if (parseFloat(amountRequested) > parseFloat(invoice.total_commission)) {
+        return res.status(400).json({ message: "Amount requested exceeds invoice total" });
+      }
+
+      // Create authorization request
+      const authResult = await db.execute(sql`
+        INSERT INTO referral_payment_authorizations 
+          (tenant_id, branch_id, referral_invoice_id, requested_by, amount_requested, 
+           payment_method, justification, supporting_documents)
+        VALUES 
+          (${req.user?.tenantId || 1}, ${req.user?.branchId || 1}, ${invoiceId}, 
+           ${req.user?.id || 1}, ${amountRequested}, ${paymentMethod}, ${justification}, 
+           ${JSON.stringify(supportingDocuments || [])})
+        RETURNING *
+      `);
+
+      console.log(`Payment authorization requested for invoice ${invoiceId}: ₦${amountRequested}`);
+      res.json(authResult.rows[0]);
+
+    } catch (error: any) {
+      console.error("Error creating payment authorization:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Approve/reject payment authorization
+  app.patch("/api/payment-authorizations/:id/approve", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const authId = parseInt(req.params.id);
+      const { action, rejectionReason } = req.body; // action: 'approve' or 'reject'
+
+      if (action === 'approve') {
+        const result = await db.execute(sql`
+          UPDATE referral_payment_authorizations 
+          SET status = 'approved', authorized_by = ${req.user?.id || 1}, authorized_at = NOW()
+          WHERE id = ${authId} AND status = 'pending'
+          RETURNING *
+        `);
+
+        if (result.rows.length === 0) {
+          return res.status(404).json({ message: "Authorization request not found or already processed" });
+        }
+
+        console.log(`Payment authorization ${authId} approved by user ${req.user?.id}`);
+        res.json(result.rows[0]);
+
+      } else if (action === 'reject') {
+        const result = await db.execute(sql`
+          UPDATE referral_payment_authorizations 
+          SET status = 'rejected', rejected_by = ${req.user?.id || 1}, rejected_at = NOW(), 
+              rejection_reason = ${rejectionReason || 'No reason provided'}
+          WHERE id = ${authId} AND status = 'pending'
+          RETURNING *
+        `);
+
+        if (result.rows.length === 0) {
+          return res.status(404).json({ message: "Authorization request not found or already processed" });
+        }
+
+        console.log(`Payment authorization ${authId} rejected by user ${req.user?.id}`);
+        res.json(result.rows[0]);
+
+      } else {
+        return res.status(400).json({ message: "Invalid action. Use 'approve' or 'reject'" });
+      }
+
+    } catch (error: any) {
+      console.error("Error processing payment authorization:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Process actual payment settlement with ERP integration
+  app.post("/api/referral-invoices/:id/settle-payment", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const invoiceId = parseInt(req.params.id);
+      const { 
+        amountPaid, 
+        paymentMethod, 
+        paymentReference, 
+        bankAccountId, 
+        proofOfPaymentUrl, 
+        notes,
+        authorizationId 
+      } = req.body;
+
+      // Verify authorization exists and is approved
+      if (authorizationId) {
+        const authCheck = await db.execute(sql`
+          SELECT status FROM referral_payment_authorizations WHERE id = ${authorizationId}
+        `);
+
+        if (authCheck.rows.length === 0 || authCheck.rows[0].status !== 'approved') {
+          return res.status(400).json({ message: "Valid payment authorization required" });
+        }
+      }
+
+      // Get invoice details
+      const invoiceResult = await db.execute(sql`
+        SELECT ri.*, rp.name as provider_name 
+        FROM referral_invoices ri
+        JOIN referral_providers rp ON ri.referral_provider_id = rp.id
+        WHERE ri.id = ${invoiceId}
+      `);
+
+      if (invoiceResult.rows.length === 0) {
+        return res.status(404).json({ message: "Referral invoice not found" });
+      }
+
+      const invoice = invoiceResult.rows[0];
+      
+      // Check for duplicate payment
+      const existingSettlement = await db.execute(sql`
+        SELECT id FROM referral_payment_settlements 
+        WHERE referral_invoice_id = ${invoiceId} AND status = 'processed'
+      `);
+
+      if (existingSettlement.rows.length > 0) {
+        return res.status(400).json({ message: "Payment already processed for this invoice" });
+      }
+
+      // Generate settlement number
+      const timestamp = Date.now().toString().slice(-6);
+      const settlementNumber = `SETTLE-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${timestamp}`;
+
+      // Create settlement record
+      const settlementResult = await db.execute(sql`
+        INSERT INTO referral_payment_settlements 
+          (tenant_id, branch_id, referral_invoice_id, settlement_number, payment_method, 
+           payment_reference, amount_paid, bank_account_id, processed_by, authorized_by, 
+           payment_date, proof_of_payment_url, notes)
+        VALUES 
+          (${invoice.tenant_id}, ${invoice.branch_id}, ${invoiceId}, ${settlementNumber}, 
+           ${paymentMethod}, ${paymentReference || null}, ${amountPaid}, ${bankAccountId || null}, 
+           ${req.user?.id || 1}, ${req.user?.id || 1}, NOW(), ${proofOfPaymentUrl || null}, ${notes || null})
+        RETURNING *
+      `);
+
+      const settlement = settlementResult.rows[0];
+
+      // Update invoice status to paid
+      await db.execute(sql`
+        UPDATE referral_invoices 
+        SET status = 'paid', paid_by = ${req.user?.id || 1}, paid_at = NOW(), 
+            notes = COALESCE(notes || ' | ', '') || 'Payment processed via settlement ' || ${settlementNumber}
+        WHERE id = ${invoiceId}
+      `);
+
+      // Update authorization status
+      if (authorizationId) {
+        await db.execute(sql`
+          UPDATE referral_payment_authorizations 
+          SET status = 'processed', processed_by = ${req.user?.id || 1}, 
+              processed_at = NOW(), settlement_id = ${settlement.id}
+          WHERE id = ${authorizationId}
+        `);
+      }
+
+      // Get current provider balance
+      const balanceResult = await db.execute(sql`
+        SELECT COALESCE(SUM(debit_amount - credit_amount), 0) as current_balance
+        FROM referral_provider_ledger 
+        WHERE referral_provider_id = ${invoice.referral_provider_id}
+      `);
+
+      const currentBalance = parseFloat(balanceResult.rows[0]?.current_balance || '0');
+      const newBalance = currentBalance - parseFloat(amountPaid);
+
+      // Create ledger entry for payment
+      await db.execute(sql`
+        INSERT INTO referral_provider_ledger 
+          (tenant_id, branch_id, referral_provider_id, transaction_date, transaction_type,
+           reference_type, reference_id, reference_number, description, 
+           credit_amount, running_balance, fiscal_year, fiscal_month, created_by)
+        VALUES 
+          (${invoice.tenant_id}, ${invoice.branch_id}, ${invoice.referral_provider_id}, NOW(), 'payment_made',
+           'settlement', ${settlement.id}, ${settlementNumber}, 
+           'Commission payment for invoice ' || ${invoice.invoice_number},
+           ${amountPaid}, ${newBalance}, ${new Date().getFullYear()}, ${new Date().getMonth() + 1}, ${req.user?.id || 1})
+      `);
+
+      console.log(`Payment settlement ${settlementNumber} processed for ₦${amountPaid} to ${invoice.provider_name}`);
+
+      res.json({
+        settlement,
+        invoice: { ...invoice, status: 'paid' },
+        message: `Payment of ₦${amountPaid} successfully processed`
+      });
+
+    } catch (error: any) {
+      console.error("Error processing payment settlement:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get provider ledger/account statement
+  app.get("/api/referral-providers/:id/ledger", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const providerId = parseInt(req.params.id);
+      const { startDate, endDate } = req.query;
+
+      let whereClause = `WHERE rpl.referral_provider_id = ${providerId}`;
+      
+      if (startDate && endDate) {
+        whereClause += ` AND rpl.transaction_date BETWEEN '${startDate}' AND '${endDate}'`;
+      }
+
+      const ledgerResult = await db.execute(sql`
+        SELECT 
+          rpl.*,
+          rp.name as provider_name,
+          u.username as created_by_name
+        FROM referral_provider_ledger rpl
+        JOIN referral_providers rp ON rpl.referral_provider_id = rp.id
+        JOIN users u ON rpl.created_by = u.id
+        ${whereClause}
+        ORDER BY rpl.transaction_date DESC, rpl.id DESC
+      `);
+
+      // Get current balance
+      const balanceResult = await db.execute(sql`
+        SELECT COALESCE(SUM(debit_amount - credit_amount), 0) as current_balance
+        FROM referral_provider_ledger 
+        WHERE referral_provider_id = ${providerId}
+      `);
+
+      res.json({
+        transactions: ledgerResult.rows,
+        currentBalance: balanceResult.rows[0]?.current_balance || '0',
+        providerId
+      });
+
+    } catch (error: any) {
+      console.error("Error fetching provider ledger:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get payment settlements with filters
+  app.get("/api/payment-settlements", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { status, paymentMethod, providerId, startDate, endDate } = req.query;
+      let whereConditions = [`rps.tenant_id = ${req.user?.tenantId || 1}`];
+
+      if (status && status !== 'all') {
+        whereConditions.push(`rps.status = '${status}'`);
+      }
+
+      if (paymentMethod && paymentMethod !== 'all') {
+        whereConditions.push(`rps.payment_method = '${paymentMethod}'`);
+      }
+
+      if (providerId) {
+        whereConditions.push(`ri.referral_provider_id = ${parseInt(providerId as string)}`);
+      }
+
+      if (startDate && endDate) {
+        whereConditions.push(`rps.payment_date BETWEEN '${startDate}' AND '${endDate}'`);
+      }
+
+      const settlementsResult = await db.execute(sql`
+        SELECT 
+          rps.*,
+          ri.invoice_number,
+          ri.total_commission,
+          rp.name as provider_name,
+          u1.username as processed_by_name,
+          u2.username as authorized_by_name
+        FROM referral_payment_settlements rps
+        JOIN referral_invoices ri ON rps.referral_invoice_id = ri.id
+        JOIN referral_providers rp ON ri.referral_provider_id = rp.id
+        JOIN users u1 ON rps.processed_by = u1.id
+        LEFT JOIN users u2 ON rps.authorized_by = u2.id
+        WHERE ${whereConditions.join(' AND ')}
+        ORDER BY rps.payment_date DESC, rps.id DESC
+      `);
+
+      res.json(settlementsResult.rows);
+
+    } catch (error: any) {
+      console.error("Error fetching payment settlements:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Finance Director Payment Processing APIs
   // Get payment requests (approved expenses from GED)
   app.get("/api/finance/payment-requests", async (req, res) => {
