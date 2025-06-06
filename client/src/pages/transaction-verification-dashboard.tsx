@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Sidebar from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -149,10 +148,8 @@ export default function TransactionVerificationDashboard() {
   // Show unauthorized message for users without verification permissions
   if (!canVerifyTransactions) {
     return (
-      <div className="flex h-screen overflow-hidden bg-light-bg">
-        <Sidebar />
-        
-        <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="min-h-screen bg-gray-50">
+        <div className="flex flex-col h-screen overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 text-white">
             <div>
               <h1 className="text-2xl font-bold">Transaction Verification Center</h1>
@@ -163,10 +160,14 @@ export default function TransactionVerificationDashboard() {
                 <p className="text-sm text-blue-100">Active Session</p>
                 <p className="font-semibold">{user?.firstName} {user?.lastName}</p>
               </div>
-              <div className="bg-blue-500 px-3 py-2 rounded-lg">
-                <p className="text-xs text-blue-100">Branch</p>
-                <p className="font-semibold">Main Branch</p>
-              </div>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => window.location.href = '/'}
+                className="bg-white text-blue-600 hover:bg-blue-50"
+              >
+                Back to System
+              </Button>
             </div>
           </div>
           
@@ -190,10 +191,8 @@ export default function TransactionVerificationDashboard() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-gray-50">
+      <div className="flex flex-col h-screen overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 text-white">
           <div>
             <h1 className="text-2xl font-bold">Transaction Verification Center</h1>
@@ -218,6 +217,14 @@ export default function TransactionVerificationDashboard() {
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${transactionsLoading ? 'animate-spin' : ''}`} />
                 Refresh
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => window.location.href = '/'}
+                className="bg-white text-blue-600 hover:bg-blue-50"
+              >
+                Back to System
               </Button>
             </div>
           </div>
