@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import PatientIntake from "@/pages/patient-intake";
 import PatientManagement from "@/pages/patient-management";
 import PatientBilling from "@/pages/patient-billing";
+import DailyTransactionViewer from "@/pages/daily-transaction-viewer";
 import FinancialManagement from "@/pages/financial-management";
 import NotificationCenter from "@/pages/notification-center";
 import InvoiceManagement from "@/pages/invoice-management";
@@ -64,6 +65,7 @@ function Router() {
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
       <ProtectedRoute path="/patients" component={PatientManagement} />
       <ProtectedRoute path="/patient-billing" component={PatientBilling} />
+      <ProtectedRoute path="/daily-transactions" component={DailyTransactionViewer} />
       <ProtectedRoute path="/financial-management" component={FinancialManagement} />
       <ProtectedRoute path="/invoice-management" component={InvoiceManagement} />
       <ProtectedRoute path="/notifications" component={NotificationCenter} />

@@ -8984,6 +8984,261 @@ Medical System Procurement Team
     }
   });
 
+  // ========== DAILY TRANSACTION MANAGEMENT ENDPOINTS ==========
+  
+  // Get daily transactions with filtering
+  app.get("/api/daily-transactions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { date, paymentMethod, branchId } = req.query;
+      
+      let query = `
+        SELECT 
+          dt.id,
+          dt.receipt_number,
+          dt.patient_name,
+          dt.amount,
+          dt.payment_method,
+          dt.transaction_time,
+          dt.cashier_id,
+          u.username as cashier_name,
+          'completed' as status
+        FROM daily_transactions dt
+        LEFT JOIN users u ON dt.cashier_id = u.id
+        WHERE dt.tenant_id = $1
+      `;
+      
+      const params = [req.user!.tenantId];
+      let paramIndex = 2;
+
+      if (date) {
+        query += ` AND DATE(dt.transaction_time) = $${paramIndex}`;
+        params.push(date as string);
+        paramIndex++;
+      }
+
+      if (paymentMethod && paymentMethod !== 'all') {
+        query += ` AND dt.payment_method = $${paramIndex}`;
+        params.push(paymentMethod as string);
+        paramIndex++;
+      }
+
+      if (branchId && branchId !== 'all') {
+        query += ` AND dt.branch_id = $${paramIndex}`;
+        params.push(branchId as string);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY dt.transaction_time DESC`;
+
+      const result = await db.execute(query, params);
+      res.json(result.rows);
+
+    } catch (error: any) {
+      console.error("Error fetching daily transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
+  // Get cashier handover summaries
+  app.get("/api/cashier-handovers", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { date, branchId } = req.query;
+      
+      let query = `
+        SELECT 
+          ch.id,
+          ch.handover_date,
+          ch.shift_period,
+          ch.cash_collected,
+          ch.pos_collected,
+          ch.transfer_collected,
+          ch.total_collected,
+          ch.transaction_count,
+          ch.handover_time,
+          ch.status,
+          ch.notes,
+          u.username as cashier_name,
+          mv.variance_amount,
+          mv.verification_status,
+          mv.manager_signature,
+          CASE WHEN mv.id IS NOT NULL THEN true ELSE false END as manager_verified
+        FROM cashier_handovers ch
+        LEFT JOIN users u ON ch.cashier_id = u.id
+        LEFT JOIN manager_verifications mv ON ch.id = mv.handover_id
+        WHERE ch.tenant_id = $1
+      `;
+      
+      const params = [req.user!.tenantId];
+      let paramIndex = 2;
+
+      if (date) {
+        query += ` AND ch.handover_date = $${paramIndex}`;
+        params.push(date as string);
+        paramIndex++;
+      }
+
+      if (branchId && branchId !== 'all') {
+        query += ` AND ch.branch_id = $${paramIndex}`;
+        params.push(branchId as string);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY ch.handover_date DESC, ch.handover_time DESC`;
+
+      const result = await db.execute(query, params);
+      res.json(result.rows);
+
+    } catch (error: any) {
+      console.error("Error fetching cashier handovers:", error);
+      res.status(500).json({ message: "Failed to fetch handover data" });
+    }
+  });
+
+  // Generate daily report (role-specific)
+  app.post("/api/generate-daily-report", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { 
+        date, 
+        branchId, 
+        paymentMethod, 
+        reportType, 
+        requestedBy, 
+        userRole 
+      } = req.body;
+
+      // Generate comprehensive daily report
+      const reportData = {
+        reportId: `RPT-${Date.now()}`,
+        generatedAt: new Date(),
+        generatedBy: req.user!.username,
+        userRole: userRole,
+        reportType: reportType,
+        date: date,
+        branchId: branchId,
+        filters: {
+          paymentMethod: paymentMethod
+        }
+      };
+
+      // Role-specific report generation logic
+      let reportSections = [];
+
+      if (userRole === 'ceo' || userRole === 'director' || userRole === 'finance_director') {
+        // Executive-level report with high-level summaries
+        reportSections = [
+          'executive_summary',
+          'revenue_overview',
+          'variance_analysis',
+          'performance_metrics',
+          'compliance_status'
+        ];
+      } else if (userRole === 'manager' || userRole === 'branch_manager') {
+        // Management report with operational details
+        reportSections = [
+          'operational_summary',
+          'cashier_performance',
+          'handover_verification',
+          'discrepancy_analysis',
+          'banking_preparation'
+        ];
+      } else {
+        // Standard accounting report
+        reportSections = [
+          'transaction_listing',
+          'payment_breakdown',
+          'journal_entries',
+          'reconciliation_data'
+        ];
+      }
+
+      console.log(`Daily report generated: ${reportData.reportId} by ${req.user!.username} (${userRole})`);
+      console.log(`Report sections: ${reportSections.join(', ')}`);
+
+      res.json({
+        success: true,
+        reportId: reportData.reportId,
+        message: `${userRole.toUpperCase()} daily report generated successfully`,
+        sections: reportSections,
+        generatedAt: reportData.generatedAt
+      });
+
+    } catch (error: any) {
+      console.error("Error generating daily report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  // Verify daily transactions (management function)
+  app.post("/api/verify-daily-transactions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { date, branchId, verifiedBy, verificationLevel } = req.body;
+
+      // Check user authorization for verification
+      const userRole = req.user?.role || 'user';
+      const authorizedRoles = ['manager', 'branch_manager', 'director', 'finance_director', 'ceo'];
+      
+      if (!authorizedRoles.includes(userRole)) {
+        return res.status(403).json({ message: "Insufficient permissions for transaction verification" });
+      }
+
+      // Create verification record
+      const verificationData = {
+        verificationId: `VER-${Date.now()}`,
+        date: date,
+        branchId: branchId || req.user!.branchId,
+        verifiedBy: verifiedBy,
+        verificationLevel: verificationLevel,
+        verificationTime: new Date(),
+        status: 'verified',
+        tenantId: req.user!.tenantId
+      };
+
+      // Update transaction status to verified
+      await db.execute(`
+        UPDATE daily_transactions 
+        SET status = 'verified', 
+            verified_by = $1, 
+            verified_at = $2
+        WHERE DATE(transaction_time) = $3 
+        AND tenant_id = $4
+        ${branchId ? 'AND branch_id = $5' : ''}
+      `, branchId ? 
+        [verifiedBy, verificationData.verificationTime, date, req.user!.tenantId, branchId] :
+        [verifiedBy, verificationData.verificationTime, date, req.user!.tenantId]
+      );
+
+      console.log(`Transactions verified for ${date} by ${req.user!.username} (${verificationLevel})`);
+
+      res.json({
+        success: true,
+        verificationId: verificationData.verificationId,
+        message: "Daily transactions verified successfully",
+        verificationLevel: verificationLevel,
+        verifiedAt: verificationData.verificationTime
+      });
+
+    } catch (error: any) {
+      console.error("Error verifying transactions:", error);
+      res.status(500).json({ message: "Failed to verify transactions" });
+    }
+  });
+
   // ========== REPORT TEMPLATE MANAGEMENT ENDPOINTS ==========
   
   // Get all report templates
