@@ -12,6 +12,7 @@ import {
   AlertTriangle, CheckCircle, Clock, Eye, Menu, X,
   ChevronRight, LogOut
 } from "lucide-react";
+import logoImage from "@assets/letter head logo.jpg";
 
 interface SidebarModule {
   title: string;
@@ -184,7 +185,7 @@ export default function SidebarDashboard() {
           {sidebarOpen ? (
             <div className="flex items-center space-x-3">
               <img 
-                src="/attached_assets/letter head logo.jpg" 
+                src={logoImage} 
                 alt="Orient Medical Diagnostic Centre" 
                 className="h-12 w-auto object-contain"
               />
@@ -195,7 +196,7 @@ export default function SidebarDashboard() {
             </div>
           ) : (
             <img 
-              src="/attached_assets/letter head logo.jpg" 
+              src={logoImage} 
               alt="Orient Medical" 
               className="h-10 w-10 object-contain mx-auto"
             />
