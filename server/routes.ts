@@ -3672,27 +3672,29 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
+      const userTenantId = req.user?.tenantId || 1;
+      const userBranchId = req.user?.branchId || 1;
+      
+      // Generate transaction number
+      const timestamp = Date.now();
+      const transactionNumber = `PC-${new Date().getFullYear()}-${String(timestamp).slice(-6)}`;
+
       const transactionData = {
-        ...req.body,
+        tenantId: userTenantId,
+        branchId: userBranchId,
+        fundId: req.body.fundId,
+        transactionNumber,
+        type: req.body.type,
+        amount: req.body.amount.toString(),
+        purpose: req.body.purpose,
+        category: req.body.category || 'Administrative',
+        recipient: req.body.recipient || '',
+        receiptNumber: req.body.receiptNumber || null,
+        status: 'pending',
         createdAt: new Date()
       };
 
       const transaction = await financialStorage.createPettyCashTransaction(transactionData);
-      
-      // Update fund balance
-      const amount = req.body.type === 'expense' ? -Math.abs(req.body.amount) : Math.abs(req.body.amount);
-      await financialStorage.updatePettyCashFundBalance(req.body.fundId, amount);
-      
-      // Create audit trail entry
-      await financialStorage.createAuditEntry({
-        tenantId: req.body.tenantId,
-        branchId: req.body.branchId,
-        userId: req.user.id,
-        action: "create_petty_cash_transaction",
-        resourceType: "petty_cash_transaction",
-        resourceId: transaction.id,
-        details: `${req.body.type} transaction: ${req.body.description} - Amount: ${req.body.amount}`
-      });
 
       res.status(201).json(transaction);
     } catch (error) {

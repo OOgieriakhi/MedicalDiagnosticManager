@@ -70,21 +70,32 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertPettyCashFundSchema, insertPettyCashTransactionSchema, insertPettyCashReconciliationSchema } from "@shared/schema";
 
-// Form schemas
-const fundFormSchema = insertPettyCashFundSchema.extend({
+// Simplified form schemas matching database structure
+const transactionFormSchema = z.object({
+  fundId: z.number().min(1, "Please select a fund"),
+  type: z.string().min(1, "Please select type"),
+  amount: z.number().min(0.01, "Amount must be greater than 0"),
+  purpose: z.string().min(1, "Purpose is required"),
+  category: z.string().optional(),
+  recipient: z.string().optional(),
+  receiptNumber: z.string().optional(),
+});
+
+const fundFormSchema = z.object({
+  fundName: z.string().min(1, "Fund name is required"),
+  initialAmount: z.number().min(0, "Initial amount must be positive"),
   monthlyLimit: z.number().min(0, "Monthly limit must be positive"),
 });
 
-const transactionFormSchema = insertPettyCashTransactionSchema.extend({
-  amount: z.number().min(0.01, "Amount must be greater than 0"),
-});
-
-const reconciliationFormSchema = insertPettyCashReconciliationSchema.extend({
+const reconciliationFormSchema = z.object({
+  fundId: z.number().min(1, "Please select a fund"),
   actualBalance: z.number().min(0, "Actual balance must be positive"),
+  expectedBalance: z.number().min(0, "Expected balance must be positive"),
+  varianceReason: z.string().optional(),
 });
 
-type FundFormData = z.infer<typeof fundFormSchema>;
 type TransactionFormData = z.infer<typeof transactionFormSchema>;
+type FundFormData = z.infer<typeof fundFormSchema>;
 type ReconciliationFormData = z.infer<typeof reconciliationFormSchema>;
 
 export default function PettyCash() {
@@ -119,7 +130,6 @@ export default function PettyCash() {
     defaultValues: {
       fundName: "",
       initialAmount: 0,
-      currentBalance: 0,
       monthlyLimit: 0,
     },
   });
@@ -127,11 +137,11 @@ export default function PettyCash() {
   const transactionForm = useForm<TransactionFormData>({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
-      fundId: 0,
+      fundId: 1,
       type: "expense",
       amount: 0,
       purpose: "",
-      category: "",
+      category: "Administrative",
       recipient: "",
       receiptNumber: "",
     },
@@ -140,11 +150,9 @@ export default function PettyCash() {
   const reconciliationForm = useForm<ReconciliationFormData>({
     resolver: zodResolver(reconciliationFormSchema),
     defaultValues: {
-      fundId: 0,
-      reconciliationNumber: "",
+      fundId: 1,
       expectedBalance: 0,
       actualBalance: 0,
-      variance: 0,
       varianceReason: "",
     },
   });
@@ -776,7 +784,7 @@ export default function PettyCash() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={transactionForm.control}
-                  name="vendorName"
+                  name="recipient"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Vendor/Supplier</FormLabel>
