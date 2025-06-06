@@ -7,13 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import {
-  CheckCircle2, XCircle, AlertTriangle, Eye, Edit, DollarSign,
+  Check, XCircle, AlertTriangle, Eye, Edit, DollarSign,
   Users, TrendingUp, Clock, FileText, Filter, Search, Download,
   RefreshCw, Calculator, CreditCard, Banknote, Smartphone
 } from "lucide-react";
@@ -159,7 +159,7 @@ export default function TransactionVerificationDashboard() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'verified': return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+      case 'verified': return <Check className="w-4 h-4 text-green-600" />;
       case 'flagged': return <XCircle className="w-4 h-4 text-red-600" />;
       case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />;
       default: return <Clock className="w-4 h-4" />;
@@ -291,7 +291,7 @@ export default function TransactionVerificationDashboard() {
           <div className="grid grid-cols-4 gap-6">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <Check className="w-5 h-5 text-green-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Verified Today</p>
@@ -523,7 +523,7 @@ export default function TransactionVerificationDashboard() {
                                       disabled={verifyTransactionMutation.isPending}
                                       className="text-green-600 hover:bg-green-50 border-green-200"
                                     >
-                                      <CheckCircle2 className="w-4 h-4" />
+                                      <Check className="w-4 h-4" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
@@ -582,6 +582,9 @@ export default function TransactionVerificationDashboard() {
                                   <DialogContent>
                                     <DialogHeader>
                                       <DialogTitle>Transaction Details</DialogTitle>
+                                      <DialogDescription>
+                                        Review and verify transaction information
+                                      </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-4">
                                       <div>
@@ -644,7 +647,67 @@ export default function TransactionVerificationDashboard() {
                   <CardTitle>Pending Verification</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-500">Transactions pending verification will be displayed here.</p>
+                  {transactionsArray.filter((t: Transaction) => t.verification_status === 'pending' || !t.verification_status).length === 0 ? (
+                    <p className="text-gray-500">No transactions pending verification.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-3">Receipt</th>
+                            <th className="text-left p-3">Patient</th>
+                            <th className="text-left p-3">Amount</th>
+                            <th className="text-left p-3">Time</th>
+                            <th className="text-left p-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transactionsArray.filter((t: Transaction) => t.verification_status === 'pending' || !t.verification_status).map((transaction: Transaction) => (
+                            <tr key={transaction.id} className="border-b hover:bg-gray-50">
+                              <td className="p-3">{transaction.receipt_number}</td>
+                              <td className="p-3">{transaction.patient_name}</td>
+                              <td className="p-3">₦{transaction.amount?.toLocaleString()}</td>
+                              <td className="p-3">{new Date(transaction.transaction_time).toLocaleTimeString()}</td>
+                              <td className="p-3">
+                                <div className="flex items-center space-x-2">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleVerifyTransaction(transaction.id, 'verified')}
+                                        disabled={verifyTransactionMutation.isPending}
+                                        className="bg-green-600 hover:bg-green-700"
+                                      >
+                                        <CheckCircle2 className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Verify transaction</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleVerifyTransaction(transaction.id, 'flagged')}
+                                        disabled={verifyTransactionMutation.isPending}
+                                        variant="destructive"
+                                      >
+                                        <AlertTriangle className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Flag transaction for review</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -655,7 +718,34 @@ export default function TransactionVerificationDashboard() {
                   <CardTitle>Verified Transactions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-500">Verified transactions will be displayed here.</p>
+                  {transactionsArray.filter((t: Transaction) => t.verification_status === 'verified').length === 0 ? (
+                    <p className="text-gray-500">No verified transactions.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-3">Receipt</th>
+                            <th className="text-left p-3">Patient</th>
+                            <th className="text-left p-3">Amount</th>
+                            <th className="text-left p-3">Verified By</th>
+                            <th className="text-left p-3">Verified At</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transactionsArray.filter((t: Transaction) => t.verification_status === 'verified').map((transaction: Transaction) => (
+                            <tr key={transaction.id} className="border-b hover:bg-gray-50">
+                              <td className="p-3">{transaction.receipt_number}</td>
+                              <td className="p-3">{transaction.patient_name}</td>
+                              <td className="p-3">₦{transaction.amount?.toLocaleString()}</td>
+                              <td className="p-3">{transaction.verified_by || 'System'}</td>
+                              <td className="p-3">{transaction.verified_at ? new Date(transaction.verified_at).toLocaleString() : ''}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -666,7 +756,67 @@ export default function TransactionVerificationDashboard() {
                   <CardTitle>Flagged Transactions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-500">Flagged transactions requiring attention will be displayed here.</p>
+                  {transactionsArray.filter((t: Transaction) => t.verification_status === 'flagged').length === 0 ? (
+                    <p className="text-gray-500">No flagged transactions.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-3">Receipt</th>
+                            <th className="text-left p-3">Patient</th>
+                            <th className="text-left p-3">Amount</th>
+                            <th className="text-left p-3">Notes</th>
+                            <th className="text-left p-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transactionsArray.filter((t: Transaction) => t.verification_status === 'flagged').map((transaction: Transaction) => (
+                            <tr key={transaction.id} className="border-b hover:bg-gray-50 bg-red-50">
+                              <td className="p-3">{transaction.receipt_number}</td>
+                              <td className="p-3">{transaction.patient_name}</td>
+                              <td className="p-3">₦{transaction.amount?.toLocaleString()}</td>
+                              <td className="p-3">{transaction.verification_notes || 'No notes'}</td>
+                              <td className="p-3">
+                                <div className="flex items-center space-x-2">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleVerifyTransaction(transaction.id, 'verified')}
+                                        disabled={verifyTransactionMutation.isPending}
+                                        className="bg-green-600 hover:bg-green-700"
+                                      >
+                                        <CheckCircle2 className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Clear flag and verify</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleVerifyTransaction(transaction.id, 'pending')}
+                                        disabled={verifyTransactionMutation.isPending}
+                                        variant="outline"
+                                      >
+                                        <Clock className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Return to pending</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
