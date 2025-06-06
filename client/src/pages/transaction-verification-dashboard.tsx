@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,13 +27,15 @@ interface Transaction {
   transaction_time: string;
   cashier_name: string;
   verification_status: string;
-  notes: string;
+  verification_notes?: string;
+  verified_by?: string;
+  verified_at?: string;
 }
 
 interface VerificationMetrics {
   totalTransactions: number;
   verifiedTransactions: number;
-  pendingVerification: number;
+  pendingTransactions: number;
   flaggedTransactions: number;
   totalRevenue: number;
   cashRevenue: number;
@@ -48,103 +49,97 @@ export default function TransactionVerificationDashboard() {
 
   // Check if user has verification permissions
   const canVerifyTransactions = user?.role && ['admin', 'manager', 'branch_manager', 'accountant', 'finance_director', 'ceo'].includes(user.role);
+
   const [selectedBranchId, setSelectedBranchId] = useState(user?.branchId || 1);
   const [activeTab, setActiveTab] = useState("overview");
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [verificationNotes, setVerificationNotes] = useState("");
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  // Fetch daily transactions with verification status
+  // Fetch transactions
   const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery({
-    queryKey: ["/api/daily-transactions", selectedBranchId],
-    enabled: !!selectedBranchId,
+    queryKey: ['/api/daily-transactions'],
     refetchInterval: 30000,
   });
 
-  // Fetch dashboard metrics
-  const { data: dashboardData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["/api/dashboard-data", selectedBranchId],
-    enabled: !!selectedBranchId,
+  // Fetch dashboard data for metrics
+  const { data: dashboardData } = useQuery({
+    queryKey: ['/api/dashboard-data'],
     refetchInterval: 30000,
   });
 
-  // Transaction verification mutation
+  // Verification mutation
   const verifyTransactionMutation = useMutation({
     mutationFn: async ({ transactionId, status, notes }: { transactionId: number; status: string; notes: string }) => {
       return apiRequest(`/api/transactions/${transactionId}/verify`, {
-        method: "POST",
-        body: { verification_status: status, notes },
+        method: 'POST',
+        body: { verification_status: status, notes }
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/daily-transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard-data"] });
-      toast({
-        title: "Transaction Verified",
-        description: "Transaction verification status updated successfully.",
-      });
-      setSelectedTransaction(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/daily-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard-data'] });
+      toast({ title: "Transaction verification updated successfully" });
       setVerificationNotes("");
+      setSelectedTransaction(null);
     },
-    onError: () => {
-      toast({
-        title: "Verification Failed",
-        description: "Failed to update transaction verification status.",
-        variant: "destructive",
-      });
-    },
+    onError: (error) => {
+      toast({ title: "Error updating verification", description: error.message, variant: "destructive" });
+    }
   });
 
   // Calculate verification metrics
   const verificationMetrics: VerificationMetrics = {
     totalTransactions: transactions.length,
-    verifiedTransactions: transactions.filter((t: any) => t.verification_status === "verified").length,
-    pendingVerification: transactions.filter((t: any) => t.verification_status === "pending" || !t.verification_status).length,
-    flaggedTransactions: transactions.filter((t: any) => t.verification_status === "flagged").length,
+    verifiedTransactions: transactions.filter((t: Transaction) => t.verification_status === 'verified').length,
+    pendingTransactions: transactions.filter((t: Transaction) => t.verification_status === 'pending').length,
+    flaggedTransactions: transactions.filter((t: Transaction) => t.verification_status === 'flagged').length,
     totalRevenue: dashboardData?.revenue?.total || 0,
     cashRevenue: dashboardData?.revenue?.cash || 0,
     posRevenue: dashboardData?.revenue?.pos || 0,
     transferRevenue: dashboardData?.revenue?.transfer || 0,
   };
 
-  // Filter transactions based on status and search
-  const filteredTransactions = transactions.filter((transaction: any) => {
-    const matchesStatus = filterStatus === "all" || 
-      transaction.verification_status === filterStatus ||
-      (filterStatus === "pending" && (!transaction.verification_status || transaction.verification_status === "pending"));
-    
-    const matchesSearch = !searchTerm || 
-      transaction.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.receipt_number.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
+  // Filter transactions
+  const filteredTransactions = transactions.filter((transaction: Transaction) => {
+    const matchesSearch = transaction.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         transaction.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === "all" || transaction.verification_status === filterStatus;
+    return matchesSearch && matchesStatus;
   });
 
-  const handleVerifyTransaction = (status: string) => {
-    if (!selectedTransaction) return;
-    
+  const handleVerifyTransaction = (transactionId: number, status: 'verified' | 'flagged' | 'pending') => {
     verifyTransactionMutation.mutate({
-      transactionId: selectedTransaction.id,
+      transactionId,
       status,
-      notes: verificationNotes,
+      notes: verificationNotes
     });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "verified": return "bg-green-100 text-green-800";
-      case "flagged": return "bg-red-100 text-red-800";
-      case "pending": return "bg-yellow-100 text-yellow-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "verified": return <CheckCircle2 className="w-4 h-4" />;
-      case "flagged": return <XCircle className="w-4 h-4" />;
-      case "pending": return <AlertTriangle className="w-4 h-4" />;
+      case 'verified': return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+      case 'flagged': return <XCircle className="w-4 h-4 text-red-600" />;
+      case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'verified': return <Badge className="bg-green-100 text-green-800">Verified</Badge>;
+      case 'flagged': return <Badge className="bg-red-100 text-red-800">Flagged</Badge>;
+      case 'pending': return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      default: return <Badge className="bg-gray-100 text-gray-800">Unknown</Badge>;
+    }
+  };
+
+  const getPaymentIcon = (method: string) => {
+    switch (method.toLowerCase()) {
+      case 'cash': return <Banknote className="w-4 h-4 text-green-600" />;
+      case 'pos': return <CreditCard className="w-4 h-4 text-blue-600" />;
+      case 'transfer': return <Smartphone className="w-4 h-4 text-purple-600" />;
       default: return <Clock className="w-4 h-4" />;
     }
   };
@@ -158,11 +153,21 @@ export default function TransactionVerificationDashboard() {
         <Sidebar />
         
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b bg-white">
-            <Header 
-              selectedBranchId={selectedBranchId} 
-              onBranchChange={setSelectedBranchId}
-            />
+          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+            <div>
+              <h1 className="text-2xl font-bold">Transaction Verification Center</h1>
+              <p className="text-blue-100 mt-1">Real-time transaction monitoring and verification</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm text-blue-100">Active Session</p>
+                <p className="font-semibold">{user?.firstName} {user?.lastName}</p>
+              </div>
+              <div className="bg-blue-500 px-3 py-2 rounded-lg">
+                <p className="text-xs text-blue-100">Branch</p>
+                <p className="font-semibold">Main Branch</p>
+              </div>
+            </div>
           </div>
           
           <main className="flex-1 overflow-y-auto p-6">
@@ -185,341 +190,313 @@ export default function TransactionVerificationDashboard() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-light-bg">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b bg-white">
-          <Header 
-            selectedBranchId={selectedBranchId} 
-            onBranchChange={setSelectedBranchId}
-          />
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => refetch()}
-              disabled={transactionsLoading}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${transactionsLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+          <div>
+            <h1 className="text-2xl font-bold">Transaction Verification Center</h1>
+            <p className="text-blue-100 mt-1">Real-time transaction monitoring and verification</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <p className="text-sm text-blue-100">Active Session</p>
+              <p className="font-semibold">{user?.firstName} {user?.lastName}</p>
+            </div>
+            <div className="bg-blue-500 px-3 py-2 rounded-lg">
+              <p className="text-xs text-blue-100">Branch</p>
+              <p className="font-semibold">Main Branch</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => refetch()}
+                disabled={transactionsLoading}
+                className="bg-white text-blue-600 hover:bg-blue-50"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${transactionsLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
         
+        {/* Quick Stats Bar */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="grid grid-cols-4 gap-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Verified Today</p>
+                <p className="text-xl font-bold text-green-600">{verificationMetrics.verifiedTransactions}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Clock className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Pending Review</p>
+                <p className="text-xl font-bold text-yellow-600">{verificationMetrics.pendingTransactions}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Flagged</p>
+                <p className="text-xl font-bold text-red-600">{verificationMetrics.flaggedTransactions}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Total Revenue</p>
+                <p className="text-xl font-bold text-blue-600">₦{verificationMetrics.totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <main className="flex-1 overflow-y-auto p-6">
-          {/* Verification Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Transactions</p>
-                    <p className="text-3xl font-bold text-gray-900">{verificationMetrics.totalTransactions}</p>
-                    <p className="text-sm text-blue-600">Today's count</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Verified</p>
-                    <p className="text-3xl font-bold text-green-600">{verificationMetrics.verifiedTransactions}</p>
-                    <p className="text-sm text-green-600">
-                      {Math.round((verificationMetrics.verifiedTransactions / verificationMetrics.totalTransactions) * 100) || 0}% complete
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Pending</p>
-                    <p className="text-3xl font-bold text-yellow-600">{verificationMetrics.pendingVerification}</p>
-                    <p className="text-sm text-yellow-600">Needs review</p>
-                  </div>
-                  <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-yellow-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Flagged</p>
-                    <p className="text-3xl font-bold text-red-600">{verificationMetrics.flaggedTransactions}</p>
-                    <p className="text-sm text-red-600">Requires attention</p>
-                  </div>
-                  <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Revenue Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-gray-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Total Revenue</p>
-                    <p className="text-2xl font-bold">₦{verificationMetrics.totalRevenue.toLocaleString()}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                    <Banknote className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Cash</p>
-                    <p className="text-2xl font-bold">₦{verificationMetrics.cashRevenue.toLocaleString()}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">POS</p>
-                    <p className="text-2xl font-bold">₦{verificationMetrics.posRevenue.toLocaleString()}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                    <Smartphone className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Transfer</p>
-                    <p className="text-2xl font-bold">₦{verificationMetrics.transferRevenue.toLocaleString()}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Transaction Verification Interface */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Daily Transaction Verification
-                </CardTitle>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by patient or receipt..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-64"
-                    />
-                  </div>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="verified">Verified</SelectItem>
-                      <SelectItem value="flagged">Flagged</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Control Panel */}
+          <div className="mb-6 bg-white rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Transaction Control Panel</h2>
+                <p className="text-sm text-gray-500">Monitor and verify all daily transactions</p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Receipt
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Patient
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Payment Method
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Time
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredTransactions.map((transaction: any) => (
-                      <tr key={transaction.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {transaction.receipt_number}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{transaction.patient_name}</div>
-                            <div className="text-sm text-gray-500">{transaction.cashier_name}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ₦{Number(transaction.amount).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge variant="outline">
-                            {transaction.payment_method.toUpperCase()}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(transaction.transaction_time).toLocaleTimeString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.verification_status || 'pending')}`}>
-                            {getStatusIcon(transaction.verification_status || 'pending')}
-                            {transaction.verification_status || 'Pending'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center gap-2">
-                            <Dialog>
-                              <DialogTrigger asChild>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-gray-600">Live Monitoring</span>
+                </div>
+                <Button variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Report
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsTrigger value="overview">Live Monitor</TabsTrigger>
+              <TabsTrigger value="pending">Pending Review</TabsTrigger>
+              <TabsTrigger value="verified">Verified</TabsTrigger>
+              <TabsTrigger value="flagged">Flagged Items</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Daily Transaction Verification
+                    </CardTitle>
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input
+                          placeholder="Search by patient or receipt..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 w-64"
+                        />
+                      </div>
+                      <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="verified">Verified</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="flagged">Flagged</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4">Receipt</th>
+                          <th className="text-left py-3 px-4">Patient</th>
+                          <th className="text-left py-3 px-4">Amount</th>
+                          <th className="text-left py-3 px-4">Payment Method</th>
+                          <th className="text-left py-3 px-4">Time</th>
+                          <th className="text-left py-3 px-4">Status</th>
+                          <th className="text-left py-3 px-4">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTransactions.map((transaction: Transaction) => (
+                          <tr key={transaction.id} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4 font-mono text-sm">{transaction.receipt_number}</td>
+                            <td className="py-3 px-4">
+                              <div>
+                                <p className="font-medium">{transaction.patient_name}</p>
+                                <p className="text-sm text-gray-500">{transaction.cashier_name}</p>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 font-semibold">₦{transaction.amount?.toLocaleString()}</td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                {getPaymentIcon(transaction.payment_method)}
+                                <span className="text-sm">{transaction.payment_method}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500">
+                              {new Date(transaction.transaction_time).toLocaleTimeString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(transaction.verification_status)}
+                                {getStatusBadge(transaction.verification_status)}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
                                 <Button
-                                  variant="outline"
                                   size="sm"
-                                  onClick={() => setSelectedTransaction(transaction)}
+                                  variant="outline"
+                                  onClick={() => handleVerifyTransaction(transaction.id, 'verified')}
+                                  disabled={verifyTransactionMutation.isPending}
+                                  className="text-green-600 hover:bg-green-50 border-green-200"
                                 >
-                                  <Eye className="w-4 h-4 mr-1" />
-                                  Verify
+                                  <CheckCircle2 className="w-4 h-4" />
                                 </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader>
-                                  <DialogTitle>Transaction Verification</DialogTitle>
-                                </DialogHeader>
-                                {selectedTransaction && (
-                                  <div className="space-y-6">
-                                    <div className="grid grid-cols-2 gap-4">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleVerifyTransaction(transaction.id, 'flagged')}
+                                  disabled={verifyTransactionMutation.isPending}
+                                  className="text-red-600 hover:bg-red-50 border-red-200"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleVerifyTransaction(transaction.id, 'pending')}
+                                  disabled={verifyTransactionMutation.isPending}
+                                  className="text-yellow-600 hover:bg-yellow-50 border-yellow-200"
+                                >
+                                  <Clock className="w-4 h-4" />
+                                </Button>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setSelectedTransaction(transaction)}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Transaction Details</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
                                       <div>
-                                        <label className="text-sm font-medium text-gray-700">Receipt Number</label>
-                                        <p className="text-lg font-semibold">{selectedTransaction.receipt_number}</p>
+                                        <p className="font-semibold">Receipt: {transaction.receipt_number}</p>
+                                        <p>Patient: {transaction.patient_name}</p>
+                                        <p>Amount: ₦{transaction.amount?.toLocaleString()}</p>
+                                        <p>Payment Method: {transaction.payment_method}</p>
+                                        <p>Time: {new Date(transaction.transaction_time).toLocaleString()}</p>
+                                        <p>Cashier: {transaction.cashier_name}</p>
                                       </div>
                                       <div>
-                                        <label className="text-sm font-medium text-gray-700">Amount</label>
-                                        <p className="text-lg font-semibold">₦{Number(selectedTransaction.amount).toLocaleString()}</p>
+                                        <label className="block text-sm font-medium mb-2">Verification Notes</label>
+                                        <Textarea
+                                          value={verificationNotes}
+                                          onChange={(e) => setVerificationNotes(e.target.value)}
+                                          placeholder="Add verification notes..."
+                                          rows={3}
+                                        />
                                       </div>
-                                      <div>
-                                        <label className="text-sm font-medium text-gray-700">Patient</label>
-                                        <p className="text-lg">{selectedTransaction.patient_name}</p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium text-gray-700">Payment Method</label>
-                                        <p className="text-lg">{selectedTransaction.payment_method.toUpperCase()}</p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium text-gray-700">Time</label>
-                                        <p className="text-lg">{new Date(selectedTransaction.transaction_time).toLocaleString()}</p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium text-gray-700">Cashier</label>
-                                        <p className="text-lg">{selectedTransaction.cashier_name}</p>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          onClick={() => handleVerifyTransaction(transaction.id, 'verified')}
+                                          disabled={verifyTransactionMutation.isPending}
+                                          className="bg-green-600 hover:bg-green-700"
+                                        >
+                                          Verify
+                                        </Button>
+                                        <Button
+                                          onClick={() => handleVerifyTransaction(transaction.id, 'flagged')}
+                                          disabled={verifyTransactionMutation.isPending}
+                                          variant="destructive"
+                                        >
+                                          Flag
+                                        </Button>
+                                        <Button
+                                          onClick={() => handleVerifyTransaction(transaction.id, 'pending')}
+                                          disabled={verifyTransactionMutation.isPending}
+                                          variant="outline"
+                                        >
+                                          Mark Pending
+                                        </Button>
                                       </div>
                                     </div>
+                                  </DialogContent>
+                                </Dialog>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                                    <div>
-                                      <label className="text-sm font-medium text-gray-700">Verification Notes</label>
-                                      <Textarea
-                                        value={verificationNotes}
-                                        onChange={(e) => setVerificationNotes(e.target.value)}
-                                        placeholder="Add verification notes..."
-                                        className="mt-1"
-                                      />
-                                    </div>
+            <TabsContent value="pending">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Verification</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-500">Transactions pending verification will be displayed here.</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                                    <div className="flex items-center gap-3">
-                                      <Button
-                                        onClick={() => handleVerifyTransaction("verified")}
-                                        disabled={verifyTransactionMutation.isPending}
-                                        className="bg-green-600 hover:bg-green-700"
-                                      >
-                                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                                        Verify
-                                      </Button>
-                                      <Button
-                                        variant="destructive"
-                                        onClick={() => handleVerifyTransaction("flagged")}
-                                        disabled={verifyTransactionMutation.isPending}
-                                      >
-                                        <XCircle className="w-4 h-4 mr-2" />
-                                        Flag
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        onClick={() => handleVerifyTransaction("pending")}
-                                        disabled={verifyTransactionMutation.isPending}
-                                      >
-                                        <AlertTriangle className="w-4 h-4 mr-2" />
-                                        Mark Pending
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                              </DialogContent>
-                            </Dialog>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+            <TabsContent value="verified">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Verified Transactions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-500">Verified transactions will be displayed here.</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="flagged">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Flagged Transactions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-500">Flagged transactions requiring attention will be displayed here.</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
     </div>
