@@ -25,7 +25,10 @@ import {
   transactions,
   branches,
   tenants,
-  users
+  users,
+  bankAccounts,
+  bankDeposits,
+  insertBankDepositSchema
 } from "@shared/schema";
 import { 
   eq, 
@@ -7699,16 +7702,16 @@ Medical System Procurement Team
       const verifiedTransactions = await db.select({
         totalAmount: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0)`,
         transactionCount: sql<number>`COUNT(CASE WHEN payment_method = 'cash' THEN 1 END)`,
-        businessDate: dailyTransactions.businessDate
+        businessDate: sql<string>`DATE(created_at)`
       })
-      .from(dailyTransactions)
+      .from(transactions)
       .where(and(
-        eq(dailyTransactions.tenantId, user.tenantId),
-        eq(dailyTransactions.verificationStatus, 'verified'),
-        date ? eq(dailyTransactions.businessDate, new Date(date as string)) : undefined
+        eq(transactions.tenantId, user.tenantId),
+        eq(transactions.paymentMethod, 'cash'),
+        date ? sql`DATE(created_at) = ${date}` : undefined
       ))
-      .groupBy(dailyTransactions.businessDate)
-      .orderBy(desc(dailyTransactions.businessDate));
+      .groupBy(sql`DATE(created_at)`)
+      .orderBy(desc(sql`DATE(created_at)`));
 
       res.json(verifiedTransactions);
     } catch (error: any) {
