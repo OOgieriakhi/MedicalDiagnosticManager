@@ -330,17 +330,17 @@ export default function InventoryDashboard() {
                       <TableRow key={item.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{item.itemName}</div>
-                            <div className="text-sm text-muted-foreground">{item.itemCode}</div>
+                            <div className="font-medium">{item.item_name}</div>
+                            <div className="text-sm text-muted-foreground">{item.item_code}</div>
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {item.availableQuantity}
+                          {item.available_quantity}
                         </TableCell>
-                        <TableCell>{item.reorderLevel}</TableCell>
+                        <TableCell>{item.reorder_level}</TableCell>
                         <TableCell>
-                          <Badge variant={item.stockStatus === 'critical' ? 'destructive' : 'secondary'}>
-                            {item.stockStatus === 'critical' ? 'URGENT' : 'Medium'}
+                          <Badge variant={item.stock_status === 'critical' ? 'destructive' : 'secondary'}>
+                            {item.stock_status === 'critical' ? 'URGENT' : 'Medium'}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -447,14 +447,14 @@ export default function InventoryDashboard() {
                           {transaction.type.toUpperCase()}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-medium">{transaction.itemName}</TableCell>
+                      <TableCell className="font-medium">{transaction.item_name}</TableCell>
                       <TableCell>
-                        {transaction.type === 'out' ? '-' : '+'}{transaction.quantity} {transaction.unitOfMeasure}
+                        {transaction.type === 'out' ? '-' : '+'}{transaction.quantity} {transaction.unit_of_measure}
                       </TableCell>
                       <TableCell className="text-sm">{transaction.reason}</TableCell>
-                      <TableCell className="text-sm">{transaction.performedBy}</TableCell>
+                      <TableCell className="text-sm">{transaction.performed_by}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(transaction.createdAt)}
+                        {formatDate(transaction.created_at)}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -4181,33 +4181,33 @@ export function registerRoutes(app: Express): Server {
       const user = req.user!;
       const stockLevels = await db.execute(sql`
         SELECT 
-          is.id,
-          is.item_id,
-          ii.name as item_name,
-          ii.item_code,
-          is.available_quantity,
-          ii.reorder_level,
-          ii.minimum_stock,
-          ii.maximum_stock,
+          inventory_stock.id,
+          inventory_stock.item_id,
+          inventory_items.name as item_name,
+          inventory_items.item_code,
+          inventory_stock.available_quantity,
+          inventory_items.reorder_level,
+          inventory_items.minimum_stock,
+          inventory_items.maximum_stock,
           CASE 
-            WHEN is.available_quantity <= ii.minimum_stock THEN 'critical'
-            WHEN is.available_quantity <= ii.reorder_level THEN 'low'
-            WHEN is.available_quantity >= ii.maximum_stock THEN 'high'
+            WHEN inventory_stock.available_quantity <= inventory_items.minimum_stock THEN 'critical'
+            WHEN inventory_stock.available_quantity <= inventory_items.reorder_level THEN 'low'
+            WHEN inventory_stock.available_quantity >= inventory_items.maximum_stock THEN 'high'
             ELSE 'normal'
           END as stock_status,
-          is.updated_at as last_updated
-        FROM inventory_stock is
-        JOIN inventory_items ii ON is.item_id = ii.id
-        WHERE is.tenant_id = ${user.tenantId} 
-          AND is.branch_id = ${user.branchId || 1}
-          AND ii.is_active = true
+          inventory_stock.updated_at as last_updated
+        FROM inventory_stock 
+        JOIN inventory_items ON inventory_stock.item_id = inventory_items.id
+        WHERE inventory_stock.tenant_id = ${user.tenantId} 
+          AND inventory_stock.branch_id = ${user.branchId || 1}
+          AND inventory_items.is_active = true
         ORDER BY 
           CASE 
-            WHEN is.available_quantity <= ii.minimum_stock THEN 1
-            WHEN is.available_quantity <= ii.reorder_level THEN 2
+            WHEN inventory_stock.available_quantity <= inventory_items.minimum_stock THEN 1
+            WHEN inventory_stock.available_quantity <= inventory_items.reorder_level THEN 2
             ELSE 3
           END,
-          ii.name
+          inventory_items.name
       `);
 
       res.json(stockLevels.rows);
