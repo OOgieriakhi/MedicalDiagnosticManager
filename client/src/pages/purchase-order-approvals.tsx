@@ -85,10 +85,16 @@ export default function PurchaseOrderApprovals() {
       if (!response.ok) throw new Error('Failed to execute purchase order');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders/approved'] });
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders/delivery-pending'] });
       setShowExecutionModal(false);
+      
+      // Handle print functionality
+      if (variables.method === 'print' && data.printData) {
+        openPrintWindow(data.printData);
+      }
+      
       toast({
         title: "Purchase order executed and sent to vendor successfully"
       });
@@ -101,6 +107,127 @@ export default function PurchaseOrderApprovals() {
       });
     }
   });
+
+  const openPrintWindow = (poData: any) => {
+    const items = typeof poData.items === 'string' ? JSON.parse(poData.items) : poData.items || [];
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Purchase Order - ${poData.po_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .company-info { text-align: center; margin-bottom: 20px; }
+          .po-details { margin-bottom: 20px; }
+          .vendor-info { margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .total { font-weight: bold; }
+          .footer { margin-top: 30px; }
+          @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>PURCHASE ORDER</h1>
+        </div>
+        
+        <div class="company-info">
+          <h2>Medical Diagnostic Center</h2>
+          <p>123 Healthcare Drive, Medical District<br>
+          Phone: (555) 123-4567 | Email: orders@medcenter.com</p>
+        </div>
+        
+        <div class="po-details">
+          <table style="width: 100%; border: none;">
+            <tr style="border: none;">
+              <td style="border: none; width: 50%;"><strong>PO Number:</strong> ${poData.po_number}</td>
+              <td style="border: none; width: 50%;"><strong>Date:</strong> ${new Date(poData.created_at).toLocaleDateString()}</td>
+            </tr>
+            <tr style="border: none;">
+              <td style="border: none;"><strong>Vendor:</strong> ${poData.vendor_name}</td>
+              <td style="border: none;"><strong>Status:</strong> ${poData.status}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <div class="vendor-info">
+          <h3>Vendor Information</h3>
+          <p><strong>${poData.vendor_name}</strong><br>
+          Contact for delivery and invoicing</p>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Item Description</th>
+              <th>Quantity</th>
+              <th>Unit</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item: any) => `
+              <tr>
+                <td>${item.description}</td>
+                <td>${item.quantity}</td>
+                <td>${item.unit}</td>
+                <td>₦${parseFloat(item.unitPrice || 0).toLocaleString()}</td>
+                <td>₦${(parseFloat(item.unitPrice || 0) * parseFloat(item.quantity || 0)).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr class="total">
+              <td colspan="4" style="text-align: right;"><strong>Total Amount:</strong></td>
+              <td><strong>₦${parseFloat(poData.total_amount || 0).toLocaleString()}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+        
+        <div class="footer">
+          <p><strong>Notes:</strong> ${poData.notes || 'Please deliver items as specified and provide delivery confirmation.'}</p>
+          <p><strong>Terms:</strong> Payment within 30 days of delivery. All items subject to quality inspection.</p>
+          
+          <div style="margin-top: 40px;">
+            <div style="display: inline-block; width: 45%;">
+              <div style="border-top: 1px solid #000; margin-top: 40px; text-align: center;">
+                Authorized Signature
+              </div>
+            </div>
+            <div style="display: inline-block; width: 45%; margin-left: 10%;">
+              <div style="border-top: 1px solid #000; margin-top: 40px; text-align: center;">
+                Date
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="no-print" style="margin-top: 20px; text-align: center;">
+          <button onclick="window.print()" style="background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer;">Print</button>
+          <button onclick="window.close()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-left: 10px;">Close</button>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      // Auto-trigger print dialog after a small delay
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    }
+  };
 
   const handleApprovalAction = (po: any, action: 'approve' | 'reject') => {
     setSelectedPO(po);

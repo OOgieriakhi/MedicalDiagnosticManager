@@ -7869,13 +7869,24 @@ Medical System Procurement Team
       // Log execution
       console.log(`Purchase order ${poId} executed by ${user.username} via ${method}`);
 
+      // Get purchase order details for printing/emailing
+      const poDetails = await db.execute(
+        sql`SELECT * FROM purchase_orders WHERE id = ${poId} AND tenant_id = ${user.tenantId || 1}`
+      );
+
+      const po = poDetails.rows[0];
+      
       // For email method, simulate sending to vendor
       if (method === 'email') {
         // In production, this would integrate with email service
         console.log(`Email sent to vendor for PO ${poId}`);
       } else if (method === 'print') {
-        // In production, this would generate PDF and trigger print
-        console.log(`Print job queued for PO ${poId}`);
+        // Return purchase order data for frontend printing
+        return res.json({ 
+          success: true, 
+          message: "Purchase order ready for printing",
+          printData: po
+        });
       }
 
       res.json({ 
