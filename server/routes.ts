@@ -7787,26 +7787,25 @@ Medical System Procurement Team
       ));
 
       // Get daily variance breakdown for current month
-      const dailyVarianceBreakdown = await db.select({
-        businessDate: sql<string>`DATE(COALESCE(bd.deposit_date, t.created_at))`,
-        cashCollected: sql<number>`COALESCE(SUM(CASE WHEN t.payment_method = 'cash' THEN t.amount ELSE 0 END), 0)`,
-        cashDeposited: sql<number>`COALESCE(SUM(bd.deposit_amount), 0)`,
-        variance: sql<number>`COALESCE(SUM(bd.deposit_amount), 0) - COALESCE(SUM(CASE WHEN t.payment_method = 'cash' THEN t.amount ELSE 0 END), 0)`,
-        depositCount: sql<number>`COUNT(DISTINCT bd.id)`,
-        flaggedDeposits: sql<number>`COUNT(CASE WHEN bd.status = 'flagged' THEN 1 END)`
-      })
-      .from(transactions.as('t'))
-      .fullJoin(bankDeposits.as('bd'), sql`DATE(t.created_at) = DATE(bd.deposit_date) AND t.tenant_id = bd.tenant_id`)
-      .where(and(
-        or(
-          and(eq(sql`t.tenant_id`, user.tenantId), eq(sql`t.payment_method`, 'cash')),
-          eq(sql`bd.tenant_id`, user.tenantId)
-        ),
-        sql`EXTRACT(YEAR FROM COALESCE(bd.deposit_date, t.created_at)) = ${currentYear}`,
-        sql`EXTRACT(MONTH FROM COALESCE(bd.deposit_date, t.created_at)) = ${currentMonth}`
-      ))
-      .groupBy(sql`DATE(COALESCE(bd.deposit_date, t.created_at))`)
-      .orderBy(desc(sql`DATE(COALESCE(bd.deposit_date, t.created_at))`));
+      const dailyVarianceBreakdown = await db.execute(sql`
+        SELECT 
+          DATE(COALESCE(bd.deposit_date, t.created_at)) as business_date,
+          COALESCE(SUM(CASE WHEN t.payment_method = 'cash' THEN t.amount ELSE 0 END), 0) as cash_collected,
+          COALESCE(SUM(bd.deposit_amount), 0) as cash_deposited,
+          COALESCE(SUM(bd.deposit_amount), 0) - COALESCE(SUM(CASE WHEN t.payment_method = 'cash' THEN t.amount ELSE 0 END), 0) as variance,
+          COUNT(DISTINCT bd.id) as deposit_count,
+          COUNT(CASE WHEN bd.status = 'flagged' THEN 1 END) as flagged_deposits
+        FROM transactions t
+        FULL OUTER JOIN bank_deposits bd ON DATE(t.created_at) = DATE(bd.deposit_date) AND t.tenant_id = bd.tenant_id
+        WHERE (
+          (t.tenant_id = ${user.tenantId} AND t.payment_method = 'cash') OR 
+          bd.tenant_id = ${user.tenantId}
+        )
+        AND EXTRACT(YEAR FROM COALESCE(bd.deposit_date, t.created_at)) = ${currentYear}
+        AND EXTRACT(MONTH FROM COALESCE(bd.deposit_date, t.created_at)) = ${currentMonth}
+        GROUP BY DATE(COALESCE(bd.deposit_date, t.created_at))
+        ORDER BY DATE(COALESCE(bd.deposit_date, t.created_at)) DESC
+      `);
 
       const mtdCash = mtdCashCollections[0];
       const mtdDep = mtdDeposits[0];
@@ -7840,7 +7839,14 @@ Medical System Procurement Team
           flaggedDeposits: ytdDep?.flaggedCount || 0,
           verifiedDeposits: ytdDep?.verifiedCount || 0
         },
-        dailyBreakdown: dailyVarianceBreakdown
+        dailyBreakdown: dailyVarianceBreakdown.rows.map((row: any) => ({
+          businessDate: row.business_date,
+          cashCollected: parseFloat(row.cash_collected || '0'),
+          cashDeposited: parseFloat(row.cash_deposited || '0'), 
+          variance: parseFloat(row.variance || '0'),
+          depositCount: parseInt(row.deposit_count || '0'),
+          flaggedDeposits: parseInt(row.flagged_deposits || '0')
+        }))
       };
 
       res.json(result);

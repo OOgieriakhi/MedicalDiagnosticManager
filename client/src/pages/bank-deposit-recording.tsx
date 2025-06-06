@@ -367,6 +367,131 @@ export default function BankDepositRecording() {
         </Dialog>
       </div>
 
+      {/* Cumulative Variance Metrics Dashboard */}
+      {!metricsLoading && varianceMetrics && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Month-to-Date Metrics */}
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                Month-to-Date Variance ({(varianceMetrics as any).monthToDate.period})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">Cash Collected</div>
+                  <div className="text-xl font-bold text-green-600">
+                    {formatCurrency((varianceMetrics as any).monthToDate.cashCollected)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(varianceMetrics as any).monthToDate.transactionCount} transactions, {(varianceMetrics as any).monthToDate.collectionDays} days
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Cash Deposited</div>
+                  <div className="text-xl font-bold text-blue-600">
+                    {formatCurrency((varianceMetrics as any).monthToDate.cashDeposited)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(varianceMetrics as any).monthToDate.depositCount} deposits
+                  </div>
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg border ${
+                (varianceMetrics as any).monthToDate.variance === 0 
+                  ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' 
+                  : Math.abs((varianceMetrics as any).monthToDate.variance) > 1000
+                    ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                    : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Net Variance:</span>
+                  <span className={`font-bold ${
+                    (varianceMetrics as any).monthToDate.variance === 0 
+                      ? 'text-green-700' 
+                      : (varianceMetrics as any).monthToDate.variance > 0 
+                        ? 'text-blue-700' 
+                        : 'text-red-700'
+                  }`}>
+                    {formatCurrency(Math.abs((varianceMetrics as any).monthToDate.variance))}
+                    {(varianceMetrics as any).monthToDate.variance > 0 ? ' (Excess)' : (varianceMetrics as any).monthToDate.variance < 0 ? ' (Shortage)' : ''}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {Math.abs((varianceMetrics as any).monthToDate.variancePercentage).toFixed(2)}% of collections
+                </div>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-green-600">✓ {(varianceMetrics as any).monthToDate.verifiedDeposits} Verified</span>
+                <span className="text-red-600">⚠ {(varianceMetrics as any).monthToDate.flaggedDeposits} Flagged</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Year-to-Date Metrics */}
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-purple-600" />
+                Year-to-Date Variance ({(varianceMetrics as any).yearToDate.period})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-muted-foreground">Cash Collected</div>
+                  <div className="text-xl font-bold text-green-600">
+                    {formatCurrency((varianceMetrics as any).yearToDate.cashCollected)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(varianceMetrics as any).yearToDate.transactionCount} transactions, {(varianceMetrics as any).yearToDate.collectionDays} days
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Cash Deposited</div>
+                  <div className="text-xl font-bold text-blue-600">
+                    {formatCurrency((varianceMetrics as any).yearToDate.cashDeposited)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {(varianceMetrics as any).yearToDate.depositCount} deposits
+                  </div>
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg border ${
+                (varianceMetrics as any).yearToDate.variance === 0 
+                  ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800' 
+                  : Math.abs((varianceMetrics as any).yearToDate.variance) > 5000
+                    ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                    : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Net Variance:</span>
+                  <span className={`font-bold ${
+                    (varianceMetrics as any).yearToDate.variance === 0 
+                      ? 'text-green-700' 
+                      : (varianceMetrics as any).yearToDate.variance > 0 
+                        ? 'text-blue-700' 
+                        : 'text-red-700'
+                  }`}>
+                    {formatCurrency(Math.abs((varianceMetrics as any).yearToDate.variance))}
+                    {(varianceMetrics as any).yearToDate.variance > 0 ? ' (Excess)' : (varianceMetrics as any).yearToDate.variance < 0 ? ' (Shortage)' : ''}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {Math.abs((varianceMetrics as any).yearToDate.variancePercentage).toFixed(2)}% of collections
+                </div>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-green-600">✓ {(varianceMetrics as any).yearToDate.verifiedDeposits} Verified</span>
+                <span className="text-red-600">⚠ {(varianceMetrics as any).yearToDate.flaggedDeposits} Flagged</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="record">Record Deposits</TabsTrigger>
