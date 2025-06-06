@@ -24,7 +24,8 @@ import {
   ArrowRightLeft,
   Wallet,
   Activity,
-  Calendar
+  Calendar,
+  BookOpen
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -212,6 +213,12 @@ export default function FinanceDirectorDashboard() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <Link href="/accountant-dashboard">
+            <Button variant="outline" size="sm">
+              <BookOpen className="w-4 h-4 mr-2" />
+              Accountant Dashboard
+            </Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/finance/payment-requests"] });
             queryClient.invalidateQueries({ queryKey: ["/api/finance/metrics"] });

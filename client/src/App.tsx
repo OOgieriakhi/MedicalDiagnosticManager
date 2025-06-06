@@ -48,6 +48,8 @@ import WaitingRoomQueue from "@/pages/waiting-room-queue";
 import AccountingDashboard from "@/pages/accounting-dashboard";
 import RoleBasedDashboard from "@/pages/role-based-dashboard";
 import ApprovalTracking from "@/pages/approval-tracking";
+import AccountantDashboard from "@/pages/accountant-dashboard";
+import CashierDashboard from "@/pages/cashier-dashboard";
 
 function Router() {
   return (
@@ -89,6 +91,8 @@ function Router() {
       <ProtectedRoute path="/waiting-room-queue" component={WaitingRoomQueue} />
       <ProtectedRoute path="/accounting-dashboard" component={AccountingDashboard} />
       <ProtectedRoute path="/approval-tracking" component={ApprovalTracking} />
+      <ProtectedRoute path="/accountant-dashboard" component={AccountantDashboard} />
+      <ProtectedRoute path="/cashier-dashboard" component={CashierDashboard} />
       <ProtectedRoute path="/inventory-dashboard" component={InventoryDashboard} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
