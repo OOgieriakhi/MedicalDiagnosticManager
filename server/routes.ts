@@ -3605,8 +3605,7 @@ export function registerRoutes(app: Express): Server {
       await db.execute(sql`
         UPDATE purchase_orders 
         SET execution_confirmed_by = ${user.id}, 
-            workflow_stage = 'delivery_pending',
-            status = 'ordered'
+            workflow_stage = 'delivery_pending'
         WHERE id = ${id}
       `);
 

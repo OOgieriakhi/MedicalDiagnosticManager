@@ -441,7 +441,7 @@ export default function PurchaseOrders() {
                             </Button>
                           )}
                           
-                          {po.status === 'ordered' && (
+                          {po.status === 'approved' && po.executionConfirmedBy && po.workflowStage === 'delivery_pending' && (
                             <div className="flex gap-1">
                               <Button 
                                 size="sm" 
