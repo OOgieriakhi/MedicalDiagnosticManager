@@ -3592,6 +3592,113 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Generate purchase order PDF for vendor
+  async function generatePurchaseOrderPDF(orderData: any): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    
+    return new Promise((resolve, reject) => {
+      try {
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ margin: 50 });
+        
+        doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        // Header
+        doc.fontSize(20).text('PURCHASE ORDER', 50, 50);
+        doc.fontSize(12);
+        doc.text(`PO Number: ${orderData.poNumber}`, 50, 80);
+        doc.text(`Date: ${new Date(orderData.createdAt).toLocaleDateString()}`, 50, 95);
+        doc.text(`Due Date: ${new Date(orderData.deliveryDate).toLocaleDateString()}`, 50, 110);
+
+        // Vendor Information
+        doc.text('VENDOR:', 50, 140);
+        doc.text(`${orderData.vendorName}`, 50, 155);
+        doc.text(`${orderData.vendorEmail}`, 50, 170);
+        doc.text(`${orderData.vendorPhone}`, 50, 185);
+        doc.text(`${orderData.vendorAddress}`, 50, 200);
+
+        // Order Details
+        doc.text('ORDER DETAILS:', 50, 230);
+        doc.text(`Description: ${orderData.description}`, 50, 245);
+        doc.text(`Total Amount: ${orderData.totalAmount}`, 50, 260);
+        doc.text(`Priority: ${orderData.priority}`, 50, 275);
+        doc.text(`Department: ${orderData.department}`, 50, 290);
+
+        // Items table if available
+        if (orderData.items && orderData.items.length > 0) {
+          let yPosition = 320;
+          doc.text('ITEMS:', 50, yPosition);
+          yPosition += 20;
+          
+          orderData.items.forEach((item: any, index: number) => {
+            doc.text(`${index + 1}. ${item.description} - Qty: ${item.quantity} - Rate: ${item.unitPrice}`, 50, yPosition);
+            yPosition += 15;
+          });
+        }
+
+        // Footer
+        doc.text('Please confirm receipt and expected delivery date.', 50, doc.page.height - 100);
+        doc.text('Thank you for your service.', 50, doc.page.height - 85);
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // Send purchase order to vendor via email
+  async function sendPurchaseOrderToVendor(orderData: any, pdfBuffer: Buffer) {
+    try {
+      const sgMail = require('@sendgrid/mail');
+      
+      if (!process.env.SENDGRID_API_KEY) {
+        console.log('SendGrid API key not configured - purchase order would be sent to:', orderData.vendorEmail);
+        return { success: true, message: 'Email service not configured - order prepared for sending' };
+      }
+
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+      const msg = {
+        to: orderData.vendorEmail,
+        from: process.env.FROM_EMAIL || 'noreply@medicalsystem.com',
+        subject: `Purchase Order ${orderData.poNumber} - Action Required`,
+        text: `
+Dear ${orderData.vendorName},
+
+Please find attached Purchase Order ${orderData.poNumber} for your review and processing.
+
+Order Details:
+- PO Number: ${orderData.poNumber}
+- Description: ${orderData.description}
+- Total Amount: ${orderData.totalAmount}
+- Expected Delivery: ${new Date(orderData.deliveryDate).toLocaleDateString()}
+
+Please confirm receipt and provide expected delivery timeline.
+
+Best regards,
+Medical System Procurement Team
+        `,
+        attachments: [
+          {
+            content: pdfBuffer.toString('base64'),
+            filename: `PO_${orderData.poNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment'
+          }
+        ]
+      };
+
+      await sgMail.send(msg);
+      return { success: true, message: 'Purchase order sent to vendor successfully' };
+    } catch (error) {
+      console.error('Error sending email to vendor:', error);
+      return { success: false, message: 'Failed to send email to vendor' };
+    }
+  }
+
   // Confirm purchase order execution
   app.post("/api/purchase-orders/:id/confirm-execution", async (req, res) => {
     try {
@@ -3602,14 +3709,46 @@ export function registerRoutes(app: Express): Server {
       const { id } = req.params;
       const user = req.user!;
 
+      // Get purchase order details for vendor communication
+      const orderResult = await db.execute(sql`
+        SELECT 
+          po.*,
+          po.po_number as "poNumber",
+          po.vendor_name as "vendorName",
+          po.vendor_email as "vendorEmail",
+          po.vendor_phone as "vendorPhone",
+          po.vendor_address as "vendorAddress",
+          po.total_amount as "totalAmount",
+          po.delivery_date as "deliveryDate",
+          po.created_at as "createdAt"
+        FROM purchase_orders po
+        WHERE po.id = ${id}
+      `);
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+
+      const orderData = orderResult.rows[0];
+
+      // Generate PDF and send to vendor
+      const pdfBuffer = await generatePurchaseOrderPDF(orderData);
+      const emailResult = await sendPurchaseOrderToVendor(orderData, pdfBuffer);
+
+      // Update order status
       await db.execute(sql`
         UPDATE purchase_orders 
         SET execution_confirmed_by = ${user.id}, 
-            workflow_stage = 'delivery_pending'
+            workflow_stage = 'delivery_pending',
+            updated_at = NOW()
         WHERE id = ${id}
       `);
 
-      res.json({ success: true, message: "Purchase order execution confirmed" });
+      res.json({ 
+        success: true, 
+        message: "Purchase order executed and sent to vendor",
+        emailStatus: emailResult.message
+      });
     } catch (error) {
       console.error("Error confirming execution:", error);
       res.status(500).json({ message: "Failed to confirm execution" });
@@ -3657,11 +3796,10 @@ export function registerRoutes(app: Express): Server {
           po.total_amount as "totalAmount",
           po.execution_confirmed_by as "executionConfirmedBy",
           po.workflow_stage as "workflowStage",
-          v.name as "vendorName",
+          po.vendor_name as "vendorName",
           u.username as "executedByName",
           po.updated_at as "executionDate"
         FROM purchase_orders po
-        LEFT JOIN vendors v ON po.vendor_id = v.id
         LEFT JOIN users u ON po.execution_confirmed_by = u.id
         WHERE po.tenant_id = ${user.tenantId}
           AND po.workflow_stage = 'delivery_pending'

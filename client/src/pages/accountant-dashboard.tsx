@@ -78,22 +78,44 @@ export default function AccountantDashboard() {
     },
   });
 
+  // Fetch pending delivery confirmations
+  const { data: pendingDeliveries = [] } = useQuery({
+    queryKey: ['/api/purchase-orders/pending-deliveries'],
+    enabled: !!user
+  });
+
+  // Confirm delivery mutation
+  const confirmDeliveryMutation = useMutation({
+    mutationFn: async ({ poId }: { poId: number }) => {
+      const response = await fetch(`/api/purchase-orders/${poId}/confirm-delivery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to confirm delivery');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders/pending-deliveries'] });
+      toast({
+        title: "Success",
+        description: "Delivery confirmed successfully"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to confirm delivery",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Fetch accounting metrics
   const { data: accountingMetrics } = useQuery<AccountingMetrics>({
     queryKey: ["/api/accounting/metrics"],
     queryFn: async () => {
       const response = await fetch("/api/accounting/metrics");
       if (!response.ok) throw new Error("Failed to fetch accounting metrics");
-      return response.json();
-    },
-  });
-
-  // Fetch pending delivery confirmations
-  const { data: pendingDeliveries } = useQuery({
-    queryKey: ["/api/purchase-orders/pending-deliveries"],
-    queryFn: async () => {
-      const response = await fetch("/api/purchase-orders/pending-deliveries");
-      if (!response.ok) throw new Error("Failed to fetch pending deliveries");
       return response.json();
     },
   });
@@ -198,29 +220,7 @@ export default function AccountantDashboard() {
     }
   });
 
-  // Confirm delivery mutation
-  const confirmDeliveryMutation = useMutation({
-    mutationFn: async ({ poId }: { poId: number }) => {
-      const response = await fetch(`/api/purchase-orders/${poId}/confirm-delivery`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmationType: 'accountant' }),
-      });
-      if (!response.ok) throw new Error("Failed to confirm delivery");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders/pending-deliveries"] });
-      toast({ title: "Delivery confirmed successfully" });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Delivery confirmation failed", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    }
-  });
+
 
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
