@@ -258,10 +258,18 @@ export default function PettyCash() {
   // Approval handlers
   const handleApproveTransaction = async (transactionId: number) => {
     try {
-      await apiRequest(`/api/petty-cash/approve/${transactionId}`, {
+      const response = await fetch(`/api/petty-cash/approve/${transactionId}`, {
         method: 'POST',
-        body: { comments: 'Approved via dashboard' }
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ comments: 'Approved via dashboard' }),
+        credentials: 'include'
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve transaction');
+      }
       
       toast({
         title: "Transaction Approved",
@@ -271,6 +279,7 @@ export default function PettyCash() {
       // Refresh transactions data
       queryClient.invalidateQueries({ queryKey: ["/api/petty-cash/transactions"] });
     } catch (error) {
+      console.error('Approval error:', error);
       toast({
         title: "Approval Failed",
         description: "Failed to approve the transaction. Please try again.",
@@ -281,10 +290,18 @@ export default function PettyCash() {
 
   const handleRejectTransaction = async (transactionId: number) => {
     try {
-      await apiRequest(`/api/petty-cash/reject/${transactionId}`, {
+      const response = await fetch(`/api/petty-cash/reject/${transactionId}`, {
         method: 'POST',
-        body: { comments: 'Rejected via dashboard' }
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ comments: 'Rejected via dashboard' }),
+        credentials: 'include'
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to reject transaction');
+      }
       
       toast({
         title: "Transaction Rejected",
@@ -294,6 +311,7 @@ export default function PettyCash() {
       // Refresh transactions data
       queryClient.invalidateQueries({ queryKey: ["/api/petty-cash/transactions"] });
     } catch (error) {
+      console.error('Rejection error:', error);
       toast({
         title: "Rejection Failed",
         description: "Failed to reject the transaction. Please try again.",
