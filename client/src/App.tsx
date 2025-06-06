@@ -57,6 +57,7 @@ import InvoiceMatching from "@/pages/invoice-matching";
 import PaymentOrders from "@/pages/payment-orders";
 import PurchaseOrderApprovals from "@/pages/purchase-order-approvals";
 import TransactionVerificationDashboard from "@/pages/transaction-verification-dashboard";
+import BankDepositRecording from "@/pages/bank-deposit-recording";
 
 function Router() {
   return (
@@ -110,6 +111,7 @@ function Router() {
       <ProtectedRoute path="/payment-orders" component={PaymentOrders} />
       <ProtectedRoute path="/purchase-order-approvals" component={PurchaseOrderApprovals} />
       <ProtectedRoute path="/transaction-verification" component={TransactionVerificationDashboard} />
+      <ProtectedRoute path="/bank-deposit-recording" component={BankDepositRecording} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

@@ -102,6 +102,10 @@ export default function Sidebar() {
           ? [{ icon: Receipt, label: "Transaction Verification", path: "/transaction-verification", active: location === "/transaction-verification" }]
           : []
         ),
+        ...(user?.role && ['admin', 'manager', 'branch_manager', 'accountant', 'finance_director', 'ceo'].includes(user.role) 
+          ? [{ icon: Building2, label: "Bank Deposits", path: "/bank-deposit-recording", active: location === "/bank-deposit-recording" }]
+          : []
+        ),
       ]
     },
     {

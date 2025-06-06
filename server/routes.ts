@@ -7543,6 +7543,180 @@ Medical System Procurement Team
     }
   });
 
+  // Bank Deposit Management API endpoints
+  
+  // Get bank accounts
+  app.get("/api/bank-accounts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const accounts = await db.select().from(bankAccounts)
+        .where(eq(bankAccounts.tenantId, user.tenantId))
+        .orderBy(desc(bankAccounts.isMainAccount), bankAccounts.accountName);
+
+      res.json(accounts);
+    } catch (error: any) {
+      console.error("Error fetching bank accounts:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get bank deposits
+  app.get("/api/bank-deposits", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const deposits = await db.select({
+        id: bankDeposits.id,
+        depositNumber: bankDeposits.depositNumber,
+        depositAmount: bankDeposits.depositAmount,
+        depositDate: bankDeposits.depositDate,
+        depositMethod: bankDeposits.depositMethod,
+        referenceNumber: bankDeposits.referenceNumber,
+        sourceType: bankDeposits.sourceType,
+        status: bankDeposits.status,
+        reconcileStatus: bankDeposits.reconcileStatus,
+        bankAccountName: bankAccounts.accountName,
+        bankName: bankAccounts.bankName,
+        accountNumber: bankAccounts.accountNumber,
+        depositedByName: users.firstName,
+        createdAt: bankDeposits.createdAt
+      })
+      .from(bankDeposits)
+      .leftJoin(bankAccounts, eq(bankDeposits.bankAccountId, bankAccounts.id))
+      .leftJoin(users, eq(bankDeposits.depositedBy, users.id))
+      .where(eq(bankDeposits.tenantId, user.tenantId))
+      .orderBy(desc(bankDeposits.createdAt));
+
+      res.json(deposits);
+    } catch (error: any) {
+      console.error("Error fetching bank deposits:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create bank deposit
+  app.post("/api/bank-deposits", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const depositData = insertBankDepositSchema.parse({
+        ...req.body,
+        tenantId: user.tenantId,
+        branchId: user.branchId || 1,
+        depositedBy: user.id,
+        depositNumber: `DEP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
+      });
+
+      // Validate deposit amount against linked cash
+      if (depositData.sourceType === 'daily_cash' && depositData.linkedCashAmount) {
+        const cashDifference = Math.abs(depositData.depositAmount - depositData.linkedCashAmount);
+        if (cashDifference > 0.01) { // Allow for rounding differences
+          depositData.discrepancyAmount = cashDifference;
+          depositData.discrepancyReason = `Variance between deposit amount (${depositData.depositAmount}) and linked cash (${depositData.linkedCashAmount})`;
+          depositData.status = 'flagged';
+        }
+      }
+
+      const [newDeposit] = await db.insert(bankDeposits).values(depositData).returning();
+      
+      // Update bank account balance
+      await db.update(bankAccounts)
+        .set({ 
+          currentBalance: sql`current_balance + ${depositData.depositAmount}`,
+          availableBalance: sql`available_balance + ${depositData.depositAmount}`,
+          updatedAt: new Date()
+        })
+        .where(eq(bankAccounts.id, depositData.bankAccountId));
+
+      res.json({ 
+        success: true, 
+        message: "Bank deposit recorded successfully",
+        deposit: newDeposit 
+      });
+    } catch (error: any) {
+      console.error("Error creating bank deposit:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Verify bank deposit
+  app.patch("/api/bank-deposits/:id/verify", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { id } = req.params;
+      const { status, notes } = req.body;
+
+      const [updatedDeposit] = await db.update(bankDeposits)
+        .set({ 
+          status,
+          verifiedBy: user.id,
+          verifiedAt: new Date(),
+          notes: notes || bankDeposits.notes,
+          reconcileStatus: status === 'verified' ? 'verified' : 'pending'
+        })
+        .where(and(
+          eq(bankDeposits.id, parseInt(id)),
+          eq(bankDeposits.tenantId, user.tenantId)
+        ))
+        .returning();
+
+      res.json({ 
+        success: true, 
+        message: `Deposit ${status} successfully`,
+        deposit: updatedDeposit 
+      });
+    } catch (error: any) {
+      console.error("Error verifying deposit:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get verified cash summary for deposit linking
+  app.get("/api/verified-cash-summary", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { date } = req.query;
+      
+      // Get verified cash transactions for the specified date
+      const verifiedTransactions = await db.select({
+        totalAmount: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0)`,
+        transactionCount: sql<number>`COUNT(CASE WHEN payment_method = 'cash' THEN 1 END)`,
+        businessDate: dailyTransactions.businessDate
+      })
+      .from(dailyTransactions)
+      .where(and(
+        eq(dailyTransactions.tenantId, user.tenantId),
+        eq(dailyTransactions.verificationStatus, 'verified'),
+        date ? eq(dailyTransactions.businessDate, new Date(date as string)) : undefined
+      ))
+      .groupBy(dailyTransactions.businessDate)
+      .orderBy(desc(dailyTransactions.businessDate));
+
+      res.json(verifiedTransactions);
+    } catch (error: any) {
+      console.error("Error fetching verified cash summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Process immediate payment
   app.post("/api/accounting/process-immediate-payment/:id", async (req, res) => {
     try {
