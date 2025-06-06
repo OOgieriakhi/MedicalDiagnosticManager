@@ -8061,6 +8061,138 @@ Medical System Procurement Team
     }
   });
 
+  // Get approved invoice matches ready for payment
+  app.get("/api/invoice-matches/approved", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Get matches that are approved or matched (for demo)
+      const matches = global.invoiceMatches || [];
+      const approvedMatches = matches.filter((match: any) => 
+        match.status === 'matched' || match.status === 'approved'
+      );
+
+      res.json(approvedMatches);
+    } catch (error: any) {
+      console.error("Error fetching approved invoice matches:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get payment orders
+  app.get("/api/payment-orders", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Return stored payment orders or empty array
+      const paymentOrders = global.paymentOrders || [];
+      res.json(paymentOrders);
+    } catch (error: any) {
+      console.error("Error fetching payment orders:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create payment order
+  app.post("/api/payment-orders", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { invoiceMatchId, purchaseOrderId, vendorId, amount, paymentMethod, bankAccount, paymentDate, reference, notes, status } = req.body;
+
+      // Generate payment number
+      const paymentNumber = `PAY-${Date.now()}`;
+
+      // Create payment order record
+      const paymentOrder = {
+        id: Date.now(),
+        paymentNumber,
+        invoiceMatchId,
+        purchaseOrderId,
+        vendorId,
+        amount,
+        paymentMethod,
+        bankAccount,
+        paymentDate: new Date(paymentDate),
+        reference,
+        notes,
+        status,
+        createdBy: user.id,
+        createdByName: user.username,
+        createdAt: new Date(),
+        // Additional fields for display
+        vendorName: "MedSupply Corp"
+      };
+
+      // Store in global state for demonstration
+      if (!global.paymentOrders) {
+        global.paymentOrders = [];
+      }
+      global.paymentOrders.push(paymentOrder);
+
+      console.log(`Payment order created: ${paymentNumber} by ${user.username}`);
+      console.log(`Amount: ₦${amount}, Method: ${paymentMethod}, Account: ${bankAccount}`);
+
+      res.json({
+        success: true,
+        paymentOrder,
+        message: "Payment order created successfully"
+      });
+    } catch (error: any) {
+      console.error("Error creating payment order:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Approve/Reject payment order
+  app.post("/api/payment-orders/:id/:action", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const paymentId = parseInt(req.params.id);
+      const action = req.params.action; // 'approve' or 'reject'
+
+      // Find and update payment order
+      const paymentOrders = global.paymentOrders || [];
+      const paymentIndex = paymentOrders.findIndex((p: any) => p.id === paymentId);
+      
+      if (paymentIndex === -1) {
+        return res.status(404).json({ message: "Payment order not found" });
+      }
+
+      const newStatus = action === 'approve' ? 'approved' : 'rejected';
+      paymentOrders[paymentIndex].status = newStatus;
+      paymentOrders[paymentIndex].approvedBy = user.id;
+      paymentOrders[paymentIndex].approvedByName = user.username;
+      paymentOrders[paymentIndex].approvedAt = new Date();
+
+      console.log(`Payment order ${paymentOrders[paymentIndex].paymentNumber} ${action}d by ${user.username}`);
+
+      res.json({
+        success: true,
+        paymentOrder: paymentOrders[paymentIndex],
+        message: `Payment order ${action}d successfully`
+      });
+    } catch (error: any) {
+      console.error(`Error ${req.params.action}ing payment order:`, error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get unmatched goods receipts
   app.get("/api/goods-receipts/unmatched", async (req, res) => {
     try {

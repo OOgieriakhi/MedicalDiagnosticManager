@@ -219,7 +219,16 @@ export default function InvoiceMatching() {
                     <TableCell>{receipt.itemCount} items</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            toast({
+                              title: "Goods Receipt Details",
+                              description: `Receipt: ${receipt.receiptNumber} | PO: ${receipt.poNumber} | Vendor: ${receipt.vendorName} | Amount: ₦${parseFloat(receipt.expectedAmount || 0).toLocaleString()}`
+                            });
+                          }}
+                        >
                           <Eye className="h-4 w-4 mr-1" />
                           View
                         </Button>
@@ -289,7 +298,16 @@ export default function InvoiceMatching() {
                     </TableCell>
                     <TableCell>{getStatusBadge(match.status)}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          toast({
+                            title: "Invoice Match Details",
+                            description: `Match: ${match.matchNumber} | Invoice: ${match.invoiceNumber} | Amount: ₦${parseFloat(match.invoiceAmount || 0).toLocaleString()} | Status: ${match.status}`
+                          });
+                        }}
+                      >
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>

@@ -52,6 +52,7 @@ import AccountantDashboard from "@/pages/accountant-dashboard";
 import CashierDashboard from "@/pages/cashier-dashboard";
 import GoodsReceipt from "@/pages/goods-receipt";
 import InvoiceMatching from "@/pages/invoice-matching";
+import PaymentOrders from "@/pages/payment-orders";
 
 function Router() {
   return (
@@ -98,6 +99,7 @@ function Router() {
       <ProtectedRoute path="/inventory-dashboard" component={InventoryDashboard} />
       <ProtectedRoute path="/goods-receipt" component={GoodsReceipt} />
       <ProtectedRoute path="/invoice-matching" component={InvoiceMatching} />
+      <ProtectedRoute path="/payment-orders" component={PaymentOrders} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
