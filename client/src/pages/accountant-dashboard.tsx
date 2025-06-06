@@ -509,7 +509,7 @@ export default function AccountantDashboard() {
                                     disabled={!glAccount || !costCenter || postToAPMutation.isPending}
                                   >
                                     <CreditCard className="w-4 h-4 mr-2" />
-                                    {postToAPMutation.isPending ? "Posting..." : "Post to A/P"}
+                                    {postToAPMutation.isPending ? "Processing..." : "PROCESS"}
                                   </Button>
                                   <Button
                                     className="bg-green-600 hover:bg-green-700"
