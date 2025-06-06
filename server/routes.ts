@@ -5872,8 +5872,15 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Mock pending approvals - replace with actual database queries
-      const pendingApprovals = [
+      // GED Authorization Limit: 500,000 NGN
+      const GED_LIMIT = 500000;
+
+      // Track approval statuses in memory (replace with database in production)
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
+
+      const allApprovals = [
         {
           id: 1,
           type: "Equipment Purchase",
@@ -5906,8 +5913,37 @@ export function registerRoutes(app: Express): Server {
           priority: "urgent",
           department: "Infrastructure",
           justification: "Current HVAC system failing, affecting laboratory environment controls and compliance requirements."
+        },
+        {
+          id: 4,
+          type: "Software License",
+          description: "Laboratory management system upgrade",
+          amount: "300000",
+          requestedBy: "IT Manager",
+          requestedAt: "2025-06-04T13:20:00Z",
+          priority: "medium",
+          department: "Information Technology",
+          justification: "Current system lacks reporting features and integration capabilities needed for regulatory compliance."
+        },
+        {
+          id: 5,
+          type: "Marketing Campaign",
+          description: "Digital marketing initiative for Q3",
+          amount: "420000",
+          requestedBy: "Marketing Director",
+          requestedAt: "2025-06-04T09:45:00Z",
+          priority: "high",
+          department: "Marketing",
+          justification: "Expand market reach and increase patient acquisition in competitive healthcare market."
         }
       ];
+
+      // Filter approvals: only show items within GED authorization limit and pending status
+      const pendingApprovals = allApprovals.filter(approval => {
+        const amount = parseFloat(approval.amount);
+        const status = global.approvalStatuses[approval.id] || "pending";
+        return amount <= GED_LIMIT && status === "pending";
+      });
 
       res.json(pendingApprovals);
     } catch (error: any) {
@@ -6559,19 +6595,22 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Query text is required" });
       }
 
-      console.log(`GED ${user.username} queried expense ${expenseId} with query: ${query}`);
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
 
-      // In a real implementation, this would:
-      // - Update the expense status to 'queried'
-      // - Store the query in the database
-      // - Send notification to the originator
-      // - Create audit trail
+      // Update status to 'queried'
+      global.approvalStatuses[expenseId] = "queried";
+
+      console.log(`GED ${user.username} queried expense ${expenseId} with query: ${query}`);
 
       res.json({ 
         success: true, 
         message: "Query sent successfully",
         expenseId,
-        query
+        query,
+        newStatus: "queried"
       });
     } catch (error: any) {
       console.error("Error querying expense:", error);
@@ -6594,21 +6633,23 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Reason and notes are required" });
       }
 
-      console.log(`GED ${user.username} referred expense ${expenseId} to CEO. Reason: ${reason}, Notes: ${notes}`);
+      // Initialize global status tracker if needed
+      if (!global.approvalStatuses) {
+        global.approvalStatuses = {};
+      }
 
-      // In a real implementation, this would:
-      // - Update the expense status to 'referred_to_ceo'
-      // - Store the referral reason and notes
-      // - Send notification to CEO
-      // - Create audit trail
-      // - Update approval workflow
+      // Update status to 'referred_to_ceo'
+      global.approvalStatuses[expenseId] = "referred_to_ceo";
+
+      console.log(`GED ${user.username} referred expense ${expenseId} to CEO. Reason: ${reason}, Notes: ${notes}`);
 
       res.json({ 
         success: true, 
         message: "Successfully referred to CEO",
         expenseId,
         reason,
-        notes
+        notes,
+        newStatus: "referred_to_ceo"
       });
     } catch (error: any) {
       console.error("Error referring to CEO:", error);
