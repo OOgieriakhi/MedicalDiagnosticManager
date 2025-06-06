@@ -9034,7 +9034,7 @@ Medical System Procurement Team
 
       query += ` ORDER BY dt.transaction_time DESC`;
 
-      const result = await db.execute(query, params);
+      const result = await pool.query(query, params);
       res.json(result.rows);
 
     } catch (error: any) {
@@ -9093,7 +9093,7 @@ Medical System Procurement Team
 
       query += ` ORDER BY ch.handover_date DESC, ch.handover_time DESC`;
 
-      const result = await db.execute(query, params);
+      const result = await pool.query(query, params);
       res.json(result.rows);
 
     } catch (error: any) {
@@ -9210,7 +9210,7 @@ Medical System Procurement Team
       };
 
       // Update transaction status to verified
-      await db.execute(`
+      await pool.query(`
         UPDATE daily_transactions 
         SET status = 'verified', 
             verified_by = $1, 
@@ -9236,6 +9236,178 @@ Medical System Procurement Team
     } catch (error: any) {
       console.error("Error verifying transactions:", error);
       res.status(500).json({ message: "Failed to verify transactions" });
+    }
+  });
+
+  // ========== DASHBOARD DATA ENDPOINTS ==========
+  
+  // Get comprehensive dashboard data
+  app.get("/api/dashboard-data", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const tenantId = req.user!.tenantId;
+      const branchId = req.user!.branchId;
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get today's revenue summary
+      const revenueQuery = `
+        SELECT 
+          COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN amount ELSE 0 END), 0) as cash_total,
+          COALESCE(SUM(CASE WHEN payment_method = 'pos' THEN amount ELSE 0 END), 0) as pos_total,
+          COALESCE(SUM(CASE WHEN payment_method = 'transfer' THEN amount ELSE 0 END), 0) as transfer_total,
+          COALESCE(SUM(amount), 0) as total_revenue,
+          COUNT(*) as transaction_count
+        FROM daily_transactions 
+        WHERE tenant_id = $1 
+        AND DATE(transaction_time) = $2
+        ${branchId ? 'AND branch_id = $3' : ''}
+      `;
+
+      const revenueParams = branchId ? [tenantId, today, branchId] : [tenantId, today];
+      const revenueResult = await pool.query(revenueQuery, revenueParams);
+      const revenueData = revenueResult.rows[0] || {
+        cash_total: 0,
+        pos_total: 0,
+        transfer_total: 0,
+        total_revenue: 0,
+        transaction_count: 0
+      };
+
+      // Get purchase order metrics
+      const poQuery = `
+        SELECT 
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_orders,
+          COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_orders,
+          COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_orders,
+          COALESCE(SUM(CASE WHEN status = 'approved' THEN total_amount ELSE 0 END), 0) as total_approved_amount
+        FROM purchase_orders 
+        WHERE tenant_id = $1
+        ${branchId ? 'AND branch_id = $2' : ''}
+      `;
+
+      const poParams = branchId ? [tenantId, branchId] : [tenantId];
+      const poResult = await pool.query(poQuery, poParams);
+      const poData = poResult.rows[0] || {
+        pending_orders: 0,
+        approved_orders: 0,
+        rejected_orders: 0,
+        total_approved_amount: 0
+      };
+
+      // Get patient metrics
+      const patientQuery = `
+        SELECT 
+          COUNT(DISTINCT patient_id) as unique_patients,
+          COUNT(*) as total_visits,
+          AVG(amount) as average_transaction
+        FROM daily_transactions 
+        WHERE tenant_id = $1 
+        AND DATE(transaction_time) = $2
+        ${branchId ? 'AND branch_id = $3' : ''}
+      `;
+
+      const patientResult = await pool.query(patientQuery, revenueParams);
+      const patientData = patientResult.rows[0] || {
+        unique_patients: 0,
+        total_visits: 0,
+        average_transaction: 0
+      };
+
+      // Get recent transactions
+      const recentQuery = `
+        SELECT 
+          dt.id,
+          dt.receipt_number,
+          dt.patient_name,
+          dt.amount,
+          dt.payment_method,
+          dt.transaction_time,
+          u.username as cashier_name
+        FROM daily_transactions dt
+        LEFT JOIN users u ON dt.cashier_id = u.id
+        WHERE dt.tenant_id = $1
+        ${branchId ? 'AND dt.branch_id = $2' : ''}
+        ORDER BY dt.transaction_time DESC
+        LIMIT 10
+      `;
+
+      const recentParams = branchId ? [tenantId, branchId] : [tenantId];
+      const recentResult = await pool.query(recentQuery, recentParams);
+
+      // Get monthly revenue trend (last 6 months)
+      const trendQuery = `
+        SELECT 
+          DATE_TRUNC('month', transaction_time) as month,
+          SUM(amount) as monthly_revenue,
+          COUNT(*) as monthly_transactions
+        FROM daily_transactions 
+        WHERE tenant_id = $1 
+        AND transaction_time >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
+        ${branchId ? 'AND branch_id = $2' : ''}
+        GROUP BY DATE_TRUNC('month', transaction_time)
+        ORDER BY month DESC
+      `;
+
+      const trendResult = await pool.query(trendQuery, recentParams);
+
+      // Compile dashboard response
+      const dashboardData = {
+        date: today,
+        revenue: {
+          total: Number(revenueData.total_revenue),
+          cash: Number(revenueData.cash_total),
+          pos: Number(revenueData.pos_total),
+          transfer: Number(revenueData.transfer_total),
+          transactionCount: Number(revenueData.transaction_count)
+        },
+        purchaseOrders: {
+          pending: Number(poData.pending_orders),
+          approved: Number(poData.approved_orders),
+          rejected: Number(poData.rejected_orders),
+          totalApprovedAmount: Number(poData.total_approved_amount)
+        },
+        patients: {
+          uniquePatients: Number(patientData.unique_patients),
+          totalVisits: Number(patientData.total_visits),
+          averageTransaction: Number(patientData.average_transaction) || 0
+        },
+        recentTransactions: recentResult.rows,
+        monthlyTrend: trendResult.rows.map(row => ({
+          month: row.month,
+          revenue: Number(row.monthly_revenue),
+          transactions: Number(row.monthly_transactions)
+        })),
+        lastUpdated: new Date()
+      };
+
+      res.json(dashboardData);
+
+    } catch (error: any) {
+      console.error("Error fetching dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
+  // Get accounting summary for dashboard
+  app.get("/api/dashboard-accounting", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const summary = await accountingEngine.getFinancialSummary(
+        req.user!.tenantId,
+        req.user!.branchId
+      );
+
+      res.json(summary);
+
+    } catch (error: any) {
+      console.error("Error fetching accounting summary:", error);
+      res.status(500).json({ message: "Failed to fetch accounting data" });
     }
   });
 

@@ -8,8 +8,8 @@ interface MetricsCardsProps {
 }
 
 export default function MetricsCards({ branchId }: MetricsCardsProps) {
-  const { data: metrics, isLoading } = useQuery({
-    queryKey: ["/api/dashboard/metrics", branchId],
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ["/api/dashboard-data", branchId],
     enabled: !!branchId,
   });
 
@@ -32,40 +32,40 @@ export default function MetricsCards({ branchId }: MetricsCardsProps) {
   const metricCards = [
     {
       title: "Today's Patients",
-      value: metrics?.todayPatients || 0,
-      change: "+12%",
-      changeText: "from yesterday",
+      value: dashboardData?.patients?.uniquePatients || 0,
+      change: `${dashboardData?.patients?.totalVisits || 0} visits`,
+      changeText: "total today",
       icon: UserPlus,
       color: "blue",
       bgColor: "bg-blue-50",
       iconColor: "text-medical-blue"
     },
     {
-      title: "Pending Tests",
-      value: metrics?.pendingTests || 0,
-      change: "45 min",
-      changeText: "avg wait",
-      icon: Clock,
-      color: "yellow",
-      bgColor: "bg-yellow-50",
-      iconColor: "text-yellow-600"
-    },
-    {
-      title: "Today's Revenue",
-      value: `₦${(metrics?.todayRevenue || 0).toLocaleString()}`,
-      change: "+8.2%",
-      changeText: "from yesterday",
+      title: "Cash Payments",
+      value: `₦${(dashboardData?.revenue?.cash || 0).toLocaleString()}`,
+      change: `₦${(dashboardData?.revenue?.pos || 0).toLocaleString()}`,
+      changeText: "POS payments",
       icon: DollarSign,
       color: "green",
       bgColor: "bg-green-50",
       iconColor: "text-medical-green"
     },
     {
-      title: "Active Staff",
-      value: metrics?.activeStaff || 0,
-      change: "42 total",
-      changeText: "employees",
-      icon: Users,
+      title: "Today's Revenue",
+      value: `₦${(dashboardData?.revenue?.total || 0).toLocaleString()}`,
+      change: `${dashboardData?.revenue?.transactionCount || 0} transactions`,
+      changeText: "completed",
+      icon: TrendingUp,
+      color: "green",
+      bgColor: "bg-green-50",
+      iconColor: "text-medical-green"
+    },
+    {
+      title: "Purchase Orders",
+      value: dashboardData?.purchaseOrders?.pending || 0,
+      change: `${dashboardData?.purchaseOrders?.approved || 0} approved`,
+      changeText: "orders",
+      icon: FlaskRound,
       color: "purple",
       bgColor: "bg-purple-50",
       iconColor: "text-purple-600"
