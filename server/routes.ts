@@ -3650,6 +3650,26 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get all transactions for tenant/branch
+  app.get("/api/petty-cash/transactions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userTenantId = req.user?.tenantId || 1;
+      const userBranchId = req.user?.branchId || 1;
+      
+      const transactions = await storage.getPettyCashTransactions(userTenantId, userBranchId);
+      
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching petty cash transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
   app.get("/api/petty-cash/transactions/:fundId", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -3733,6 +3753,71 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error creating reconciliation:", error);
       res.status(500).json({ message: "Failed to create reconciliation" });
+    }
+  });
+
+  // Petty Cash Metrics API
+  app.get("/api/petty-cash/metrics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userTenantId = req.user?.tenantId || 1;
+      const userBranchId = req.user?.branchId || 1;
+
+      // Get all transactions for metrics calculation
+      const transactions = await storage.getPettyCashTransactions(userTenantId, userBranchId);
+      const funds = await storage.getPettyCashFunds(userTenantId, userBranchId);
+
+      // Calculate metrics
+      const totalFunds = funds.reduce((sum, fund) => sum + parseFloat(fund.currentBalance), 0);
+      const totalExpenses = transactions
+        .filter(t => t.type === 'expense' && t.status === 'paid')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const pendingRequests = transactions.filter(t => t.status === 'pending').length;
+      const thisMonthExpenses = transactions
+        .filter(t => {
+          const transactionDate = new Date(t.createdAt);
+          const now = new Date();
+          return t.type === 'expense' && t.status === 'paid' &&
+            transactionDate.getMonth() === now.getMonth() &&
+            transactionDate.getFullYear() === now.getFullYear();
+        })
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+      const metrics = {
+        totalFunds,
+        totalExpenses,
+        pendingRequests,
+        thisMonthExpenses
+      };
+
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching petty cash metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  // Petty Cash Reconciliations API
+  app.get("/api/petty-cash/reconciliations", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const userTenantId = req.user?.tenantId || 1;
+      const userBranchId = req.user?.branchId || 1;
+      
+      const reconciliations = await storage.getPettyCashReconciliations(userTenantId, userBranchId);
+      
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json(reconciliations);
+    } catch (error) {
+      console.error("Error fetching petty cash reconciliations:", error);
+      res.status(500).json({ message: "Failed to fetch reconciliations" });
     }
   });
 
