@@ -61,6 +61,7 @@ function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={() => <RoleBasedDashboard />} />
+      <ProtectedRoute path="/dashboard" component={Dashboard} />
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
       <ProtectedRoute path="/patients" component={PatientManagement} />
