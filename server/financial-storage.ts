@@ -317,7 +317,7 @@ export class FinancialStorage {
       .set({ 
         status, 
         approvedBy,
-        approvedAt: status === 'approved' ? new Date() : null 
+        updatedAt: new Date()
       })
       .where(eq(purchaseOrders.id, id))
       .returning();

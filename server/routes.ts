@@ -3517,10 +3517,11 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { tenantId, branchId } = req.query;
+      const tenantId = req.user?.tenantId || 1;
+      const branchId = req.user?.branchId;
       const orders = await financialStorage.getPurchaseOrders(
-        Number(tenantId), 
-        branchId ? Number(branchId) : undefined
+        tenantId, 
+        branchId
       );
       
       res.json(orders);
