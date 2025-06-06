@@ -86,8 +86,7 @@ export class FinancialStorage {
     
     const result = await db.execute(sql`
       SELECT COUNT(*) as count FROM purchase_orders 
-      WHERE tenant_id = ${tenantId} 
-      AND created_at >= date_trunc('month', CURRENT_DATE)
+      WHERE tenant_id = ${tenantId}
     `);
     
     const count = (parseInt(String(result.rows[0]?.count || '0')) + 1).toString().padStart(4, '0');
