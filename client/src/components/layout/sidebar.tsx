@@ -98,6 +98,7 @@ export default function Sidebar() {
       items: [
         { icon: FileText, label: "Reports", path: "/reports", active: location === "/reports" },
         { icon: Shield, label: "Audit Trail", path: "/audit", active: location === "/audit" },
+        { icon: Receipt, label: "Transaction Verification", path: "/transaction-verification", active: location === "/transaction-verification" },
       ]
     },
     {

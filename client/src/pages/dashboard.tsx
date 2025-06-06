@@ -48,21 +48,20 @@ export default function Dashboard() {
   }
 
   // Chart data for revenue trends
-  const revenueChartData = [
-    { name: "Mon", revenue: 45000, transactions: 8 },
-    { name: "Tue", revenue: 52000, transactions: 12 },
-    { name: "Wed", revenue: 48000, transactions: 10 },
-    { name: "Thu", revenue: 61000, transactions: 15 },
-    { name: "Fri", revenue: 55000, transactions: 13 },
-    { name: "Sat", revenue: dashboardData?.revenue?.total || 225788, transactions: dashboardData?.revenue?.transactionCount || 12 },
-    { name: "Sun", revenue: 42000, transactions: 9 },
+  const revenueData = [
+    { month: "Jan", revenue: 165000, target: 200000 },
+    { month: "Feb", revenue: 180000, target: 200000 },
+    { month: "Mar", revenue: 195000, target: 200000 },
+    { month: "Apr", revenue: 220000, target: 200000 },
+    { month: "May", revenue: 235000, target: 250000 },
+    { month: "Jun", revenue: dashboardData?.revenue?.total || 78000, target: 300000 },
   ];
 
   // Payment method distribution
   const paymentData = [
-    { name: "Cash", value: dashboardData?.revenue?.cash || 125000, color: "#10B981" },
-    { name: "POS", value: dashboardData?.revenue?.pos || 75788, color: "#3B82F6" },
-    { name: "Transfer", value: dashboardData?.revenue?.transfer || 25000, color: "#8B5CF6" },
+    { name: "Cash", value: dashboardData?.revenue?.cash || 25000, color: "#22c55e" },
+    { name: "POS", value: dashboardData?.revenue?.pos || 35000, color: "#3b82f6" },
+    { name: "Transfer", value: dashboardData?.revenue?.transfer || 18000, color: "#8b5cf6" },
   ];
 
   return (
@@ -70,274 +69,233 @@ export default function Dashboard() {
       <Sidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b bg-white">
-          <Header 
-            selectedBranchId={selectedBranchId} 
-            onBranchChange={setSelectedBranchId}
-          />
-          <MessageNotification />
-        </div>
+        <Header 
+          selectedBranchId={selectedBranchId} 
+          onBranchChange={setSelectedBranchId}
+        />
         
         <main className="flex-1 overflow-y-auto p-6">
-          {/* Enhanced Metrics Cards */}
-          <MetricsCards branchId={selectedBranchId} />
-          
-          {/* Interactive Dashboard Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="revenue">Revenue Analytics</TabsTrigger>
-              <TabsTrigger value="operations">Operations</TabsTrigger>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
-            </TabsList>
+          <div className="space-y-6">
+            {/* Welcome Section */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Welcome back, {user.username}
+                </h1>
+                <p className="text-gray-600">
+                  Here's what's happening at your diagnostic center today
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Refresh Data
+              </Button>
+            </div>
 
-            <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <RecentPatients branchId={selectedBranchId} />
+            {/* Metrics Cards */}
+            <MetricsCards data={dashboardData} isLoading={isLoading} />
+
+            {/* Main Dashboard Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="revenue">Revenue Analytics</TabsTrigger>
+                <TabsTrigger value="operations">Operations</TabsTrigger>
+                <TabsTrigger value="reports">Reports</TabsTrigger>
+              </TabsList>
+
+              {/* Overview Tab */}
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Today's Revenue Summary */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="w-5 h-5" />
+                        Today's Revenue Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Total Revenue</span>
+                          <span className="text-2xl font-bold">
+                            ₦{(dashboardData?.revenue?.total || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Cash: ₦{(dashboardData?.revenue?.cash || 0).toLocaleString()}</span>
+                            <span>POS: ₦{(dashboardData?.revenue?.pos || 0).toLocaleString()}</span>
+                            <span>Transfer: ₦{(dashboardData?.revenue?.transfer || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <div className="flex justify-between text-sm mb-2">
+                            <span>Daily Target Progress</span>
+                            <span>{Math.round(((dashboardData?.revenue?.total || 0) / 300000) * 100)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${Math.min(((dashboardData?.revenue?.total || 0) / 300000) * 100, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Stats */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        Quick Statistics
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {transactions?.length || 0}
+                          </div>
+                          <div className="text-sm text-gray-600">Today's Transactions</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            {dashboardData?.purchaseOrders?.pending || 0}
+                          </div>
+                          <div className="text-sm text-gray-600">Pending Orders</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">
+                            {dashboardData?.purchaseOrders?.approved || 0}
+                          </div>
+                          <div className="text-sm text-gray-600">Approved Orders</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-600">
+                            ₦{((dashboardData?.purchaseOrders?.totalApprovedAmount || 0) / 1000).toFixed(0)}K
+                          </div>
+                          <div className="text-sm text-gray-600">Approved Amount</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-                
-                <div className="space-y-6">
-                  <BranchStatus tenantId={user.tenantId} />
+
+                {/* Recent Activities Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <RecentPatients />
+                  <SystemAlerts />
+                </div>
+              </TabsContent>
+
+              {/* Revenue Analytics Tab */}
+              <TabsContent value="revenue" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Revenue Trend Chart */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>6-Month Revenue Trend</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <AreaChart data={revenueData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <Tooltip formatter={(value) => [`₦${Number(value).toLocaleString()}`, 'Revenue']} />
+                          <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                          <Area type="monotone" dataKey="target" stroke="#ef4444" fill="transparent" strokeDasharray="5 5" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* Payment Method Distribution */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Payment Method Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={paymentData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({name, value}) => `${name}: ₦${value.toLocaleString()}`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {paymentData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [`₦${Number(value).toLocaleString()}`, 'Amount']} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Operations Tab */}
+              <TabsContent value="operations" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <QuickActions />
-                  <SystemAlerts tenantId={user.tenantId} />
+                  <BranchStatus />
                 </div>
-              </div>
-            </TabsContent>
+              </TabsContent>
 
-            <TabsContent value="revenue" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Revenue Trend Chart */}
+              {/* Reports Tab */}
+              <TabsContent value="reports" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5" />
-                      Weekly Revenue Trend
-                    </CardTitle>
+                    <CardTitle>Available Reports</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={revenueChartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value, name) => [
-                            name === "revenue" ? `₦${Number(value).toLocaleString()}` : value,
-                            name === "revenue" ? "Revenue" : "Transactions"
-                          ]}
-                        />
-                        <Area type="monotone" dataKey="revenue" stroke="#10B981" fill="#10B981" fillOpacity={0.3} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Payment Method Distribution */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5" />
-                      Payment Methods
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={paymentData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={120}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {paymentData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => `₦${Number(value).toLocaleString()}`} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex justify-center gap-4 mt-4">
-                      {paymentData.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                          <span className="text-sm">{item.name}</span>
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <Button variant="outline" className="h-20 flex flex-col">
+                        <FileText className="w-6 h-6 mb-2" />
+                        Daily Revenue Report
+                      </Button>
+                      <Button variant="outline" className="h-20 flex flex-col">
+                        <Users className="w-6 h-6 mb-2" />
+                        Patient Analytics
+                      </Button>
+                      <Button variant="outline" className="h-20 flex flex-col">
+                        <ShoppingCart className="w-6 h-6 mb-2" />
+                        Purchase Orders
+                      </Button>
+                      <Button variant="outline" className="h-20 flex flex-col">
+                        <TrendingUp className="w-6 h-6 mb-2" />
+                        Performance Metrics
+                      </Button>
+                      <Button variant="outline" className="h-20 flex flex-col">
+                        <Clock className="w-6 h-6 mb-2" />
+                        Time Analysis
+                      </Button>
+                      <Button variant="outline" className="h-20 flex flex-col">
+                        <AlertTriangle className="w-6 h-6 mb-2" />
+                        System Alerts
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-
-              {/* Revenue Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Today's Target</p>
-                        <p className="text-2xl font-bold">₦300,000</p>
-                        <p className="text-sm text-green-600">
-                          {Math.round((dashboardData?.revenue?.total || 225788) / 300000 * 100)}% achieved
-                        </p>
-                      </div>
-                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                        <TrendingUp className="w-6 h-6 text-blue-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Average per Transaction</p>
-                        <p className="text-2xl font-bold">
-                          ₦{Math.round((dashboardData?.revenue?.total || 225788) / (dashboardData?.revenue?.transactionCount || 12)).toLocaleString()}
-                        </p>
-                        <p className="text-sm text-green-600">+5.2% from yesterday</p>
-                      </div>
-                      <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                        <DollarSign className="w-6 h-6 text-green-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">Peak Hour Revenue</p>
-                        <p className="text-2xl font-bold">₦45,000</p>
-                        <p className="text-sm text-gray-600">2:00 PM - 3:00 PM</p>
-                      </div>
-                      <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-purple-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="operations" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Purchase Orders Status */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <ShoppingCart className="w-5 h-5" />
-                      Purchase Orders Status
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Clock className="w-5 h-5 text-yellow-600" />
-                          <span>Pending Approval</span>
-                        </div>
-                        <Badge variant="secondary">{dashboardData?.purchaseOrders?.pending || 0}</Badge>
-                      </div>
-                      
-                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                          <span>Approved</span>
-                        </div>
-                        <Badge variant="default" className="bg-green-600">{dashboardData?.purchaseOrders?.approved || 0}</Badge>
-                      </div>
-                      
-                      <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <XCircle className="w-5 h-5 text-red-600" />
-                          <span>Rejected</span>
-                        </div>
-                        <Badge variant="destructive">{dashboardData?.purchaseOrders?.rejected || 0}</Badge>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t">
-                      <p className="text-sm text-gray-600">Total Approved Amount</p>
-                      <p className="text-xl font-bold">₦{(dashboardData?.purchaseOrders?.totalApprovedAmount || 0).toLocaleString()}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Staff Performance */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="w-5 h-5" />
-                      Staff Performance Today
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {[
-                        { name: "Dr. Adebayo", transactions: 8, revenue: 85000, efficiency: 95 },
-                        { name: "Nurse Joy", transactions: 12, revenue: 65000, efficiency: 92 },
-                        { name: "Lab Tech Mike", transactions: 6, revenue: 45000, efficiency: 88 },
-                        { name: "Admin Sarah", transactions: 4, revenue: 30788, efficiency: 90 },
-                      ].map((staff, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium">{staff.name}</p>
-                            <p className="text-sm text-gray-600">{staff.transactions} transactions</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">₦{staff.revenue.toLocaleString()}</p>
-                            <p className="text-sm text-green-600">{staff.efficiency}% efficiency</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="reports" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Quick Report Actions */}
-                {[
-                  { title: "Daily Revenue Report", desc: "Generate today's revenue breakdown", icon: FileText, color: "blue" },
-                  { title: "Patient Activity Report", desc: "View patient visit patterns", icon: Users, color: "green" },
-                  { title: "Purchase Order Report", desc: "Track procurement activities", icon: ShoppingCart, color: "purple" },
-                  { title: "Staff Performance Report", desc: "Analyze team productivity", icon: TrendingUp, color: "orange" },
-                  { title: "Financial Summary", desc: "Complete financial overview", icon: DollarSign, color: "indigo" },
-                  { title: "Operational Alerts", desc: "System status and warnings", icon: AlertTriangle, color: "red" },
-                ].map((report, index) => {
-                  const Icon = report.icon;
-                  return (
-                    <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-4">
-                          <div className={`w-12 h-12 bg-${report.color}-50 rounded-lg flex items-center justify-center`}>
-                            <Icon className={`w-6 h-6 text-${report.color}-600`} />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-medium text-gray-900">{report.title}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{report.desc}</p>
-                            <Button variant="outline" size="sm" className="mt-3">
-                              Generate Report
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </TabsContent>
-          </Tabs>
+              </TabsContent>
+            </Tabs>
+          </div>
         </main>
       </div>
+
+      <MessageNotification />
     </div>
   );
 }
