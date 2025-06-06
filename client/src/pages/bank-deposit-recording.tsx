@@ -96,7 +96,7 @@ export default function BankDepositRecording() {
 
   // Create deposit mutation
   const createDepositMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/bank-deposits", "POST", data),
+    mutationFn: (data: any) => apiRequest("POST", "/api/bank-deposits", data),
     onSuccess: () => {
       toast({
         title: "Success",
