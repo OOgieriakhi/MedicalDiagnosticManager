@@ -15,6 +15,7 @@ import { accountingEngine } from "./accounting-engine";
 import { pettyCashEngine } from "./petty-cash-engine";
 import { approvalConfigService } from "./approval-config";
 import { revenueForecasting } from "./ml-revenue-forecasting";
+import { enhancedForecastingEngine } from "./enhanced-forecasting";
 import { db, pool } from "./db";
 import PDFDocument from 'pdfkit';
 import { 
@@ -10793,6 +10794,155 @@ Medical System Procurement Team
     } catch (error: any) {
       console.error("Error exporting verification report:", error);
       res.status(500).json({ message: "Failed to export report" });
+    }
+  });
+
+  // Enhanced Forecasting API endpoints - Advanced Analytics Options
+  
+  // Get patient volume forecasting
+  app.get("/api/forecasting/enhanced/patient-volume", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { branchId } = req.query;
+      
+      const forecast = await enhancedForecastingEngine.generatePatientVolumeForecast(
+        user.tenantId, 
+        branchId ? parseInt(branchId as string) : undefined
+      );
+      
+      res.json(forecast);
+    } catch (error: any) {
+      console.error("Error generating patient volume forecast:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get service optimization insights
+  app.get("/api/forecasting/enhanced/service-optimization", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { branchId } = req.query;
+      
+      const insights = await enhancedForecastingEngine.generateServiceOptimization(
+        user.tenantId, 
+        branchId ? parseInt(branchId as string) : undefined
+      );
+      
+      res.json(insights);
+    } catch (error: any) {
+      console.error("Error generating service optimization:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get staffing predictions
+  app.get("/api/forecasting/enhanced/staffing", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { branchId } = req.query;
+      
+      const predictions = await enhancedForecastingEngine.generateStaffingPredictions(
+        user.tenantId, 
+        branchId ? parseInt(branchId as string) : undefined
+      );
+      
+      res.json(predictions);
+    } catch (error: any) {
+      console.error("Error generating staffing predictions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get inventory forecasting
+  app.get("/api/forecasting/enhanced/inventory", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      const forecast = await enhancedForecastingEngine.generateInventoryForecast(user.tenantId);
+      
+      res.json(forecast);
+    } catch (error: any) {
+      console.error("Error generating inventory forecast:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get marketing ROI analysis
+  app.get("/api/forecasting/enhanced/marketing-roi", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      const analysis = await enhancedForecastingEngine.generateMarketingROI(user.tenantId);
+      
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("Error generating marketing ROI analysis:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get cash flow analysis
+  app.get("/api/forecasting/enhanced/cash-flow", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { branchId } = req.query;
+      
+      const analysis = await enhancedForecastingEngine.generateCashFlowAnalysis(
+        user.tenantId, 
+        branchId ? parseInt(branchId as string) : undefined
+      );
+      
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("Error generating cash flow analysis:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get comprehensive enhanced forecast with custom options
+  app.post("/api/forecasting/enhanced/comprehensive", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { branchId, options } = req.body;
+      
+      const forecast = await enhancedForecastingEngine.generateEnhancedForecast(
+        user.tenantId, 
+        branchId, 
+        options
+      );
+      
+      res.json(forecast);
+    } catch (error: any) {
+      console.error("Error generating comprehensive forecast:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 

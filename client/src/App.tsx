@@ -60,6 +60,7 @@ import PurchaseOrderApprovals from "@/pages/purchase-order-approvals";
 import TransactionVerificationDashboard from "@/pages/transaction-verification-dashboard";
 import BankDepositRecording from "@/pages/bank-deposit-recording";
 import { RevenueForecastingPage } from "@/pages/revenue-forecasting-page";
+import EnhancedForecastingPage from "@/pages/enhanced-forecasting-page";
 
 function Router() {
   return (
