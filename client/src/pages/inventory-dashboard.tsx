@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, Package, TrendingDown, TrendingUp, Activity, CheckCircle } from "lucide-react";
+import { AlertTriangle, Package, TrendingDown, TrendingUp, Activity, CheckCircle, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface InventoryItem {
   id: number;
@@ -158,11 +160,19 @@ export default function InventoryDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Inventory Dashboard</h1>
-          <p className="text-muted-foreground">
-            Comprehensive inventory and stock management system
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">Inventory Dashboard</h1>
+            <p className="text-muted-foreground">
+              Comprehensive inventory and stock management system
+            </p>
+          </div>
         </div>
         <Button 
           onClick={() => initializeTemplates.mutate()}

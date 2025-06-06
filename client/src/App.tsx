@@ -45,11 +45,12 @@ import ReportDesigner from "@/pages/report-designer";
 import PredictiveRecommendations from "@/pages/predictive-recommendations";
 import WaitingRoomQueue from "@/pages/waiting-room-queue";
 import AccountingDashboard from "@/pages/accounting-dashboard";
+import RoleBasedDashboard from "@/pages/role-based-dashboard";
 
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={() => <Dashboard />} />
+      <ProtectedRoute path="/" component={() => <RoleBasedDashboard />} />
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
       <ProtectedRoute path="/financial-management" component={FinancialManagement} />
