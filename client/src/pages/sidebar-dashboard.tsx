@@ -118,6 +118,15 @@ const SIDEBAR_MODULES: SidebarModule[] = [
     level: 'ADVANCED',
     category: 'management'
   },
+  {
+    title: "Revenue Reports",
+    description: "Comprehensive revenue analysis and ERP reporting",
+    icon: TrendingUp,
+    href: "/revenue-reports",
+    allowedRoles: ['admin', 'branch_manager', 'accountant'],
+    level: 'ADVANCED',
+    category: 'management'
+  },
   // Admin
   {
     title: "System Administration",

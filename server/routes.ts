@@ -2105,66 +2105,56 @@ export function registerRoutes(app: Express): Server {
     const userBranchId = branchId ? parseInt(branchId as string) : req.user?.branchId;
     
     try {
-      // Get revenue by test categories
-      const testRevenue = await db
-        .select({
-          service_category: testCategories.name,
-          service_type: sql<string>`'Laboratory'`,
-          transaction_count: sql<number>`COUNT(*)`,
-          total_amount: sql<number>`SUM(CAST(${patientTests.price} AS DECIMAL))`,
-          avg_amount: sql<number>`ROUND(AVG(CAST(${patientTests.price} AS DECIMAL)), 2)`
-        })
-        .from(patientTests)
-        .leftJoin(tests, eq(patientTests.testId, tests.id))
-        .leftJoin(testCategories, eq(tests.categoryId, testCategories.id))
-        .where(
-          and(
-            userBranchId ? eq(patientTests.branchId, userBranchId) : undefined,
-            startDate ? gte(patientTests.scheduledAt, new Date(startDate as string)) : undefined,
-            endDate ? lte(patientTests.scheduledAt, new Date(endDate as string)) : undefined,
-            eq(patientTests.paymentVerified, true)
-          )
-        )
-        .groupBy(testCategories.name)
-        .orderBy(sql`SUM(CAST(${patientTests.price} AS DECIMAL)) DESC`);
-
-      // Add daily transactions categorization based on receipt patterns
-      const dailyRevenue = await db
-        .select({
-          service_category: sql<string>`
-            CASE 
-              WHEN ${dailyTransactions.receiptNumber} LIKE '%LAB%' OR ${dailyTransactions.receiptNumber} LIKE '%RCP-2025%' THEN 'Laboratory Services'
-              WHEN ${dailyTransactions.receiptNumber} LIKE '%RAD%' THEN 'Radiology/Imaging'
-              WHEN ${dailyTransactions.receiptNumber} LIKE '%ECG%' THEN 'ECG Services'
-              WHEN ${dailyTransactions.receiptNumber} LIKE '%CONS%' THEN 'Consultation'
-              ELSE 'General Services'
-            END`,
-          service_type: sql<string>`'Billing'`,
-          transaction_count: sql<number>`COUNT(*)`,
-          total_amount: sql<number>`SUM(CAST(${dailyTransactions.amount} AS DECIMAL))`,
-          avg_amount: sql<number>`ROUND(AVG(CAST(${dailyTransactions.amount} AS DECIMAL)), 2)`
-        })
-        .from(dailyTransactions)
-        .where(
-          and(
-            userBranchId ? eq(dailyTransactions.branchId, userBranchId) : undefined,
-            startDate ? gte(dailyTransactions.transactionTime, new Date(startDate as string)) : undefined,
-            endDate ? lte(dailyTransactions.transactionTime, new Date(endDate as string)) : undefined,
-            eq(dailyTransactions.verificationStatus, 'verified')
-          )
-        )
-        .groupBy(sql`
+      let query = `
+        SELECT 
           CASE 
-            WHEN ${dailyTransactions.receiptNumber} LIKE '%LAB%' OR ${dailyTransactions.receiptNumber} LIKE '%RCP-2025%' THEN 'Laboratory Services'
-            WHEN ${dailyTransactions.receiptNumber} LIKE '%RAD%' THEN 'Radiology/Imaging'
-            WHEN ${dailyTransactions.receiptNumber} LIKE '%ECG%' THEN 'ECG Services'
-            WHEN ${dailyTransactions.receiptNumber} LIKE '%CONS%' THEN 'Consultation'
+            WHEN receipt_number LIKE '%LAB%' OR receipt_number LIKE '%RCP-2025%' THEN 'Laboratory Services'
+            WHEN receipt_number LIKE '%RAD%' THEN 'Radiology/Imaging'
+            WHEN receipt_number LIKE '%ECG%' THEN 'ECG Services'
+            WHEN receipt_number LIKE '%CONS%' THEN 'Consultation'
             ELSE 'General Services'
-          END`)
-        .orderBy(sql`SUM(CAST(${dailyTransactions.amount} AS DECIMAL)) DESC`);
+          END as service_category,
+          COUNT(*) as transaction_count,
+          SUM(CAST(amount AS DECIMAL)) as total_amount,
+          ROUND(AVG(CAST(amount AS DECIMAL)), 2) as avg_amount
+        FROM daily_transactions 
+        WHERE tenant_id = $1
+      `;
+      
+      const params = [req.user!.tenantId];
+      let paramIndex = 2;
 
-      const combinedResults = [...testRevenue, ...dailyRevenue];
-      res.json(combinedResults);
+      if (userBranchId) {
+        query += ` AND branch_id = $${paramIndex}`;
+        params.push(userBranchId);
+        paramIndex++;
+      }
+
+      if (startDate) {
+        query += ` AND transaction_time >= $${paramIndex}`;
+        params.push(startDate as string);
+        paramIndex++;
+      }
+
+      if (endDate) {
+        query += ` AND transaction_time <= $${paramIndex}`;
+        params.push(endDate as string);
+        paramIndex++;
+      }
+
+      query += ` AND verification_status = 'verified'`;
+      query += ` GROUP BY 
+        CASE 
+          WHEN receipt_number LIKE '%LAB%' OR receipt_number LIKE '%RCP-2025%' THEN 'Laboratory Services'
+          WHEN receipt_number LIKE '%RAD%' THEN 'Radiology/Imaging'
+          WHEN receipt_number LIKE '%ECG%' THEN 'ECG Services'
+          WHEN receipt_number LIKE '%CONS%' THEN 'Consultation'
+          ELSE 'General Services'
+        END
+        ORDER BY total_amount DESC`;
+
+      const result = await pool.query(query, params);
+      res.json(result.rows);
     } catch (error) {
       console.error('Error generating services revenue report:', error);
       res.status(500).json({ error: 'Failed to generate services revenue report' });
