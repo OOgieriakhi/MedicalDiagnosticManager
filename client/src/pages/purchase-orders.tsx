@@ -653,6 +653,134 @@ export default function PurchaseOrders() {
         </DialogContent>
       </Dialog>
 
+      {/* Print Preview Modal */}
+      {showPrintPreview && previewPO && (
+        <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Purchase Order Preview</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Preview Document */}
+              <div className="bg-white p-8 border rounded-lg shadow-sm print:shadow-none">
+                <div className="text-center mb-6">
+                  <h1 className="text-2xl font-bold">PURCHASE ORDER</h1>
+                  <p className="text-lg font-semibold">{previewPO.poNumber}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-8 mb-6">
+                  <div>
+                    <h3 className="font-semibold mb-2">From:</h3>
+                    <div className="space-y-1">
+                      <p className="font-medium">Medical Diagnostic Center</p>
+                      <p>123 Healthcare Avenue</p>
+                      <p>Medical City, MC 12345</p>
+                      <p>Phone: (555) 123-4567</p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold mb-2">To:</h3>
+                    <div className="space-y-1">
+                      <p className="font-medium">{previewPO.vendorName}</p>
+                      {previewPO.vendorAddress && <p>{previewPO.vendorAddress}</p>}
+                      {previewPO.vendorEmail && <p>Email: {previewPO.vendorEmail}</p>}
+                      {previewPO.vendorPhone && <p>Phone: {previewPO.vendorPhone}</p>}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div>
+                    <Label className="font-semibold">PO Date:</Label>
+                    <p>{new Date(previewPO.requestDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <Label className="font-semibold">Required Date:</Label>
+                    <p>{new Date(previewPO.requiredDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <Label className="font-semibold">Department:</Label>
+                    <p>{previewPO.department}</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6">
+                  <Label className="font-semibold">Description:</Label>
+                  <p className="mt-1">{previewPO.description}</p>
+                </div>
+                
+                <div className="mb-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Unit Price</TableHead>
+                        <TableHead>Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">Medical Supplies</div>
+                            <div className="text-sm text-gray-500">ITEM-001</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{previewPO.description}</TableCell>
+                        <TableCell>1</TableCell>
+                        <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(previewPO.totalAmount)}</TableCell>
+                        <TableCell>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(previewPO.totalAmount)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+                
+                <div className="flex justify-end mb-6">
+                  <div className="w-64">
+                    <div className="flex justify-between items-center border-t pt-2">
+                      <span className="font-semibold">Total Amount:</span>
+                      <span className="text-lg font-bold">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(previewPO.totalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-8 pt-4 border-t">
+                  <p className="text-sm text-gray-600">
+                    Please confirm receipt of this purchase order and provide delivery timeline.
+                    For questions, contact our procurement department at procurement@medicalcenter.com
+                  </p>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPrintPreview(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => window.print()}
+                  variant="secondary"
+                >
+                  Print
+                </Button>
+                <Button 
+                  onClick={confirmExecuteOrder}
+                  disabled={executePO.isPending}
+                >
+                  {executePO.isPending ? "Sending..." : "Send to Vendor"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* New Purchase Order Form */}
       <NewPurchaseOrderForm 
         open={showNewPOForm} 
