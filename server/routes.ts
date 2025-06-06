@@ -14,6 +14,7 @@ import { queueManager } from "./queue-manager";
 import { accountingEngine } from "./accounting-engine";
 import { pettyCashEngine } from "./petty-cash-engine";
 import { approvalConfigService } from "./approval-config";
+import { revenueForecasting } from "./ml-revenue-forecasting";
 import { db, pool } from "./db";
 import PDFDocument from 'pdfkit';
 import { 
@@ -1100,6 +1101,69 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Error updating test results:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Revenue Forecasting API endpoints
+  app.get('/api/forecasting/revenue/predict', async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const { daysAhead = 30, branchId } = req.query;
+      const user = req.user!;
+
+      const forecast = await revenueForecasting.generateForecast(
+        user.tenantId,
+        branchId ? parseInt(branchId as string) : undefined,
+        parseInt(daysAhead as string)
+      );
+
+      res.json(forecast);
+    } catch (error) {
+      console.error('Error generating revenue forecast:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : 'Failed to generate revenue forecast' 
+      });
+    }
+  });
+
+  app.get('/api/forecasting/revenue/monthly', async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const { branchId } = req.query;
+      const user = req.user!;
+
+      const monthlyForecasts = await revenueForecasting.generateMonthlyForecasts(
+        user.tenantId,
+        branchId ? parseInt(branchId as string) : undefined
+      );
+
+      res.json(monthlyForecasts);
+    } catch (error) {
+      console.error('Error generating monthly forecasts:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : 'Failed to generate monthly forecasts' 
+      });
+    }
+  });
+
+  app.get('/api/forecasting/revenue/historical', async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const { months = 12, branchId } = req.query;
+      const user = req.user!;
+
+      const historicalData = await revenueForecasting.getHistoricalData(
+        user.tenantId,
+        branchId ? parseInt(branchId as string) : undefined,
+        parseInt(months as string)
+      );
+
+      res.json(historicalData);
+    } catch (error) {
+      console.error('Error fetching historical data:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : 'Failed to fetch historical data' 
+      });
     }
   });
 
