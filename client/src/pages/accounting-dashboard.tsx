@@ -220,7 +220,7 @@ export default function AccountingDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4"
                style={{ display: 'grid', visibility: 'visible' }}>
             {/* Financial Reports */}
-            <Link href="/financial-reports">
+            <Link href="/comprehensive-financial">
               <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full hover:bg-blue-50 transition-colors">
                 <FileText className="w-6 h-6 text-blue-600" />
                 <span className="text-xs text-center font-medium">Financial Reports</span>
@@ -300,7 +300,7 @@ export default function AccountingDashboard() {
             </Link>
 
             {/* Budget vs Actual */}
-            <Link href="/budget-analysis">
+            <Link href="/comprehensive-financial">
               <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
                 <PieChart className="w-6 h-6 text-amber-600" />
                 <span className="text-xs text-center">Budget Analysis</span>
@@ -308,7 +308,7 @@ export default function AccountingDashboard() {
             </Link>
 
             {/* Tax Reports */}
-            <Link href="/tax-reports">
+            <Link href="/comprehensive-financial">
               <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
                 <Calendar className="w-6 h-6 text-slate-600" />
                 <span className="text-xs text-center">Tax Reports</span>
@@ -316,7 +316,7 @@ export default function AccountingDashboard() {
             </Link>
 
             {/* Inventory Valuation */}
-            <Link href="/inventory-valuation">
+            <Link href="/inventory-management">
               <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
                 <Upload className="w-6 h-6 text-emerald-600" />
                 <span className="text-xs text-center">Inventory Valuation</span>
