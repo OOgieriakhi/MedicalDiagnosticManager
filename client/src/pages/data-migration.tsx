@@ -292,6 +292,34 @@ Some patients registered multiple times - use name+phone matching`}
                       value={tableStructure}
                       onChange={(e) => setTableStructure(e.target.value)}
                       rows={15}
+                      onFocus={() => {
+                        if (!tableStructure) {
+                          setTableStructure(`AtblRecPatientregister (9,319 records)
+- PatientID (AutoNumber)
+- FirstName (Text)
+- LastName (Text)
+- Phone (Text)
+- DateOfBirth (Date)
+- Address (Text)
+- ReferralSource (Text)
+
+BtblFinancialTransactions (20,771 records)
+- TransactionID (AutoNumber)
+- PatientID (Number)
+- Amount (Currency)
+- TransactionDate (Date)
+- PaymentMethod (Text)
+- ReferralID (Number)
+- Description (Text)
+
+CtblReferralProviders (45 records)
+- ReferralID (AutoNumber)
+- ProviderName (Text)
+- CommissionRate (Number)
+- ContactPhone (Text)
+- ContactEmail (Text)`);
+                        }
+                      }}
                     />
                   </div>
                   

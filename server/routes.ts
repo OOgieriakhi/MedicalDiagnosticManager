@@ -271,8 +271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const line of lines) {
         const trimmed = line.trim();
         
-        // Detect table definitions (A_, B_, C_ prefixes)
-        if (trimmed.match(/^[ABC]_\w+/)) {
+        // Detect table definitions (A_, B_, C_ prefixes or AtblRec, BtblFin, CtblRef patterns)
+        if (trimmed.match(/^[ABC](_\w+|tbl\w+)/)) {
           if (currentTable) {
             tables.push(currentTable);
           }
@@ -283,9 +283,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Determine priority based on prefix
           let priority: 'high' | 'medium' | 'low' = 'medium';
-          if (tableName.startsWith('A_')) priority = 'high';
-          else if (tableName.startsWith('B_')) priority = 'high';
-          else if (tableName.startsWith('C_')) priority = 'medium';
+          if (tableName.startsWith('A') || tableName.includes('Patient')) priority = 'high';
+          else if (tableName.startsWith('B') || tableName.includes('Financial') || tableName.includes('Transaction')) priority = 'high';
+          else if (tableName.startsWith('C') || tableName.includes('Referral')) priority = 'medium';
           
           currentTable = {
             name: tableName,
@@ -294,8 +294,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sampleData: [],
             mapped: false,
             priority,
-            category: tableName.startsWith('A_') ? 'patients' : 
-                     tableName.startsWith('B_') ? 'financial' : 'referrals'
+            category: (tableName.startsWith('A') || tableName.includes('Patient')) ? 'patients' : 
+                     (tableName.startsWith('B') || tableName.includes('Financial') || tableName.includes('Transaction')) ? 'financial' : 'referrals'
           };
         }
         
