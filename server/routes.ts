@@ -8632,6 +8632,239 @@ Medical System Procurement Team
     }
   });
 
+  // Get cash flow statement data
+  app.get("/api/cash-flow", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { period, startDate, endDate } = req.query;
+      
+      // Comprehensive cash flow test data
+      const cashFlowEntries = [
+        // OPERATING ACTIVITIES - INFLOWS
+        {
+          id: 1,
+          date: "2024-12-01",
+          description: "Patient Service Collections",
+          category: "revenue",
+          amount: 185000,
+          type: "inflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "REV-001",
+          status: "completed"
+        },
+        {
+          id: 2,
+          date: "2024-12-03",
+          description: "Laboratory Revenue",
+          category: "revenue",
+          amount: 95000,
+          type: "inflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "LAB-001",
+          status: "completed"
+        },
+        {
+          id: 3,
+          date: "2024-12-05",
+          description: "Radiology Services",
+          category: "revenue",
+          amount: 75000,
+          type: "inflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "RAD-001",
+          status: "completed"
+        },
+        {
+          id: 4,
+          date: "2024-12-07",
+          description: "Insurance Reimbursements",
+          category: "revenue",
+          amount: 125000,
+          type: "inflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "INS-001",
+          status: "completed"
+        },
+
+        // OPERATING ACTIVITIES - OUTFLOWS
+        {
+          id: 5,
+          date: "2024-12-02",
+          description: "Staff Salaries & Benefits",
+          category: "expenses",
+          amount: -180000,
+          type: "outflow" as const,
+          accountName: "Payroll Account",
+          reference: "PAY-001",
+          status: "completed"
+        },
+        {
+          id: 6,
+          date: "2024-12-04",
+          description: "Medical Supplies Purchase",
+          category: "expenses",
+          amount: -45000,
+          type: "outflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "SUP-001",
+          status: "completed"
+        },
+        {
+          id: 7,
+          date: "2024-12-06",
+          description: "Utilities Payment",
+          category: "expenses",
+          amount: -25000,
+          type: "outflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "UTL-001",
+          status: "completed"
+        },
+        {
+          id: 8,
+          date: "2024-12-08",
+          description: "Laboratory Reagents",
+          category: "expenses",
+          amount: -18000,
+          type: "outflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "LAB-002",
+          status: "completed"
+        },
+        {
+          id: 9,
+          date: "2024-12-10",
+          description: "Equipment Maintenance",
+          category: "expenses",
+          amount: -12000,
+          type: "outflow" as const,
+          accountName: "Cash - Operating Account",
+          reference: "MAINT-001",
+          status: "completed"
+        },
+
+        // INVESTING ACTIVITIES
+        {
+          id: 10,
+          date: "2024-12-15",
+          description: "New Ultrasound Machine",
+          category: "investments",
+          amount: -250000,
+          type: "outflow" as const,
+          accountName: "Equipment Purchases",
+          reference: "INV-001",
+          status: "completed"
+        },
+        {
+          id: 11,
+          date: "2024-12-20",
+          description: "Laboratory Equipment Upgrade",
+          category: "investments",
+          amount: -85000,
+          type: "outflow" as const,
+          accountName: "Equipment Purchases",
+          reference: "INV-002",
+          status: "completed"
+        },
+
+        // FINANCING ACTIVITIES
+        {
+          id: 12,
+          date: "2024-12-25",
+          description: "Equipment Loan Payment",
+          category: "financing",
+          amount: -35000,
+          type: "outflow" as const,
+          accountName: "Loan Payments",
+          reference: "LOAN-001",
+          status: "completed"
+        },
+        {
+          id: 13,
+          date: "2024-12-28",
+          description: "Owner Capital Injection",
+          category: "financing",
+          amount: 150000,
+          type: "inflow" as const,
+          accountName: "Owner's Equity",
+          reference: "CAP-001",
+          status: "completed"
+        }
+      ];
+
+      // Calculate summary metrics
+      const totalInflows = cashFlowEntries
+        .filter(entry => entry.type === 'inflow')
+        .reduce((sum, entry) => sum + entry.amount, 0);
+
+      const totalOutflows = Math.abs(cashFlowEntries
+        .filter(entry => entry.type === 'outflow')
+        .reduce((sum, entry) => sum + entry.amount, 0));
+
+      const netCashFlow = totalInflows - totalOutflows;
+      const openingBalance = 150000;
+      const closingBalance = openingBalance + netCashFlow;
+
+      // Create chart data for trends
+      const chartData = [
+        { period: "Nov 2024", inflows: 420000, outflows: 290000, netFlow: 130000, cumulativeBalance: 150000 },
+        { period: "Dec 2024", inflows: totalInflows, outflows: totalOutflows, netFlow: netCashFlow, cumulativeBalance: closingBalance },
+        { period: "Jan 2025", inflows: 520000, outflows: 310000, netFlow: 210000, cumulativeBalance: closingBalance + 210000 },
+        { period: "Feb 2025", inflows: 485000, outflows: 295000, netFlow: 190000, cumulativeBalance: closingBalance + 400000 }
+      ];
+
+      const summary = {
+        openingBalance: openingBalance,
+        totalInflows: totalInflows,
+        totalOutflows: totalOutflows,
+        netCashFlow: netCashFlow,
+        closingBalance: closingBalance,
+        projectedBalance: closingBalance + 400000
+      };
+
+      console.log(`Cash Flow - Inflows: ₦${totalInflows.toLocaleString()}, Outflows: ₦${totalOutflows.toLocaleString()}, Net: ₦${netCashFlow.toLocaleString()}`);
+      
+      res.json({
+        entries: cashFlowEntries,
+        summary: summary,
+        chartData: chartData,
+        period: period || 'current_month',
+        startDate: startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+        endDate: endDate || new Date().toISOString().split('T')[0]
+      });
+    } catch (error: any) {
+      console.error("Error fetching cash flow data:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get cash flow projections
+  app.get("/api/cash-flow/projections", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const projections = [
+        { month: "Jan 2025", income: 520000, expenses: 310000, netFlow: 210000, confidence: 85 },
+        { month: "Feb 2025", income: 485000, expenses: 295000, netFlow: 190000, confidence: 82 },
+        { month: "Mar 2025", income: 550000, expenses: 320000, netFlow: 230000, confidence: 78 },
+        { month: "Apr 2025", income: 510000, expenses: 305000, netFlow: 205000, confidence: 75 },
+        { month: "May 2025", income: 580000, expenses: 335000, netFlow: 245000, confidence: 70 },
+        { month: "Jun 2025", income: 615000, expenses: 350000, netFlow: 265000, confidence: 68 }
+      ];
+
+      res.json(projections);
+    } catch (error: any) {
+      console.error("Error fetching cash flow projections:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/accounting/initialize", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {

@@ -99,6 +99,135 @@ export default function CashFlow() {
     }).format(amount);
   };
 
+  // Print functionality
+  const handlePrint = () => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Cash Flow Statement</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+            .report-title { font-size: 18px; margin-bottom: 10px; }
+            .report-date { font-size: 14px; color: #666; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .text-right { text-align: right; }
+            .summary { margin-top: 30px; }
+            .inflow { color: #16a34a; font-weight: bold; }
+            .outflow { color: #dc2626; font-weight: bold; }
+            .net-flow { border-top: 2px solid #000; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Orient Medical Diagnostic Centre</div>
+            <div class="report-title">Cash Flow Statement</div>
+            <div class="report-date">Period: ${selectedPeriod} | ${startDate} to ${endDate}</div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Reference</th>
+                <th class="text-right">Amount</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredEntries.map(entry => `
+                <tr>
+                  <td>${new Date(entry.date).toLocaleDateString()}</td>
+                  <td>${entry.description}</td>
+                  <td>${entry.category}</td>
+                  <td>${entry.reference}</td>
+                  <td class="text-right ${entry.type === 'inflow' ? 'inflow' : 'outflow'}">${formatCurrency(Math.abs(entry.amount))}</td>
+                  <td>${entry.type}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="summary">
+            <table style="width: 50%; margin-left: auto;">
+              <tr>
+                <td><strong>Opening Balance:</strong></td>
+                <td class="text-right"><strong>${formatCurrency(summary.openingBalance)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total Inflows:</strong></td>
+                <td class="text-right inflow"><strong>${formatCurrency(summary.totalInflows)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total Outflows:</strong></td>
+                <td class="text-right outflow"><strong>${formatCurrency(summary.totalOutflows)}</strong></td>
+              </tr>
+              <tr class="net-flow">
+                <td><strong>Net Cash Flow:</strong></td>
+                <td class="text-right"><strong>${formatCurrency(summary.netCashFlow)}</strong></td>
+              </tr>
+              <tr class="net-flow">
+                <td><strong>Closing Balance:</strong></td>
+                <td class="text-right"><strong>${formatCurrency(summary.closingBalance)}</strong></td>
+              </tr>
+            </table>
+            <div style="margin-top: 20px;">Report Generated: ${new Date().toLocaleString()}</div>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = ['Date', 'Description', 'Category', 'Reference', 'Amount', 'Type', 'Account'];
+    const csvData = filteredEntries.map(entry => [
+      new Date(entry.date).toLocaleDateString(),
+      entry.description,
+      entry.category,
+      entry.reference,
+      entry.amount,
+      entry.type,
+      entry.accountName
+    ]);
+    
+    // Add summary rows
+    csvData.push(['', '', '', '', '', '', '']);
+    csvData.push(['SUMMARY', '', '', '', '', '', '']);
+    csvData.push(['Opening Balance', '', '', '', summary.openingBalance, '', '']);
+    csvData.push(['Total Inflows', '', '', '', summary.totalInflows, '', '']);
+    csvData.push(['Total Outflows', '', '', '', summary.totalOutflows, '', '']);
+    csvData.push(['Net Cash Flow', '', '', '', summary.netCashFlow, '', '']);
+    csvData.push(['Closing Balance', '', '', '', summary.closingBalance, '', '']);
+    
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cash-flow-${startDate}-to-${endDate}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
   const getFlowColor = (type: string) => {
     return type === 'inflow' ? 'text-green-600' : 'text-red-600';
   };
@@ -150,9 +279,13 @@ export default function CashFlow() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handlePrint}>
             <Download className="w-4 h-4 mr-2" />
-            Export Report
+            Print
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
           </Button>
         </div>
       </div>
