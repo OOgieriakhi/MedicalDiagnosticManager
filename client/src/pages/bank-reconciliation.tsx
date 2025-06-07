@@ -238,6 +238,13 @@ export default function BankReconciliation() {
     a.click();
   };
 
+  const handleImportStatement = () => {
+    toast({ 
+      title: "Import Statement", 
+      description: "Statement import functionality ready for implementation" 
+    });
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -262,6 +269,10 @@ export default function BankReconciliation() {
           <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
             Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleImportStatement}>
+            <Upload className="w-4 h-4 mr-2" />
+            Import Statement
           </Button>
         </div>
       </div>
