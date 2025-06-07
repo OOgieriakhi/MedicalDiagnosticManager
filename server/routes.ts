@@ -8865,6 +8865,180 @@ Medical System Procurement Team
     }
   });
 
+  // Get income statement data
+  app.get("/api/income-statement", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { period, startDate, endDate } = req.query;
+      
+      // Comprehensive income statement test data
+      const incomeStatementData = {
+        revenue: [
+          {
+            id: 1,
+            account: "Patient Service Revenue",
+            amount: 480000,
+            percentage: 52.17,
+            category: "revenue",
+            description: "Direct patient consultations and treatments"
+          },
+          {
+            id: 2,
+            account: "Laboratory Revenue", 
+            amount: 280000,
+            percentage: 30.43,
+            category: "revenue",
+            description: "Laboratory tests and diagnostic services"
+          },
+          {
+            id: 3,
+            account: "Radiology Revenue",
+            amount: 120000,
+            percentage: 13.04,
+            category: "revenue",
+            description: "X-rays, ultrasounds, and imaging services"
+          },
+          {
+            id: 4,
+            account: "Pharmacy Revenue",
+            amount: 40000,
+            percentage: 4.35,
+            category: "revenue",
+            description: "Medication sales and prescriptions"
+          }
+        ],
+        expenses: [
+          {
+            id: 5,
+            account: "Salaries & Benefits",
+            amount: 285000,
+            percentage: 30.98,
+            category: "operating_expense",
+            description: "Staff salaries, benefits, and payroll taxes"
+          },
+          {
+            id: 6,
+            account: "Medical Supplies",
+            amount: 95000,
+            percentage: 10.33,
+            category: "cost_of_services",
+            description: "Consumable medical supplies and materials"
+          },
+          {
+            id: 7,
+            account: "Equipment Maintenance",
+            amount: 45000,
+            percentage: 4.89,
+            category: "operating_expense",
+            description: "Maintenance and repairs of medical equipment"
+          },
+          {
+            id: 8,
+            account: "Utilities",
+            amount: 38000,
+            percentage: 4.13,
+            category: "operating_expense",
+            description: "Electricity, water, internet, and phone"
+          },
+          {
+            id: 9,
+            account: "Rent & Facilities",
+            amount: 55000,
+            percentage: 5.98,
+            category: "operating_expense",
+            description: "Building rent and facility maintenance"
+          },
+          {
+            id: 10,
+            account: "Laboratory Reagents",
+            amount: 42000,
+            percentage: 4.57,
+            category: "cost_of_services",
+            description: "Chemical reagents and test kits"
+          },
+          {
+            id: 11,
+            account: "Insurance",
+            amount: 28000,
+            percentage: 3.04,
+            category: "operating_expense",
+            description: "Professional liability and property insurance"
+          },
+          {
+            id: 12,
+            account: "Marketing & Advertising",
+            amount: 18000,
+            percentage: 1.96,
+            category: "operating_expense",
+            description: "Marketing campaigns and promotional activities"
+          },
+          {
+            id: 13,
+            account: "Depreciation",
+            amount: 35000,
+            percentage: 3.80,
+            category: "non_operating_expense",
+            description: "Equipment and facility depreciation"
+          },
+          {
+            id: 14,
+            account: "Interest Expense",
+            amount: 12000,
+            percentage: 1.30,
+            category: "non_operating_expense",
+            description: "Interest on loans and financing"
+          }
+        ]
+      };
+
+      // Calculate totals
+      const totalRevenue = incomeStatementData.revenue.reduce((sum, item) => sum + item.amount, 0);
+      const costOfServices = incomeStatementData.expenses
+        .filter(item => item.category === 'cost_of_services')
+        .reduce((sum, item) => sum + item.amount, 0);
+      const grossProfit = totalRevenue - costOfServices;
+      const operatingExpenses = incomeStatementData.expenses
+        .filter(item => item.category === 'operating_expense')
+        .reduce((sum, item) => sum + item.amount, 0);
+      const operatingIncome = grossProfit - operatingExpenses;
+      const nonOperatingExpenses = incomeStatementData.expenses
+        .filter(item => item.category === 'non_operating_expense')
+        .reduce((sum, item) => sum + item.amount, 0);
+      const netIncome = operatingIncome - nonOperatingExpenses;
+
+      const summary = {
+        totalRevenue: totalRevenue,
+        costOfServices: costOfServices,
+        grossProfit: grossProfit,
+        grossProfitMargin: (grossProfit / totalRevenue) * 100,
+        operatingExpenses: operatingExpenses,
+        operatingIncome: operatingIncome,
+        operatingMargin: (operatingIncome / totalRevenue) * 100,
+        nonOperatingExpenses: nonOperatingExpenses,
+        netIncome: netIncome,
+        netProfitMargin: (netIncome / totalRevenue) * 100,
+        period: period || 'current_month',
+        startDate: startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+        endDate: endDate || new Date().toISOString().split('T')[0]
+      };
+
+      console.log(`Income Statement - Revenue: ₦${totalRevenue.toLocaleString()}, Net Income: ₦${netIncome.toLocaleString()}, Margin: ${summary.netProfitMargin.toFixed(1)}%`);
+      
+      res.json({
+        revenue: incomeStatementData.revenue,
+        expenses: incomeStatementData.expenses,
+        summary: summary
+      });
+    } catch (error: any) {
+      console.error("Error fetching income statement:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/accounting/initialize", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {

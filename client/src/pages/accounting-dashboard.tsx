@@ -282,6 +282,14 @@ export default function AccountingDashboard() {
               </Button>
             </Link>
 
+            {/* Income Statement */}
+            <Link href="/income-statement">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <PieChart className="w-6 h-6 text-emerald-600" />
+                <span className="text-xs text-center">Income Statement</span>
+              </Button>
+            </Link>
+
             {/* Income Verification */}
             <Link href="/income-verification">
               <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">

@@ -411,9 +411,9 @@ export default function CashFlow() {
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="revenue">Revenue</SelectItem>
-                  <SelectItem value="operations">Operations</SelectItem>
                   <SelectItem value="expenses">Expenses</SelectItem>
                   <SelectItem value="investments">Investments</SelectItem>
+                  <SelectItem value="financing">Financing</SelectItem>
                 </SelectContent>
               </Select>
             </div>
