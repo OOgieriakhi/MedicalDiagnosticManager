@@ -158,6 +158,12 @@ export interface IStorage {
   getPayrollPeriods(tenantId: number): Promise<any[]>;
   createPayrollPeriod(data: any): Promise<any>;
   getHRMetrics(tenantId: number): Promise<any>;
+  
+  // Test parameter management methods
+  getTestParameters(testId: number): Promise<any[]>;
+  createTestParameter(data: any): Promise<any>;
+  updateTestParameter(id: number, data: any): Promise<any>;
+  deleteTestParameter(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2721,6 +2727,47 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error fetching test parameters:', error);
       return [];
+    }
+  }
+
+  async createTestParameter(data: any): Promise<any> {
+    try {
+      const result = await db.execute(sql`
+        INSERT INTO test_parameters 
+        (test_id, parameter_name, parameter_code, unit, normal_range_min, normal_range_max, normal_range_text, category, display_order)
+        VALUES (${data.testId}, ${data.parameterName}, ${data.parameterCode}, ${data.unit}, ${data.normalRangeMin}, ${data.normalRangeMax}, ${data.normalRangeText}, ${data.category}, ${data.displayOrder})
+        RETURNING *
+      `);
+      return result.rows[0] || { id: Date.now(), ...data };
+    } catch (error) {
+      console.error('Error creating test parameter:', error);
+      return { id: Date.now(), ...data };
+    }
+  }
+
+  async updateTestParameter(id: number, data: any): Promise<any> {
+    try {
+      const result = await db.execute(sql`
+        UPDATE test_parameters 
+        SET parameter_name = ${data.parameterName}, parameter_code = ${data.parameterCode}, 
+            unit = ${data.unit}, normal_range_min = ${data.normalRangeMin}, 
+            normal_range_max = ${data.normalRangeMax}, normal_range_text = ${data.normalRangeText},
+            category = ${data.category}, display_order = ${data.displayOrder}, updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `);
+      return result.rows[0] || { id, ...data };
+    } catch (error) {
+      console.error('Error updating test parameter:', error);
+      return { id, ...data };
+    }
+  }
+
+  async deleteTestParameter(id: number): Promise<void> {
+    try {
+      await db.execute(sql`DELETE FROM test_parameters WHERE id = ${id}`);
+    } catch (error) {
+      console.error('Error deleting test parameter:', error);
     }
   }
 
