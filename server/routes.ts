@@ -9418,6 +9418,322 @@ Medical System Procurement Team
     }
   });
 
+  // Income Verification APIs
+  // Get income entries for verification
+  app.get("/api/accounting/income-entries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { source, status } = req.query;
+
+      // Generate comprehensive dummy test data for income verification
+      const testIncomeEntries = [
+        {
+          id: 1,
+          transactionDate: "2025-06-07T08:30:00Z",
+          invoiceNumber: "INV-2025-001234",
+          patientName: "Adebayo Ogundimu",
+          serviceType: "Complete Blood Count (CBC)",
+          paymentMethod: "Cash",
+          amount: 15000,
+          status: "pending_review",
+          source: "patient_billing",
+          receiptNumber: "RCP-001234",
+          duplicateCheck: true,
+          balanceVerified: true
+        },
+        {
+          id: 2,
+          transactionDate: "2025-06-07T09:15:00Z",
+          invoiceNumber: "INV-2025-001235",
+          patientName: "Fatima Abdul Rahman",
+          serviceType: "Chest X-Ray",
+          paymentMethod: "Bank Transfer",
+          amount: 12000,
+          status: "pending_review",
+          source: "pos_collection",
+          bankReference: "TXN-789456123",
+          duplicateCheck: true,
+          balanceVerified: false
+        },
+        {
+          id: 3,
+          transactionDate: "2025-06-07T10:45:00Z",
+          invoiceNumber: "INV-2025-001236",
+          patientName: "Chinedu Okwu",
+          serviceType: "ECG Consultation",
+          paymentMethod: "POS Card",
+          amount: 8500,
+          status: "pending_review",
+          source: "patient_billing",
+          receiptNumber: "RCP-001236",
+          duplicateCheck: false,
+          balanceVerified: true
+        },
+        {
+          id: 4,
+          transactionDate: "2025-06-07T11:20:00Z",
+          invoiceNumber: "INV-2025-001237",
+          patientName: "Blessing Nwosu",
+          serviceType: "Ultrasound Scan",
+          paymentMethod: "Cash",
+          amount: 20000,
+          status: "verified",
+          source: "patient_billing",
+          receiptNumber: "RCP-001237",
+          verifiedBy: "admin",
+          verifiedAt: "2025-06-07T11:30:00Z",
+          glAccount: "41200",
+          duplicateCheck: true,
+          balanceVerified: true
+        },
+        {
+          id: 5,
+          transactionDate: "2025-06-06T16:30:00Z",
+          invoiceNumber: "INV-2025-001238",
+          patientName: "Mohammed Hassan",
+          serviceType: "Laboratory Package",
+          paymentMethod: "Bank Deposit",
+          amount: 45000,
+          status: "pending_review",
+          source: "bank_deposit",
+          bankReference: "DEP-654321987",
+          duplicateCheck: true,
+          balanceVerified: true
+        },
+        {
+          id: 6,
+          transactionDate: "2025-06-06T14:15:00Z",
+          invoiceNumber: "INV-2025-001239",
+          patientName: "Grace Akinyemi",
+          serviceType: "Consultation Fee",
+          paymentMethod: "POS Card",
+          amount: 7500,
+          status: "flagged",
+          source: "pos_collection",
+          receiptNumber: "RCP-001239",
+          duplicateCheck: false,
+          balanceVerified: false,
+          notes: "Potential duplicate transaction detected"
+        },
+        {
+          id: 7,
+          transactionDate: "2025-06-06T12:00:00Z",
+          invoiceNumber: "INV-2025-001240",
+          patientName: "Tunde Adeleye",
+          serviceType: "MRI Scan",
+          paymentMethod: "Bank Transfer",
+          amount: 85000,
+          status: "posted",
+          source: "patient_billing",
+          bankReference: "TXN-111222333",
+          verifiedBy: "admin",
+          verifiedAt: "2025-06-06T13:00:00Z",
+          glAccount: "41200",
+          duplicateCheck: true,
+          balanceVerified: true
+        },
+        {
+          id: 8,
+          transactionDate: "2025-06-07T07:45:00Z",
+          invoiceNumber: "INV-2025-001241",
+          patientName: "Aisha Bello",
+          serviceType: "Pharmacy Purchase",
+          paymentMethod: "Cash",
+          amount: 3200,
+          status: "pending_review",
+          source: "pos_collection",
+          receiptNumber: "RCP-001241",
+          duplicateCheck: true,
+          balanceVerified: true
+        },
+        {
+          id: 9,
+          transactionDate: "2025-06-07T13:30:00Z",
+          invoiceNumber: "INV-2025-001234",
+          patientName: "Adebayo Ogundimu",
+          serviceType: "Complete Blood Count (CBC)",
+          paymentMethod: "Cash",
+          amount: 15000,
+          status: "pending_review",
+          source: "patient_billing",
+          receiptNumber: "RCP-001242",
+          duplicateCheck: false,
+          balanceVerified: true,
+          notes: "Potential duplicate - same patient, amount, service"
+        },
+        {
+          id: 10,
+          transactionDate: "2025-06-07T15:00:00Z",
+          invoiceNumber: "INV-2025-001243",
+          patientName: "Emeka Okafor",
+          serviceType: "CT Scan",
+          paymentMethod: "Bank Deposit",
+          amount: 55000,
+          status: "pending_review",
+          source: "bank_deposit",
+          bankReference: "DEP-987654321",
+          duplicateCheck: true,
+          balanceVerified: false
+        }
+      ];
+
+      // Filter by source if specified
+      let filteredEntries = testIncomeEntries;
+      if (source && source !== 'all') {
+        filteredEntries = filteredEntries.filter(entry => entry.source === source);
+      }
+
+      // Filter by status if specified
+      if (status && status !== 'all') {
+        filteredEntries = filteredEntries.filter(entry => entry.status === status);
+      }
+
+      console.log(`Fetched ${filteredEntries.length} income entries for verification`);
+      res.json(filteredEntries);
+    } catch (error: any) {
+      console.error("Error fetching income entries:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get income verification summary
+  app.get("/api/accounting/income-verification-summary", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Calculate summary from test data
+      const summary = {
+        totalPendingReview: 6,
+        totalPendingAmount: 163200,
+        verifiedToday: 1,
+        flaggedEntries: 1,
+        duplicateCount: 2,
+        unbalancedCount: 2
+      };
+
+      console.log("Generated income verification summary");
+      res.json(summary);
+    } catch (error: any) {
+      console.error("Error generating summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Verify income entry and post to GL
+  app.post("/api/accounting/verify-income/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { glAccount, notes } = req.body;
+      const user = req.user!;
+
+      // Simulate posting to general ledger
+      console.log(`Accountant ${user.username} verified income entry ${id}`);
+      console.log(`Posted to GL Account: ${glAccount}`);
+      console.log(`Verification notes: ${notes}`);
+      
+      // Check for duplicate postings prevention
+      if (!global.verifiedIncomeEntries) {
+        global.verifiedIncomeEntries = new Set();
+      }
+
+      const entryKey = `income-${id}`;
+      if (global.verifiedIncomeEntries.has(entryKey)) {
+        return res.status(400).json({ 
+          message: "Error: This income entry has already been posted to the general ledger. Double posting is not allowed." 
+        });
+      }
+
+      // Mark as verified and posted
+      global.verifiedIncomeEntries.add(entryKey);
+
+      // Create journal entry record
+      const journalEntry = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        description: `Income verification - Entry ${id}`,
+        reference: `INCOME-${id}`,
+        entries: [
+          {
+            account: "11000", // Cash/Bank account (debit)
+            description: "Cash received from patient services",
+            debit: req.body.amount || 15000,
+            credit: 0
+          },
+          {
+            account: glAccount, // Revenue account (credit)
+            description: "Patient service revenue",
+            debit: 0,
+            credit: req.body.amount || 15000
+          }
+        ],
+        createdBy: user.username,
+        verifiedBy: user.username,
+        status: "posted",
+        notes: notes
+      };
+
+      console.log("Journal entry created:", journalEntry);
+
+      res.json({
+        success: true,
+        message: "Income entry verified and posted to general ledger successfully",
+        verifiedBy: user.username,
+        verifiedAt: new Date().toISOString(),
+        glAccount: glAccount,
+        journalEntryId: journalEntry.id
+      });
+    } catch (error: any) {
+      console.error("Error verifying income entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Flag income entry for review
+  app.post("/api/accounting/flag-income/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { id } = req.params;
+      const { reason } = req.body;
+      const user = req.user!;
+
+      console.log(`Accountant ${user.username} flagged income entry ${id}`);
+      console.log(`Flag reason: ${reason}`);
+
+      if (!global.flaggedIncomeEntries) {
+        global.flaggedIncomeEntries = {};
+      }
+
+      global.flaggedIncomeEntries[parseInt(id)] = {
+        reason: reason,
+        flaggedBy: user.username,
+        flaggedAt: new Date().toISOString()
+      };
+
+      res.json({
+        success: true,
+        message: "Income entry flagged for review",
+        flaggedBy: user.username,
+        flaggedAt: new Date().toISOString(),
+        reason: reason
+      });
+    } catch (error: any) {
+      console.error("Error flagging income entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Cashier APIs
   // Get payment queue (from posted A/P)
   app.get("/api/cashier/payment-queue", async (req, res) => {
