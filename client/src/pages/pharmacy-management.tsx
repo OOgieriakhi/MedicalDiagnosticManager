@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
+import DashboardMessaging from "@/components/dashboard-messaging";
 
 export default function PharmacyManagement() {
   const { user } = useAuth();
@@ -204,6 +205,11 @@ export default function PharmacyManagement() {
             New Prescription
           </Button>
         </div>
+      </div>
+
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
       </div>
 
       {/* Date Range Filter */}
