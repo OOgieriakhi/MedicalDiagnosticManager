@@ -51,44 +51,30 @@ export const branches = pgTable("branches", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Patients
+// Patients - Clean registration only
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
-  patientId: text("patient_id").notNull().unique(), // Generated ID like P-2024-001
+  patientId: text("patient_id").notNull().unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  fullName: text("full_name"), // Computed field for search
-  email: text("email"),
-  phone: text("phone").notNull(),
+  middleName: text("middle_name").default(""),
+  phone: text("phone"),
   dateOfBirth: timestamp("date_of_birth"),
-  gender: text("gender"), // male, female, other
-  address: text("address"),
-  nin: text("nin"), // National Identification Number (11 digits)
-  pathway: text("pathway").notNull().default("self"), // self, referral
-  referralSource: text("referral_source"), // Source of referral
-  referralProviderId: integer("referral_provider_id"),
-  tenantId: integer("tenant_id").notNull(),
-  branchId: integer("branch_id").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Referral Providers for commission tracking
+// Referral Providers
 export const referralProviders = pgTable("referral_providers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // doctor, clinic, hospital, agent
   contactPerson: text("contact_person"),
-  email: text("email"),
   phone: text("phone"),
+  email: text("email"),
   address: text("address"),
-  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Percentage
-  maxRebateLimit: decimal("max_rebate_limit", { precision: 10, scale: 2 }).default("0.00"), // Per test limit
-  requiresCommissionSetup: boolean("requires_commission_setup").notNull().default(false), // Flag for managers
-  tenantId: integer("tenant_id").notNull(),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Test Categories
