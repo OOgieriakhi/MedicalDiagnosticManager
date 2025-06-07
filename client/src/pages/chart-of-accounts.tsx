@@ -25,7 +25,8 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  Wallet
+  Wallet,
+  Printer
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -172,6 +173,119 @@ export default function ChartOfAccounts() {
     }
   };
 
+  // Check if data is available for export
+  const hasData = filteredAccounts && filteredAccounts.length > 0;
+
+  // Print functionality
+  const handlePrint = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to print", 
+        description: "Please search or filter to view chart of accounts data",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Chart of Accounts</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #1f2937; text-align: center; }
+            .summary { margin: 20px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f3f4f6; }
+            .amount { text-align: right; }
+            .type-asset { color: #2563eb; }
+            .type-liability { color: #dc2626; }
+            .type-equity { color: #7c3aed; }
+            .type-revenue { color: #059669; }
+            .type-expense { color: #ea580c; }
+          </style>
+        </head>
+        <body>
+          <h1>Chart of Accounts</h1>
+          <div class="summary">
+            <p><strong>Total Accounts:</strong> ${filteredAccounts.length}</p>
+            <p><strong>Filter:</strong> ${filterType === 'all' ? 'All Types' : filterType.toUpperCase()}</p>
+            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th>Type</th>
+                <th>Sub Type</th>
+                <th>Current Balance</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredAccounts.map((account: Account) => `
+                <tr>
+                  <td>${account.accountCode}</td>
+                  <td>${account.accountName}</td>
+                  <td class="type-${account.accountType}">${account.accountType.toUpperCase()}</td>
+                  <td>${account.subType}</td>
+                  <td class="amount">${formatCurrency(account.currentBalance)}</td>
+                  <td>${account.isActive ? 'Active' : 'Inactive'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+  // Export to CSV functionality
+  const exportToCSV = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to export", 
+        description: "Please search or filter to view chart of accounts data",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    let csvContent = "Chart of Accounts Export\n";
+    csvContent += `Total Accounts,${filteredAccounts.length}\n`;
+    csvContent += `Filter,${filterType === 'all' ? 'All Types' : filterType.toUpperCase()}\n`;
+    csvContent += `Generated,${new Date().toLocaleString()}\n`;
+    csvContent += "\n";
+
+    csvContent += "Account Code,Account Name,Type,Sub Type,Current Balance,Status\n";
+    filteredAccounts.forEach((account: Account) => {
+      csvContent += `"${account.accountCode}","${account.accountName}","${account.accountType}","${account.subType}",${account.currentBalance},"${account.isActive ? 'Active' : 'Inactive'}"\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `chart-of-accounts-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -189,9 +303,23 @@ export default function ChartOfAccounts() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePrint}
+            disabled={!hasData}
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToCSV}
+            disabled={!hasData}
+          >
             <Download className="w-4 h-4 mr-2" />
-            Export
+            Export CSV
           </Button>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
