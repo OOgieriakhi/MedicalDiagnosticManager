@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { MessageNotification } from "@/components/message-notification";
+import DashboardMessaging from "@/components/dashboard-messaging";
 import { 
   Zap, 
   Clock, 

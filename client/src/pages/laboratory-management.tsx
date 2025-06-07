@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { MessageNotification } from "@/components/message-notification";
+import DashboardMessaging from "@/components/dashboard-messaging";
 import { 
   Search, 
   TestTube, 
@@ -885,6 +886,11 @@ export default function LaboratoryManagement() {
           </div>
         </div>
         <MessageNotification />
+      </div>
+
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
       </div>
 
       {/* Laboratory Workflow Metrics Dashboard */}
