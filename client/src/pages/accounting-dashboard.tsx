@@ -208,6 +208,144 @@ export default function AccountingDashboard() {
         <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
       </div>
 
+      {/* Quick Access Tools */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calculator className="w-5 h-5" />
+            Accounting Tools & Quick Actions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {/* Financial Reports */}
+            <Link href="/financial-reports">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <FileText className="w-6 h-6 text-blue-600" />
+                <span className="text-xs text-center">Financial Reports</span>
+              </Button>
+            </Link>
+
+            {/* Chart of Accounts */}
+            <Link href="/chart-of-accounts">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <BarChart3 className="w-6 h-6 text-green-600" />
+                <span className="text-xs text-center">Chart of Accounts</span>
+              </Button>
+            </Link>
+
+            {/* General Ledger */}
+            <Link href="/general-ledger">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <Building className="w-6 h-6 text-purple-600" />
+                <span className="text-xs text-center">General Ledger</span>
+              </Button>
+            </Link>
+
+            {/* Trial Balance */}
+            <Link href="/trial-balance">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <Calculator className="w-6 h-6 text-indigo-600" />
+                <span className="text-xs text-center">Trial Balance</span>
+              </Button>
+            </Link>
+
+            {/* Bank Reconciliation */}
+            <Link href="/bank-reconciliation">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <CreditCard className="w-6 h-6 text-teal-600" />
+                <span className="text-xs text-center">Bank Reconciliation</span>
+              </Button>
+            </Link>
+
+            {/* Accounts Payable */}
+            <Link href="/accounts-payable">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <TrendingDown className="w-6 h-6 text-red-600" />
+                <span className="text-xs text-center">Accounts Payable</span>
+              </Button>
+            </Link>
+
+            {/* Accounts Receivable */}
+            <Link href="/accounts-receivable">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <TrendingUp className="w-6 h-6 text-orange-600" />
+                <span className="text-xs text-center">Accounts Receivable</span>
+              </Button>
+            </Link>
+
+            {/* Cash Flow Management */}
+            <Link href="/cash-flow">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <Wallet className="w-6 h-6 text-cyan-600" />
+                <span className="text-xs text-center">Cash Flow</span>
+              </Button>
+            </Link>
+
+            {/* Budget vs Actual */}
+            <Link href="/budget-analysis">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <PieChart className="w-6 h-6 text-amber-600" />
+                <span className="text-xs text-center">Budget Analysis</span>
+              </Button>
+            </Link>
+
+            {/* Tax Reports */}
+            <Link href="/tax-reports">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <Calendar className="w-6 h-6 text-slate-600" />
+                <span className="text-xs text-center">Tax Reports</span>
+              </Button>
+            </Link>
+
+            {/* Inventory Valuation */}
+            <Link href="/inventory-valuation">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <Upload className="w-6 h-6 text-emerald-600" />
+                <span className="text-xs text-center">Inventory Valuation</span>
+              </Button>
+            </Link>
+
+            {/* Fixed Assets */}
+            <Link href="/fixed-assets">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <Building className="w-6 h-6 text-stone-600" />
+                <span className="text-xs text-center">Fixed Assets</span>
+              </Button>
+            </Link>
+          </div>
+
+          {/* Secondary Actions Row */}
+          <div className="mt-4 pt-4 border-t">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Button 
+                variant="ghost" 
+                className="flex items-center gap-2"
+                onClick={() => setShowJournalEntryForm(true)}
+              >
+                <Plus className="w-4 h-4" />
+                New Journal Entry
+              </Button>
+
+              <Button variant="ghost" className="flex items-center gap-2">
+                <Upload className="w-4 h-4" />
+                Import Transactions
+              </Button>
+
+              <Button variant="ghost" className="flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Export Data
+              </Button>
+
+              <Button variant="ghost" className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Sync Banks
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Financial Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <motion.div

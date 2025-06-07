@@ -62,6 +62,9 @@ import TransactionVerificationDashboard from "@/pages/transaction-verification-d
 import BankDepositRecording from "@/pages/bank-deposit-recording";
 import { RevenueForecastingPage } from "@/pages/revenue-forecasting-page";
 import EnhancedForecastingPage from "@/pages/enhanced-forecasting-page";
+import ChartOfAccounts from "@/pages/chart-of-accounts";
+import BankReconciliation from "@/pages/bank-reconciliation";
+import GeneralLedger from "@/pages/general-ledger";
 
 function Router() {
   return (
@@ -119,6 +122,8 @@ function Router() {
       <ProtectedRoute path="/bank-deposit-recording" component={BankDepositRecording} />
       <ProtectedRoute path="/revenue-forecasting" component={RevenueForecastingPage} />
       <ProtectedRoute path="/enhanced-forecasting" component={EnhancedForecastingPage} />
+      <ProtectedRoute path="/chart-of-accounts" component={ChartOfAccounts} />
+      <ProtectedRoute path="/bank-reconciliation" component={BankReconciliation} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
