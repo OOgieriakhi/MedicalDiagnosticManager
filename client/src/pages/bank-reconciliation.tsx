@@ -56,6 +56,7 @@ export default function BankReconciliation() {
   const [reconciliationDate, setReconciliationDate] = useState(new Date().toISOString().split('T')[0]);
   const [statementBalance, setStatementBalance] = useState("");
   const [selectedTransactions, setSelectedTransactions] = useState<number[]>([]);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
   // Fetch bank accounts
   const { data: bankAccounts = [] } = useQuery({
@@ -191,6 +192,52 @@ export default function BankReconciliation() {
     });
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const exportToCSV = () => {
+    const selectedAccountData = bankAccounts.find((acc: any) => acc.id.toString() === selectedAccount);
+    const accountName = selectedAccountData ? `${selectedAccountData.accountName} - ${selectedAccountData.accountNumber}` : 'Selected Account';
+    
+    const csvData = [
+      ['Bank Reconciliation Report'],
+      ['Account:', accountName],
+      ['Reconciliation Date:', reconciliationDate],
+      ['Statement Balance:', statementBalance],
+      [''],
+      ['Selected Transactions'],
+      ['Date', 'Description', 'Type', 'Amount', 'Reconciled'],
+      ...transactions
+        .filter((t: BankTransaction) => selectedTransactions.includes(t.id))
+        .map((t: BankTransaction) => [
+          t.date,
+          t.description,
+          t.type,
+          t.amount.toString(),
+          'Yes'
+        ]),
+      [''],
+      ['Reconciliation Summary'],
+      ['Book Balance', balances.bookBalance.toString()],
+      ['Outstanding Checks', balances.outstandingChecks.toString()],
+      ['Deposits in Transit', balances.depositsInTransit.toString()],
+      ['Adjusted Bank Balance', balances.adjustedBankBalance.toString()],
+      ['Bank Charges', balances.bankCharges.toString()],
+      ['Adjusted Book Balance', balances.adjustedBookBalance.toString()],
+      ['Difference', balances.difference.toString()],
+      ['Status', isReconciled ? 'Reconciled' : 'Not Reconciled']
+    ];
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bank-reconciliation-${reconciliationDate}.csv`;
+    a.click();
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -208,9 +255,13 @@ export default function BankReconciliation() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handlePrint}>
             <Download className="w-4 h-4 mr-2" />
-            Export Report
+            Print Report
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
           </Button>
         </div>
       </div>
