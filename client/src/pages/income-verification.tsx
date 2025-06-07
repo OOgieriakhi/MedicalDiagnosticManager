@@ -98,7 +98,7 @@ export default function IncomeVerification() {
   // Verify income entry mutation
   const verifyEntryMutation = useMutation({
     mutationFn: async ({ id, glAccount, notes }: { id: number, glAccount: string, notes: string }) => {
-      return apiRequest(`/api/accounting/verify-income/${id}`, 'POST', { glAccount, notes });
+      return apiRequest('POST', `/api/accounting/verify-income/${id}`, { glAccount, notes });
     },
     onSuccess: () => {
       toast({
@@ -121,7 +121,7 @@ export default function IncomeVerification() {
   // Flag entry mutation
   const flagEntryMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number, reason: string }) => {
-      return apiRequest(`/api/accounting/flag-income/${id}`, 'POST', { reason });
+      return apiRequest('POST', `/api/accounting/flag-income/${id}`, { reason });
     },
     onSuccess: () => {
       toast({
