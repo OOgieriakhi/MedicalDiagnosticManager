@@ -350,6 +350,11 @@ export default function RadiologyManagement() {
         </div>
       </div>
 
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
+      </div>
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>

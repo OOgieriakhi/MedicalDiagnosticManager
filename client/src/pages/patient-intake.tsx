@@ -28,6 +28,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import DynamicProgressTracker from "@/components/progress/dynamic-progress-tracker";
+import DashboardMessaging from "@/components/dashboard-messaging";
 import { Link } from "wouter";
 
 export default function PatientIntake() {

@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { MessageNotification } from "@/components/message-notification";
+import DashboardMessaging from "@/components/dashboard-messaging";
 
 const itemSchema = z.object({
   tenantId: z.number(),

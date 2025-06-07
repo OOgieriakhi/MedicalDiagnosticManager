@@ -14,6 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
 import { FinancialReports } from "@/components/FinancialReports";
 import { BudgetAnalysis } from "@/components/BudgetAnalysis";
+import DashboardMessaging from "@/components/dashboard-messaging";
 import { 
   DollarSign,
   TrendingUp,
@@ -200,6 +201,11 @@ export default function AccountingDashboard() {
             New Entry
           </Button>
         </div>
+      </div>
+
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
       </div>
 
       {/* Financial Summary Cards */}
