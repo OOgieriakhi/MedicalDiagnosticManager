@@ -65,6 +65,9 @@ import EnhancedForecastingPage from "@/pages/enhanced-forecasting-page";
 import ChartOfAccounts from "@/pages/chart-of-accounts";
 import BankReconciliation from "@/pages/bank-reconciliation";
 import GeneralLedger from "@/pages/general-ledger";
+import TrialBalance from "@/pages/trial-balance";
+import AccountsPayable from "@/pages/accounts-payable";
+import AccountsReceivable from "@/pages/accounts-receivable";
 
 function Router() {
   return (
@@ -125,6 +128,9 @@ function Router() {
       <ProtectedRoute path="/chart-of-accounts" component={ChartOfAccounts} />
       <ProtectedRoute path="/bank-reconciliation" component={BankReconciliation} />
       <ProtectedRoute path="/general-ledger" component={GeneralLedger} />
+      <ProtectedRoute path="/trial-balance" component={TrialBalance} />
+      <ProtectedRoute path="/accounts-payable" component={AccountsPayable} />
+      <ProtectedRoute path="/accounts-receivable" component={AccountsReceivable} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
