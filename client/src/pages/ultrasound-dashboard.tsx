@@ -1,615 +1,297 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Search, Calendar, FileText, Activity, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import DashboardMessaging from "@/components/dashboard-messaging";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { 
-  Waves, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  Heart,
-  Monitor,
-  Calendar,
-  Users,
-  Camera,
-  FileImage,
-  Activity,
-  Shield,
-  Eye,
-  Download,
-  RefreshCw,
-  BarChart3,
-  FileText,
-  Play,
-  Square
-} from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+
+interface UltrasoundStudy {
+  id: string;
+  patientName: string;
+  patientId: string;
+  studyType: string;
+  scheduledTime: string;
+  status: string;
+  technician: string;
+  priority: string;
+  bodyPart: string;
+}
 
 export default function UltrasoundDashboard() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [dateRange, setDateRange] = useState("today");
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Workflow state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [currentAction, setCurrentAction] = useState<string>('');
-  const [currentStudy, setCurrentStudy] = useState<any>(null);
-  const [findings, setFindings] = useState('');
-  const [interpretation, setInterpretation] = useState('');
-  const [recommendation, setRecommendation] = useState('');
-  const [expectedHours, setExpectedHours] = useState('2');
-
-  // Workflow mutations
-  const verifyPaymentMutation = useMutation({
-    mutationFn: async (studyId: string) => {
-      const testId = studyId.replace('pt-', '');
-      const response = await apiRequest('POST', `/api/patient-tests/${testId}/verify-payment`);
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Payment verified successfully", variant: "default" });
-      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to verify payment", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const startImagingMutation = useMutation({
-    mutationFn: async ({ studyId, expectedHours }: { studyId: string; expectedHours: string }) => {
-      const testId = studyId.replace('pt-', '');
-      const response = await apiRequest('POST', `/api/patient-tests/${testId}/start-imaging`, {
-        expectedHours: parseInt(expectedHours),
-        imagingType: 'Ultrasound'
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Ultrasound imaging started successfully", variant: "default" });
-      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
-      setDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to start imaging", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const completeImagingMutation = useMutation({
-    mutationFn: async ({ studyId, findings, interpretation, recommendation }: any) => {
-      const testId = studyId.replace('pt-', '');
-      const response = await apiRequest('POST', `/api/patient-tests/${testId}/complete-imaging`, {
-        findings,
-        interpretation,
-        recommendation
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Ultrasound study completed successfully", variant: "default" });
-      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
-      setDialogOpen(false);
-      resetForm();
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to complete study", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const releaseReportMutation = useMutation({
-    mutationFn: async (studyId: string) => {
-      const testId = studyId.replace('pt-', '');
-      const response = await apiRequest('POST', `/api/patient-tests/${testId}/release-report`, {
-        releaseTo: 'patient',
-        releaseMethod: 'digital'
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Report released successfully", variant: "default" });
-      queryClient.invalidateQueries({ queryKey: ["/api/ultrasound/studies"] });
-    },
-    onError: (error: any) => {
-      toast({ title: "Failed to release report", description: error.message, variant: "destructive" });
-    }
-  });
-
-  const resetForm = () => {
-    setFindings('');
-    setInterpretation('');
-    setRecommendation('');
-    setExpectedHours('2');
-    setCurrentStudy(null);
-    setCurrentAction('');
-  };
-
-  const handleAction = (action: string, study: any) => {
-    setCurrentAction(action);
-    setCurrentStudy(study);
-    if (action === 'verify-payment') {
-      verifyPaymentMutation.mutate(study.id);
-    } else if (action === 'release-report') {
-      releaseReportMutation.mutate(study.id);
-    } else {
-      setDialogOpen(true);
-    }
-  };
-
-  const handleDialogSubmit = () => {
-    if (currentAction === 'start-imaging') {
-      startImagingMutation.mutate({ studyId: currentStudy.id, expectedHours });
-    } else if (currentAction === 'complete-imaging') {
-      completeImagingMutation.mutate({ 
-        studyId: currentStudy.id, 
-        findings, 
-        interpretation, 
-        recommendation 
-      });
-    }
-  };
-
-  // Ultrasound metrics query
-  const { data: ultrasoundMetrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ["/api/ultrasound/metrics", user?.branchId, startDate, endDate],
+  // Fetch ultrasound studies
+  const { data: studies = [], isLoading } = useQuery<UltrasoundStudy[]>({
+    queryKey: ["/api/ultrasound/studies", selectedDate],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (user?.branchId) params.append('branchId', user.branchId.toString());
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      
-      const response = await fetch(`/api/ultrasound/metrics?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch ultrasound metrics");
+      const response = await fetch(`/api/ultrasound/studies?date=${selectedDate}`);
       return response.json();
     },
-    enabled: !!user?.branchId
   });
 
-  // Recent studies query
-  const { data: recentStudies, isLoading: studiesLoading } = useQuery({
-    queryKey: ["/api/ultrasound/studies", user?.branchId],
+  // Fetch dashboard metrics
+  const { data: metrics } = useQuery({
+    queryKey: ["/api/ultrasound/metrics"],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (user?.branchId) params.append('branchId', user.branchId.toString());
-      
-      const response = await fetch(`/api/ultrasound/studies?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch ultrasound studies");
+      const response = await fetch("/api/ultrasound/metrics");
       return response.json();
     },
-    enabled: !!user?.branchId
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed': return "bg-green-100 text-green-800";
-      case 'in_progress': case 'in progress': return "bg-blue-100 text-blue-800";
-      case 'scheduled': return "bg-yellow-100 text-yellow-800";
-      case 'cancelled': return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+  const filteredStudies = studies.filter(study =>
+    study.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    study.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    study.studyType.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed": return "default";
+      case "in-progress": return "secondary";
+      case "scheduled": return "outline";
+      case "urgent": return "destructive";
+      default: return "outline";
     }
   };
 
-  if (!user) {
-    return (
-      <div className="p-6">
-        <div className="text-center">
-          <p className="text-gray-500">Please log in to access the ultrasound dashboard.</p>
-        </div>
-      </div>
-    );
-  }
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "urgent": return "destructive";
+      case "high": return "secondary";
+      case "normal": return "outline";
+      default: return "outline";
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ultrasound Dashboard</h1>
-          <p className="text-gray-600">Manage ultrasound studies and workflow processes</p>
+          <h1 className="text-3xl font-bold">Ultrasound Department</h1>
+          <p className="text-muted-foreground">
+            Diagnostic imaging and ultrasound studies management
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          <Button className="bg-purple-600 hover:bg-purple-700">
-            <Waves className="w-4 h-4 mr-2" />
-            New Study
-          </Button>
-        </div>
+        <Button>
+          <Calendar className="h-4 w-4 mr-2" />
+          Schedule Study
+        </Button>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Studies</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {ultrasoundMetrics?.totalStudies || 0}
-                </p>
-                <p className="text-xs text-purple-600">
-                  {ultrasoundMetrics?.todayStudies || 0} today
-                </p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Waves className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Today's Studies</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{metrics?.todayStudies || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Scheduled for today
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {ultrasoundMetrics?.completionRate || 0}%
-                </p>
-                <p className="text-xs text-green-600">
-                  {ultrasoundMetrics?.avgTurnaroundTime || 0}h avg turnaround
-                </p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {metrics?.completedStudies || 0}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Studies completed today
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Equipment Active</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {ultrasoundMetrics?.activeEquipment || 0}/{ultrasoundMetrics?.totalEquipment || 0}
-                </p>
-                <p className="text-xs text-green-600">
-                  {ultrasoundMetrics?.equipmentUtilization || 0}% utilization
-                </p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <Monitor className="w-6 h-6 text-green-600" />
-              </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <Clock className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {metrics?.inProgressStudies || 0}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Currently being performed
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Quality Score</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {ultrasoundMetrics?.qualityScore || 0}%
-                </p>
-                <p className="text-xs text-blue-600">
-                  {ultrasoundMetrics?.retakeRate || 0}% retake rate
-                </p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Shield className="w-6 h-6 text-blue-600" />
-              </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Urgent Cases</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {metrics?.urgentStudies || 0}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Requiring immediate attention
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="workflow" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="workflow">Ultrasound Workflow</TabsTrigger>
-          <TabsTrigger value="studies">Recent Studies</TabsTrigger>
+      <Tabs defaultValue="schedule" className="space-y-6">
+        <TabsList>
           <TabsTrigger value="schedule">Study Schedule</TabsTrigger>
+          <TabsTrigger value="equipment">Equipment Status</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="workflow" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5" />
-                Ultrasound Workflow Management
-              </CardTitle>
-              <p className="text-sm text-gray-600">
-                Manage paid ultrasound requests through the workflow process
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentStudies?.map((study: any) => {
-                  // Get background color based on workflow status
-                  const getBackgroundColor = () => {
-                    if (study.status === 'scheduled' && !study.paymentVerified) {
-                      return 'bg-red-50 border-red-200'; // Payment pending - red
-                    } else if (study.status === 'scheduled' && study.paymentVerified) {
-                      return 'bg-blue-50 border-blue-200'; // Payment verified - blue
-                    } else if (study.status === 'in_progress' || study.status === 'processing') {
-                      return 'bg-yellow-50 border-yellow-200'; // In progress - yellow
-                    } else if (study.status === 'completed' || study.status === 'reported') {
-                      return 'bg-green-50 border-green-200'; // Completed - green
-                    }
-                    return 'bg-gray-50 border-gray-200'; // Default - gray
-                  };
-
-                  return (
-                  <div key={study.id} className={`flex items-center justify-between p-4 border rounded-lg ${getBackgroundColor()}`}>
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <Waves className="w-5 h-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{study.testName}</p>
-                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
-                        <p className="text-xs text-gray-500">
-                          Scheduled: {new Date(study.scheduledAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={study.status === 'scheduled' ? 'secondary' : study.status === 'in_progress' ? 'default' : 'outline'}>
-                        {study.status?.replace('_', ' ').toUpperCase() || 'SCHEDULED'}
-                      </Badge>
-                      
-                      {study.status === 'scheduled' && !study.paymentVerified && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAction('verify-payment', study)}
-                          disabled={verifyPaymentMutation.isPending}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Verify Payment
-                        </Button>
-                      )}
-                      
-                      {study.paymentVerified && study.status === 'scheduled' && (
-                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-                          Payment Verified
-                        </Badge>
-                      )}
-                      
-                      {(study.status === 'payment_verified' || (study.status === 'scheduled' && study.paymentVerified)) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAction('start-imaging', study)}
-                          disabled={startImagingMutation.isPending}
-                        >
-                          <Play className="w-4 h-4 mr-1" />
-                          Start Ultrasound
-                        </Button>
-                      )}
-                      
-                      {study.status === 'in_progress' && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open('/report-designer', '_blank')}
-                            className="text-purple-600 border-purple-200 bg-purple-50 hover:bg-purple-100"
-                          >
-                            <FileText className="w-4 h-4 mr-1" />
-                            Report Form
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAction('complete-imaging', study)}
-                            disabled={completeImagingMutation.isPending}
-                          >
-                            <FileText className="w-4 h-4 mr-1" />
-                            Complete Study
-                          </Button>
-                        </>
-                      )}
-                      
-                      {study.status === 'completed' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAction('release-report', study)}
-                          disabled={releaseReportMutation.isPending}
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          Release Report
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
-                
-                {(!recentStudies || recentStudies.length === 0) && (
-                  <div className="text-center py-8 text-gray-500">
-                    No ultrasound studies found for the selected period
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="studies" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="w-5 h-5" />
-                Recent Ultrasound Studies
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentStudies?.map((study: any) => {
-                  // Get background color based on workflow status
-                  const getBackgroundColor = () => {
-                    if (study.status === 'scheduled' && !study.paymentVerified) {
-                      return 'bg-red-50 border-red-200'; // Payment pending - red
-                    } else if (study.status === 'scheduled' && study.paymentVerified) {
-                      return 'bg-blue-50 border-blue-200'; // Payment verified - blue
-                    } else if (study.status === 'in_progress' || study.status === 'processing') {
-                      return 'bg-yellow-50 border-yellow-200'; // In progress - yellow
-                    } else if (study.status === 'completed' || study.status === 'reported') {
-                      return 'bg-green-50 border-green-200'; // Completed - green
-                    }
-                    return 'bg-gray-50 border-gray-200'; // Default - gray
-                  };
-
-                  return (
-                  <div key={study.id} className={`flex items-center justify-between p-4 border rounded-lg ${getBackgroundColor()}`}>
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        <Heart className="w-5 h-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{study.testName}</p>
-                        <p className="text-sm text-gray-600">{study.patientName} • {study.patientId}</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(study.scheduledAt).toLocaleDateString()} at{' '}
-                          {new Date(study.scheduledAt).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right flex items-center gap-3">
-                      <div>
-                        <p className="text-sm font-medium">{study.categoryName}</p>
-                        <p className="text-xs text-gray-500">₦{study.price?.toLocaleString()}</p>
-                      </div>
-                      <Badge className={getStatusBadge(study.status)}>
-                        {study.status?.toUpperCase() || 'SCHEDULED'}
-                      </Badge>
-                      {(study.status === 'processing' || study.status === 'in_progress') && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => window.open('/report-designer', '_blank')}
-                          className="text-purple-600 border-purple-200 bg-purple-50 hover:bg-purple-100"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )})}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="schedule" className="space-y-6">
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search studies..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-48"
+            />
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>Study Schedule</CardTitle>
+              <CardTitle>Ultrasound Studies</CardTitle>
+              <CardDescription>
+                Manage and track ultrasound examinations
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                Study scheduling functionality coming soon
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Study Type</TableHead>
+                    <TableHead>Body Part</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Technician</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudies.map((study) => (
+                    <TableRow key={study.id}>
+                      <TableCell className="font-mono">
+                        {new Date(study.scheduledTime).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{study.patientName}</p>
+                          <p className="text-sm text-muted-foreground">{study.patientId}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{study.studyType}</TableCell>
+                      <TableCell>{study.bodyPart}</TableCell>
+                      <TableCell>
+                        <Badge variant={getPriorityColor(study.priority) as "default" | "destructive" | "outline" | "secondary"}>
+                          {study.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusColor(study.status) as "default" | "destructive" | "outline" | "secondary"}>
+                          {study.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{study.technician}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline">
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            Start Study
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="equipment" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Equipment Status</CardTitle>
+              <CardDescription>
+                Monitor ultrasound equipment status and maintenance
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h3 className="font-medium">Ultrasound Machine #1</h3>
+                    <p className="text-sm text-muted-foreground">Phillips HD15</p>
+                  </div>
+                  <Badge variant="default">Operational</Badge>
+                </div>
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h3 className="font-medium">Ultrasound Machine #2</h3>
+                    <p className="text-sm text-muted-foreground">GE Logiq E10</p>
+                  </div>
+                  <Badge variant="secondary">Maintenance Due</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Study Reports</CardTitle>
+              <CardDescription>
+                Generate and manage ultrasound study reports
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Report management system coming soon</p>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Workflow Action Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>
-              {currentAction === 'start-imaging' ? 'Start Ultrasound Study' : 'Complete Ultrasound Study'}
-            </DialogTitle>
-            <DialogDescription>
-              {currentAction === 'start-imaging' 
-                ? 'Set the expected completion time for this ultrasound study'
-                : 'Enter the ultrasound findings and interpretation'
-              }
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {currentAction === 'start-imaging' ? (
-              <div className="space-y-2">
-                <Label htmlFor="expectedHours">Expected Hours to Complete</Label>
-                <Select value={expectedHours} onValueChange={setExpectedHours}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select expected hours" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 hour</SelectItem>
-                    <SelectItem value="2">2 hours</SelectItem>
-                    <SelectItem value="4">4 hours</SelectItem>
-                    <SelectItem value="8">8 hours</SelectItem>
-                    <SelectItem value="24">24 hours</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="findings">Ultrasound Findings *</Label>
-                  <Textarea
-                    id="findings"
-                    placeholder="Enter detailed ultrasound findings..."
-                    value={findings}
-                    onChange={(e) => setFindings(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="interpretation">Interpretation</Label>
-                  <Textarea
-                    id="interpretation"
-                    placeholder="Enter clinical interpretation..."
-                    value={interpretation}
-                    onChange={(e) => setInterpretation(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="recommendation">Recommendation</Label>
-                  <Textarea
-                    id="recommendation"
-                    placeholder="Enter clinical recommendations..."
-                    value={recommendation}
-                    onChange={(e) => setRecommendation(e.target.value)}
-                    rows={2}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleDialogSubmit}
-              disabled={
-                (currentAction === 'complete-imaging' && !findings.trim()) ||
-                startImagingMutation.isPending ||
-                completeImagingMutation.isPending
-              }
-            >
-              {currentAction === 'start-imaging' ? 'Start Ultrasound' : 'Complete Study'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

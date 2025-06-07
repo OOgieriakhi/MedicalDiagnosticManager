@@ -146,14 +146,14 @@ export class MarketingStorage {
   async getInternalMessages(tenantId: number, userId: number, messageType?: string) {
     let whereClause = and(
       eq(internalMessages.tenantId, tenantId),
-      sql`${internalMessages.recipientIds}::jsonb ? ${userId}::text`
+      sql`jsonb_array_elements_text(${internalMessages.recipientIds}::jsonb) = ${userId}::text`
     );
     
     if (messageType) {
       whereClause = and(
         eq(internalMessages.tenantId, tenantId),
         eq(internalMessages.messageType, messageType),
-        sql`${internalMessages.recipientIds}::jsonb ? ${userId}::text`
+        sql`jsonb_array_elements_text(${internalMessages.recipientIds}::jsonb) = ${userId}::text`
       );
     }
 
@@ -397,7 +397,7 @@ export class MarketingStorage {
     if (userId) {
       whereClause = and(
         eq(internalMessages.tenantId, tenantId),
-        sql`${internalMessages.recipientIds}::jsonb ? ${userId}::text`
+        sql`jsonb_array_elements_text(${internalMessages.recipientIds}::jsonb) = ${userId}::text`
       );
     }
 
