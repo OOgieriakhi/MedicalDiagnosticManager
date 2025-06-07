@@ -167,6 +167,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard data endpoint for main dashboard
+  app.get("/api/dashboard-data", async (req: AuthenticatedRequest, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const branchId = req.query.branchId ? parseInt(String(req.query.branchId)) : req.user.branchId;
+      
+      // Calculate revenue from migrated transactions
+      const todayRevenue = await storage.calculateDailyRevenue();
+      const patientCount = await storage.getTodayPatientCount();
+      const transactionCount = await storage.getTodayTransactionCount();
+      
+      res.json({
+        revenue: {
+          total: todayRevenue.total,
+          cash: todayRevenue.cash,
+          pos: todayRevenue.pos,
+          transfer: todayRevenue.transfer,
+          transactionCount: transactionCount
+        },
+        patients: {
+          uniquePatients: patientCount,
+          totalVisits: patientCount
+        },
+        purchaseOrders: {
+          pending: 0,
+          approved: 0
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: "Error fetching dashboard data", error: error.message });
+    }
+  });
+
   // Financial management
   app.get("/api/financial-metrics", async (req: AuthenticatedRequest, res) => {
     if (!req.isAuthenticated() || !req.user) {

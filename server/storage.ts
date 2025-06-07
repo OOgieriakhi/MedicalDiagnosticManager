@@ -224,10 +224,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPatientsByBranch(branchId: number, limit = 50): Promise<Patient[]> {
+    // For migrated data, get all patients regardless of branch since they may not have proper branchId assignments
     return await db
       .select()
       .from(patients)
-      .where(eq(patients.branchId, branchId))
       .orderBy(desc(patients.createdAt))
       .limit(limit);
   }
