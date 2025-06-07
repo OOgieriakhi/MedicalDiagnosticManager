@@ -309,11 +309,21 @@ export default function GeneralLedger() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePrint}
+            disabled={!hasData}
+          >
             <Download className="w-4 h-4 mr-2" />
             Print
           </Button>
-          <Button variant="outline" size="sm" onClick={exportToCSV}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToCSV}
+            disabled={!hasData}
+          >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>

@@ -20,6 +20,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
 interface TrialBalanceAccount {
@@ -43,6 +44,7 @@ interface TrialBalanceSummary {
 
 export default function TrialBalance() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("current");
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0]);
   const [showAdjustments, setShowAdjustments] = useState(false);
@@ -72,32 +74,57 @@ export default function TrialBalance() {
     }).format(amount);
   };
 
+  // Check if data is available for export
+  const filteredAccounts = (trialBalanceData?.accounts || []).filter((account: TrialBalanceAccount) => {
+    if (accountTypeFilter === "all") return true;
+    return account.accountType.toLowerCase() === accountTypeFilter.toLowerCase();
+  });
+
+  const hasData = filteredAccounts && filteredAccounts.length > 0;
+
   // Print functionality
   const handlePrint = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to print", 
+        description: "Please select filters that return trial balance data",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const summary = trialBalanceData?.summary || {};
+    
     const printContent = `
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Trial Balance Report</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-            .report-title { font-size: 18px; margin-bottom: 10px; }
-            .report-date { font-size: 14px; color: #666; }
+            h1 { color: #1f2937; text-align: center; }
+            .summary { margin: 20px 0; }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f5f5f5; font-weight: bold; }
-            .text-right { text-align: right; }
-            .summary { margin-top: 30px; }
-            .balance-status { font-weight: bold; color: ${summary.isBalanced ? '#16a34a' : '#dc2626'}; }
-            .totals { border-top: 2px solid #000; font-weight: bold; }
+            th { background-color: #f3f4f6; }
+            .amount { text-align: right; }
+            .total { font-weight: bold; background-color: #f9fafb; }
+            .debit { color: #059669; }
+            .credit { color: #dc2626; }
+            .balanced { color: #059669; }
+            .unbalanced { color: #dc2626; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="company-name">Orient Medical Diagnostic Centre</div>
-            <div class="report-title">Trial Balance</div>
-            <div class="report-date">As of ${asOfDate} | Period: ${selectedPeriod}</div>
+          <h1>Trial Balance</h1>
+          <div class="summary">
+            <p><strong>As of Date:</strong> ${asOfDate}</p>
+            <p><strong>Period:</strong> ${selectedPeriod}</p>
+            <p><strong>Status:</strong> <span class="${summary.isBalanced ? 'balanced' : 'unbalanced'}">${summary.isBalanced ? 'Balanced' : 'Unbalanced'}</span></p>
+            ${summary.variance ? `<p><strong>Variance:</strong> ${formatCurrency(summary.variance)}</p>` : ''}
           </div>
           
           <table>
@@ -105,9 +132,9 @@ export default function TrialBalance() {
               <tr>
                 <th>Account Code</th>
                 <th>Account Name</th>
-                <th>Account Type</th>
-                <th class="text-right">Debit Balance</th>
-                <th class="text-right">Credit Balance</th>
+                <th>Type</th>
+                <th>Debit Balance</th>
+                <th>Credit Balance</th>
               </tr>
             </thead>
             <tbody>
@@ -116,78 +143,66 @@ export default function TrialBalance() {
                   <td>${account.accountCode}</td>
                   <td>${account.accountName}</td>
                   <td>${account.accountType}</td>
-                  <td class="text-right">${account.debitBalance > 0 ? formatCurrency(account.debitBalance) : ''}</td>
-                  <td class="text-right">${account.creditBalance > 0 ? formatCurrency(account.creditBalance) : ''}</td>
+                  <td class="amount debit">${account.debitBalance > 0 ? formatCurrency(account.debitBalance) : ''}</td>
+                  <td class="amount credit">${account.creditBalance > 0 ? formatCurrency(account.creditBalance) : ''}</td>
                 </tr>
               `).join('')}
-              <tr class="totals">
+              <tr class="total">
                 <td colspan="3"><strong>TOTALS</strong></td>
-                <td class="text-right"><strong>${formatCurrency(summary.totalDebits)}</strong></td>
-                <td class="text-right"><strong>${formatCurrency(summary.totalCredits)}</strong></td>
+                <td class="amount debit"><strong>${formatCurrency(summary.totalDebits || 0)}</strong></td>
+                <td class="amount credit"><strong>${formatCurrency(summary.totalCredits || 0)}</strong></td>
               </tr>
             </tbody>
           </table>
-          
-          <div class="summary">
-            <div class="balance-status">
-              Status: ${summary.isBalanced ? 'Books are Balanced' : 'Out of Balance'}
-            </div>
-            <div>Total Debits: ${formatCurrency(summary.totalDebits)}</div>
-            <div>Total Credits: ${formatCurrency(summary.totalCredits)}</div>
-            ${!summary.isBalanced ? `<div>Variance: ${formatCurrency(Math.abs(summary.variance))}</div>` : ''}
-            <div>Total Accounts: ${summary.accountCount}</div>
-            <div>Report Generated: ${new Date().toLocaleString()}</div>
-          </div>
         </body>
       </html>
     `;
-    
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.print();
-    }
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
   };
 
-  // Export to CSV
+  // Export to CSV functionality
   const exportToCSV = () => {
-    const headers = ['Account Code', 'Account Name', 'Account Type', 'Debit Balance', 'Credit Balance'];
-    const csvData = filteredAccounts.map(account => [
-      account.accountCode,
-      account.accountName,
-      account.accountType,
-      account.debitBalance || 0,
-      account.creditBalance || 0
-    ]);
-    
-    // Add totals row
-    csvData.push(['', '', 'TOTALS', summary.totalDebits, summary.totalCredits]);
-    
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `trial-balance-${asOfDate}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  };
+    if (!hasData) {
+      toast({ 
+        title: "No data to export", 
+        description: "Please select filters that return trial balance data",
+        variant: "destructive" 
+      });
+      return;
+    }
 
-  // Export to PDF
-  const exportToPDF = () => {
-    const content = `
-      <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="margin: 0; font-size: 24px;">Orient Medical Diagnostic Centre</h1>
-          <h2 style="margin: 5px 0; font-size: 18px;">Trial Balance</h2>
-          <p style="margin: 0; color: #666;">As of ${asOfDate} | Period: ${selectedPeriod}</p>
+    const summary = trialBalanceData?.summary || {};
+    
+    let csvContent = "Trial Balance Export\n";
+    csvContent += `As of Date,${asOfDate}\n`;
+    csvContent += `Period,${selectedPeriod}\n`;
+    csvContent += `Status,${summary.isBalanced ? 'Balanced' : 'Unbalanced'}\n`;
+    if (summary.variance) csvContent += `Variance,${summary.variance}\n`;
+    csvContent += "\n";
+
+    csvContent += "Account Code,Account Name,Type,Debit Balance,Credit Balance\n";
+    filteredAccounts.forEach(account => {
+      csvContent += `"${account.accountCode}","${account.accountName}","${account.accountType}",${account.debitBalance},${account.creditBalance}\n`;
+    });
+    
+    csvContent += "\n";
+    csvContent += `"TOTALS","","",${summary.totalDebits || 0},${summary.totalCredits || 0}\n`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `trial-balance-${asOfDate}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
         </div>
         
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
