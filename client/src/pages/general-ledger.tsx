@@ -58,12 +58,12 @@ export default function GeneralLedger() {
 
   // Fetch accounts for dropdown
   const { data: accounts = [] } = useQuery({
-    queryKey: ["/api/chart-of-accounts", user?.branchId],
+    queryKey: ["/api/accounting/chart-of-accounts", user?.branchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (user?.branchId) params.append('branchId', user.branchId.toString());
       
-      const response = await fetch(`/api/chart-of-accounts?${params}`);
+      const response = await fetch(`/api/accounting/chart-of-accounts?${params}`);
       if (!response.ok) throw new Error("Failed to fetch accounts");
       return response.json();
     },

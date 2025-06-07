@@ -7952,6 +7952,364 @@ Medical System Procurement Team
     }
   });
 
+  // Get general ledger entries
+  app.get("/api/general-ledger", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { accountId, startDate, endDate } = req.query;
+      
+      // Comprehensive general ledger test data
+      const testLedgerEntries = [
+        {
+          id: 1,
+          entryDate: "2024-06-01",
+          entryNumber: "JE-2024-001",
+          accountCode: "1000",
+          accountName: "Cash - Operating Account",
+          description: "Patient payment received - Invoice #INV-001",
+          debitAmount: 15000,
+          creditAmount: 0,
+          runningBalance: 140000,
+          referenceType: "invoice",
+          referenceNumber: "INV-001",
+          createdBy: "cashier_user"
+        },
+        {
+          id: 2,
+          entryDate: "2024-06-01",
+          entryNumber: "JE-2024-001",
+          accountCode: "4000",
+          accountName: "Patient Service Revenue",
+          description: "Laboratory test revenue - Invoice #INV-001",
+          debitAmount: 0,
+          creditAmount: 15000,
+          runningBalance: 200000,
+          referenceType: "invoice",
+          referenceNumber: "INV-001",
+          createdBy: "cashier_user"
+        },
+        {
+          id: 3,
+          entryDate: "2024-06-02",
+          entryNumber: "JE-2024-002",
+          accountCode: "5000",
+          accountName: "Salaries & Wages",
+          description: "Monthly salary payment - June 2024",
+          debitAmount: 85000,
+          creditAmount: 0,
+          runningBalance: 210000,
+          referenceType: "payroll",
+          referenceNumber: "PAY-2024-06",
+          createdBy: "hr_admin"
+        },
+        {
+          id: 4,
+          entryDate: "2024-06-02",
+          entryNumber: "JE-2024-002",
+          accountCode: "1000",
+          accountName: "Cash - Operating Account",
+          description: "Salary payment disbursement",
+          debitAmount: 0,
+          creditAmount: 85000,
+          runningBalance: 55000,
+          referenceType: "payroll",
+          referenceNumber: "PAY-2024-06",
+          createdBy: "hr_admin"
+        },
+        {
+          id: 5,
+          entryDate: "2024-06-03",
+          entryNumber: "JE-2024-003",
+          accountCode: "1300",
+          accountName: "Medical Supplies Inventory",
+          description: "Medical supplies purchase from MedSupply Ltd",
+          debitAmount: 25000,
+          creditAmount: 0,
+          runningBalance: 40000,
+          referenceType: "purchase",
+          referenceNumber: "PO-2024-015",
+          createdBy: "procurement_mgr"
+        },
+        {
+          id: 6,
+          entryDate: "2024-06-03",
+          entryNumber: "JE-2024-003",
+          accountCode: "2000",
+          accountName: "Accounts Payable",
+          description: "Medical supplies purchase - payment due",
+          debitAmount: 0,
+          creditAmount: 25000,
+          runningBalance: 60000,
+          referenceType: "purchase",
+          referenceNumber: "PO-2024-015",
+          createdBy: "procurement_mgr"
+        },
+        {
+          id: 7,
+          entryDate: "2024-06-04",
+          entryNumber: "JE-2024-004",
+          accountCode: "1110",
+          accountName: "Accounts Receivable - Insurance",
+          description: "Insurance claim submitted - Zenith General",
+          debitAmount: 45000,
+          creditAmount: 0,
+          runningBalance: 130000,
+          referenceType: "insurance_claim",
+          referenceNumber: "CLM-2024-089",
+          createdBy: "billing_clerk"
+        },
+        {
+          id: 8,
+          entryDate: "2024-06-04",
+          entryNumber: "JE-2024-004",
+          accountCode: "4010",
+          accountName: "Laboratory Revenue",
+          description: "Lab services covered by insurance",
+          debitAmount: 0,
+          creditAmount: 45000,
+          runningBalance: 140000,
+          referenceType: "insurance_claim",
+          referenceNumber: "CLM-2024-089",
+          createdBy: "billing_clerk"
+        },
+        {
+          id: 9,
+          entryDate: "2024-06-05",
+          entryNumber: "JE-2024-005",
+          accountCode: "5020",
+          accountName: "Utilities Expense",
+          description: "Electricity bill payment - June 2024",
+          debitAmount: 12000,
+          creditAmount: 0,
+          runningBalance: 30000,
+          referenceType: "bill_payment",
+          referenceNumber: "UTIL-2024-06",
+          createdBy: "accounts_clerk"
+        },
+        {
+          id: 10,
+          entryDate: "2024-06-05",
+          entryNumber: "JE-2024-005",
+          accountCode: "1000",
+          accountName: "Cash - Operating Account",
+          description: "Utilities payment",
+          debitAmount: 0,
+          creditAmount: 12000,
+          runningBalance: 43000,
+          referenceType: "bill_payment",
+          referenceNumber: "UTIL-2024-06",
+          createdBy: "accounts_clerk"
+        },
+        {
+          id: 11,
+          entryDate: "2024-06-06",
+          entryNumber: "JE-2024-006",
+          accountCode: "1200",
+          accountName: "Medical Equipment",
+          description: "New ultrasound machine purchase",
+          debitAmount: 180000,
+          creditAmount: 0,
+          runningBalance: 630000,
+          referenceType: "equipment_purchase",
+          referenceNumber: "EQ-2024-003",
+          createdBy: "facility_mgr"
+        },
+        {
+          id: 12,
+          entryDate: "2024-06-06",
+          entryNumber: "JE-2024-006",
+          accountCode: "2100",
+          accountName: "Equipment Loans",
+          description: "Equipment financing - 36 months",
+          debitAmount: 0,
+          creditAmount: 180000,
+          runningBalance: 305000,
+          referenceType: "equipment_purchase",
+          referenceNumber: "EQ-2024-003",
+          createdBy: "facility_mgr"
+        }
+      ];
+
+      // Filter by account if specified
+      let filteredEntries = testLedgerEntries;
+      if (accountId) {
+        filteredEntries = testLedgerEntries.filter(entry => entry.accountCode === accountId);
+      }
+
+      // Filter by date range if specified
+      if (startDate && endDate) {
+        filteredEntries = filteredEntries.filter(entry => {
+          const entryDate = new Date(entry.entryDate);
+          return entryDate >= new Date(startDate as string) && entryDate <= new Date(endDate as string);
+        });
+      }
+
+      // Calculate account summary for selected account
+      let accountSummary = null;
+      if (accountId) {
+        const accountEntries = filteredEntries;
+        const totalDebits = accountEntries.reduce((sum, entry) => sum + entry.debitAmount, 0);
+        const totalCredits = accountEntries.reduce((sum, entry) => sum + entry.creditAmount, 0);
+        const accountName = accountEntries[0]?.accountName || '';
+        
+        accountSummary = {
+          accountCode: accountId,
+          accountName: accountName,
+          openingBalance: 125000, // Default opening balance
+          totalDebits: totalDebits,
+          totalCredits: totalCredits,
+          closingBalance: 125000 + totalDebits - totalCredits,
+          entryCount: accountEntries.length
+        };
+      }
+
+      res.json({
+        entries: filteredEntries,
+        accountSummary: accountSummary,
+        totalEntries: filteredEntries.length
+      });
+    } catch (error: any) {
+      console.error("Error fetching general ledger:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get general ledger account summaries
+  app.get("/api/general-ledger/summary", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      const { startDate, endDate } = req.query;
+      
+      // Account summaries with realistic data
+      const accountSummaries = [
+        {
+          accountCode: "1000",
+          accountName: "Cash - Operating Account",
+          accountType: "asset",
+          openingBalance: 125000,
+          totalDebits: 15000,
+          totalCredits: 97000,
+          closingBalance: 43000,
+          entryCount: 4
+        },
+        {
+          accountCode: "1100",
+          accountName: "Accounts Receivable - Patients",
+          accountType: "asset",
+          openingBalance: 30000,
+          totalDebits: 25000,
+          totalCredits: 10000,
+          closingBalance: 45000,
+          entryCount: 6
+        },
+        {
+          accountCode: "1110",
+          accountName: "Accounts Receivable - Insurance",
+          accountType: "asset",
+          openingBalance: 85000,
+          totalDebits: 45000,
+          totalCredits: 0,
+          closingBalance: 130000,
+          entryCount: 1
+        },
+        {
+          accountCode: "1200",
+          accountName: "Medical Equipment",
+          accountType: "asset",
+          openingBalance: 450000,
+          totalDebits: 180000,
+          totalCredits: 0,
+          closingBalance: 630000,
+          entryCount: 1
+        },
+        {
+          accountCode: "1300",
+          accountName: "Medical Supplies Inventory",
+          accountType: "asset",
+          openingBalance: 15000,
+          totalDebits: 25000,
+          totalCredits: 0,
+          closingBalance: 40000,
+          entryCount: 1
+        },
+        {
+          accountCode: "2000",
+          accountName: "Accounts Payable",
+          accountType: "liability",
+          openingBalance: 35000,
+          totalDebits: 0,
+          totalCredits: 25000,
+          closingBalance: 60000,
+          entryCount: 1
+        },
+        {
+          accountCode: "2100",
+          accountName: "Equipment Loans",
+          accountType: "liability",
+          openingBalance: 125000,
+          totalDebits: 0,
+          totalCredits: 180000,
+          closingBalance: 305000,
+          entryCount: 1
+        },
+        {
+          accountCode: "4000",
+          accountName: "Patient Service Revenue",
+          accountType: "revenue",
+          openingBalance: 185000,
+          totalDebits: 0,
+          totalCredits: 15000,
+          closingBalance: 200000,
+          entryCount: 1
+        },
+        {
+          accountCode: "4010",
+          accountName: "Laboratory Revenue",
+          accountType: "revenue",
+          openingBalance: 95000,
+          totalDebits: 0,
+          totalCredits: 45000,
+          closingBalance: 140000,
+          entryCount: 1
+        },
+        {
+          accountCode: "5000",
+          accountName: "Salaries & Wages",
+          accountType: "expense",
+          openingBalance: 125000,
+          totalDebits: 85000,
+          totalCredits: 0,
+          closingBalance: 210000,
+          entryCount: 1
+        },
+        {
+          accountCode: "5020",
+          accountName: "Utilities Expense",
+          accountType: "expense",
+          openingBalance: 18000,
+          totalDebits: 12000,
+          totalCredits: 0,
+          closingBalance: 30000,
+          entryCount: 1
+        }
+      ];
+
+      console.log(`Loaded ${accountSummaries.length} account summaries for general ledger`);
+      res.json(accountSummaries);
+    } catch (error: any) {
+      console.error("Error fetching general ledger summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/accounting/initialize", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
