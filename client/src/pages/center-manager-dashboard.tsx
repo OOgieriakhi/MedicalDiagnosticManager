@@ -252,6 +252,16 @@ export default function CenterManagerDashboard() {
       allowedRoles: ['admin', 'center_manager', 'branch_manager'],
       managerOverride: true
     },
+    {
+      title: "Consultant Services",
+      description: "Monitor off-site imaging & cardiology analysis",
+      icon: Workflow,
+      href: "/consultant-services",
+      category: 'operational',
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
+    },
 
     // Staff Management
     {

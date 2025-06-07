@@ -77,7 +77,7 @@ import CenterManagerDashboard from "@/pages/center-manager-dashboard";
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={() => <SidebarDashboard />} />
+      <ProtectedRoute path="/" component={() => <CenterManagerDashboard />} />
       <ProtectedRoute path="/dashboard" component={Dashboard} />
       <ProtectedRoute path="/patient-intake" component={PatientIntake} />
       <ProtectedRoute path="/patient-management" component={PatientManagement} />
