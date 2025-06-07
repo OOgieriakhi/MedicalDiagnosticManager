@@ -24,6 +24,7 @@ import {
   Eye,
   Pill,
   Building,
+  Building2,
   Monitor,
   Waves,
   Heart,
