@@ -8582,6 +8582,24 @@ Medical System Procurement Team
           debitBalance: 8500,
           creditBalance: 0,
           isAdjusted: false
+        },
+        {
+          id: 29,
+          accountCode: "1400",
+          accountName: "Prepaid Insurance",
+          accountType: "asset",
+          debitBalance: 12000,
+          creditBalance: 0,
+          isAdjusted: false
+        },
+        {
+          id: 30,
+          accountCode: "2110",
+          accountName: "Accrued Interest Payable",
+          accountType: "liability",
+          debitBalance: 0,
+          creditBalance: 79500,
+          isAdjusted: false
         }
       ];
 

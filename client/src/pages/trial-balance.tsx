@@ -72,6 +72,187 @@ export default function TrialBalance() {
     }).format(amount);
   };
 
+  // Print functionality
+  const handlePrint = () => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Trial Balance Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+            .report-title { font-size: 18px; margin-bottom: 10px; }
+            .report-date { font-size: 14px; color: #666; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .text-right { text-align: right; }
+            .summary { margin-top: 30px; }
+            .balance-status { font-weight: bold; color: ${summary.isBalanced ? '#16a34a' : '#dc2626'}; }
+            .totals { border-top: 2px solid #000; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">Orient Medical Diagnostic Centre</div>
+            <div class="report-title">Trial Balance</div>
+            <div class="report-date">As of ${asOfDate} | Period: ${selectedPeriod}</div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th>Account Type</th>
+                <th class="text-right">Debit Balance</th>
+                <th class="text-right">Credit Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredAccounts.map(account => `
+                <tr>
+                  <td>${account.accountCode}</td>
+                  <td>${account.accountName}</td>
+                  <td>${account.accountType}</td>
+                  <td class="text-right">${account.debitBalance > 0 ? formatCurrency(account.debitBalance) : ''}</td>
+                  <td class="text-right">${account.creditBalance > 0 ? formatCurrency(account.creditBalance) : ''}</td>
+                </tr>
+              `).join('')}
+              <tr class="totals">
+                <td colspan="3"><strong>TOTALS</strong></td>
+                <td class="text-right"><strong>${formatCurrency(summary.totalDebits)}</strong></td>
+                <td class="text-right"><strong>${formatCurrency(summary.totalCredits)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="summary">
+            <div class="balance-status">
+              Status: ${summary.isBalanced ? 'Books are Balanced' : 'Out of Balance'}
+            </div>
+            <div>Total Debits: ${formatCurrency(summary.totalDebits)}</div>
+            <div>Total Credits: ${formatCurrency(summary.totalCredits)}</div>
+            ${!summary.isBalanced ? `<div>Variance: ${formatCurrency(Math.abs(summary.variance))}</div>` : ''}
+            <div>Total Accounts: ${summary.accountCount}</div>
+            <div>Report Generated: ${new Date().toLocaleString()}</div>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = ['Account Code', 'Account Name', 'Account Type', 'Debit Balance', 'Credit Balance'];
+    const csvData = filteredAccounts.map(account => [
+      account.accountCode,
+      account.accountName,
+      account.accountType,
+      account.debitBalance || 0,
+      account.creditBalance || 0
+    ]);
+    
+    // Add totals row
+    csvData.push(['', '', 'TOTALS', summary.totalDebits, summary.totalCredits]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trial-balance-${asOfDate}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Export to PDF
+  const exportToPDF = () => {
+    const content = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="margin: 0; font-size: 24px;">Orient Medical Diagnostic Centre</h1>
+          <h2 style="margin: 5px 0; font-size: 18px;">Trial Balance</h2>
+          <p style="margin: 0; color: #666;">As of ${asOfDate} | Period: ${selectedPeriod}</p>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <thead>
+            <tr style="background-color: #f5f5f5;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Account Code</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Account Name</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Type</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Debit Balance</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Credit Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredAccounts.map(account => `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">${account.accountCode}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${account.accountName}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${account.accountType}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${account.debitBalance > 0 ? formatCurrency(account.debitBalance) : ''}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${account.creditBalance > 0 ? formatCurrency(account.creditBalance) : ''}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 2px solid #000; font-weight: bold;">
+              <td colspan="3" style="border: 1px solid #ddd; padding: 8px;"><strong>TOTALS</strong></td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><strong>${formatCurrency(summary.totalDebits)}</strong></td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;"><strong>${formatCurrency(summary.totalCredits)}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div style="margin-top: 30px;">
+          <p><strong style="color: ${summary.isBalanced ? '#16a34a' : '#dc2626'};">Status: ${summary.isBalanced ? 'Books are Balanced' : 'Out of Balance'}</strong></p>
+          <p>Total Debits: ${formatCurrency(summary.totalDebits)}</p>
+          <p>Total Credits: ${formatCurrency(summary.totalCredits)}</p>
+          ${!summary.isBalanced ? `<p>Variance: ${formatCurrency(Math.abs(summary.variance))}</p>` : ''}
+          <p>Total Accounts: ${summary.accountCount}</p>
+          <p>Report Generated: ${new Date().toLocaleString()}</p>
+        </div>
+      </div>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Trial Balance Report</title>
+          </head>
+          <body>
+            ${content}
+            <script>
+              window.onload = function() {
+                window.print();
+                window.onafterprint = function() {
+                  window.close();
+                };
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
+
   const getAccountTypeColor = (type: string) => {
     switch (type?.toLowerCase()) {
       case 'asset': return 'bg-blue-100 text-blue-800';
@@ -121,13 +302,17 @@ export default function TrialBalance() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="w-4 h-4 mr-2" />
             Print
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
-            Export
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToPDF}>
+            <Download className="w-4 h-4 mr-2" />
+            Export PDF
           </Button>
         </div>
       </div>
