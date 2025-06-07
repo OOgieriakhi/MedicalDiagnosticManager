@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ interface AccountSummary {
 
 export default function GeneralLedger() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedAccount, setSelectedAccount] = useState("");
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -117,6 +119,166 @@ export default function GeneralLedger() {
     }).format(amount);
   };
 
+  // Check if data is available for export
+  const hasData = (filteredEntries && filteredEntries.length > 0) || 
+                  (accountSummaries && accountSummaries.length > 0);
+
+  // Print functionality
+  const handlePrint = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to print", 
+        description: "Please select an account or date range with ledger data",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const selectedAccountName = accounts.find(acc => acc.id.toString() === selectedAccount)?.name || 'All Accounts';
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>General Ledger - ${selectedAccountName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #1f2937; text-align: center; }
+            .summary { margin: 20px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f3f4f6; }
+            .amount { text-align: right; }
+            .total { font-weight: bold; background-color: #f9fafb; }
+            .debit { color: #059669; }
+            .credit { color: #dc2626; }
+          </style>
+        </head>
+        <body>
+          <h1>General Ledger</h1>
+          <div class="summary">
+            <p><strong>Account:</strong> ${selectedAccountName}</p>
+            <p><strong>Period:</strong> ${startDate} to ${endDate}</p>
+          </div>
+          
+          <h2>Ledger Entries</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Entry #</th>
+                <th>Description</th>
+                <th>Reference</th>
+                <th>Debit</th>
+                <th>Credit</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredEntries.map(entry => `
+                <tr>
+                  <td>${new Date(entry.entryDate).toLocaleDateString()}</td>
+                  <td>${entry.entryNumber}</td>
+                  <td>${entry.description}</td>
+                  <td>${entry.referenceNumber}</td>
+                  <td class="amount debit">${entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : ''}</td>
+                  <td class="amount credit">${entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : ''}</td>
+                  <td class="amount">${formatCurrency(entry.runningBalance)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          ${accountSummaries.length > 0 ? `
+            <h2>Account Summaries</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Type</th>
+                  <th>Opening Balance</th>
+                  <th>Total Debits</th>
+                  <th>Total Credits</th>
+                  <th>Closing Balance</th>
+                  <th>Entries</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${accountSummaries.map(summary => `
+                  <tr>
+                    <td>${summary.accountCode} - ${summary.accountName}</td>
+                    <td>${summary.accountType}</td>
+                    <td class="amount">${formatCurrency(summary.openingBalance)}</td>
+                    <td class="amount debit">${formatCurrency(summary.totalDebits)}</td>
+                    <td class="amount credit">${formatCurrency(summary.totalCredits)}</td>
+                    <td class="amount">${formatCurrency(summary.closingBalance)}</td>
+                    <td class="amount">${summary.entryCount}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : ''}
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+  // Export to CSV functionality
+  const exportToCSV = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to export", 
+        description: "Please select an account or date range with ledger data",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const selectedAccountName = accounts.find(acc => acc.id.toString() === selectedAccount)?.name || 'All Accounts';
+
+    let csvContent = "General Ledger Export\n";
+    csvContent += `Account,${selectedAccountName}\n`;
+    csvContent += `Period,${startDate} to ${endDate}\n\n`;
+
+    // Ledger entries section
+    if (filteredEntries.length > 0) {
+      csvContent += "LEDGER ENTRIES\n";
+      csvContent += "Date,Entry Number,Description,Reference,Debit,Credit,Running Balance\n";
+      filteredEntries.forEach(entry => {
+        csvContent += `"${new Date(entry.entryDate).toLocaleDateString()}","${entry.entryNumber}","${entry.description}","${entry.referenceNumber}",${entry.debitAmount},${entry.creditAmount},${entry.runningBalance}\n`;
+      });
+      csvContent += "\n";
+    }
+
+    // Account summaries section
+    if (accountSummaries.length > 0) {
+      csvContent += "ACCOUNT SUMMARIES\n";
+      csvContent += "Account Code,Account Name,Type,Opening Balance,Total Debits,Total Credits,Closing Balance,Entry Count\n";
+      accountSummaries.forEach(summary => {
+        csvContent += `"${summary.accountCode}","${summary.accountName}","${summary.accountType}",${summary.openingBalance},${summary.totalDebits},${summary.totalCredits},${summary.closingBalance},${summary.entryCount}\n`;
+      });
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `general-ledger-${selectedAccountName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getBalanceColor = (balance: number) => {
     return balance >= 0 ? 'text-green-600' : 'text-red-600';
   };
@@ -128,54 +290,6 @@ export default function GeneralLedger() {
       case 'expense': return <TrendingDown className="w-4 h-4 text-red-600" />;
       default: return <DollarSign className="w-4 h-4 text-gray-600" />;
     }
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const exportToCSV = () => {
-    const csvData = [
-      ['General Ledger Report'],
-      ['Account:', selectedAccount === 'all' ? 'All Accounts' : selectedAccount],
-      ['Date Range:', `${startDate || 'All'} to ${endDate || 'All'}`],
-      [''],
-      ['Date', 'Entry Number', 'Account Code', 'Account Name', 'Description', 'Debit Amount', 'Credit Amount', 'Running Balance', 'Reference Type', 'Reference Number', 'Created By'],
-      ...filteredEntries.map((entry: LedgerEntry) => [
-        entry.entryDate,
-        entry.entryNumber,
-        entry.accountCode,
-        entry.accountName,
-        entry.description,
-        entry.debitAmount.toString(),
-        entry.creditAmount.toString(),
-        entry.runningBalance.toString(),
-        entry.referenceType,
-        entry.referenceNumber,
-        entry.createdBy
-      ]),
-      [''],
-      ['Account Summaries'],
-      ['Account Code', 'Account Name', 'Account Type', 'Opening Balance', 'Total Debits', 'Total Credits', 'Closing Balance', 'Entry Count'],
-      ...accountSummaries.map((summary: AccountSummary) => [
-        summary.accountCode,
-        summary.accountName,
-        summary.accountType,
-        summary.openingBalance.toString(),
-        summary.totalDebits.toString(),
-        summary.totalCredits.toString(),
-        summary.closingBalance.toString(),
-        summary.entryCount.toString()
-      ])
-    ];
-
-    const csvContent = csvData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `general-ledger-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
   };
 
   return (
