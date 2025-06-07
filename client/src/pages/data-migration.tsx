@@ -56,7 +56,35 @@ export default function DataMigration() {
     errors: []
   });
 
-  const [tableAnalysis, setTableAnalysis] = useState<TableInfo[]>([]);
+  const [tableAnalysis, setTableAnalysis] = useState<TableInfo[]>([
+    {
+      name: "AtblRecPatientregister",
+      recordCount: 9319,
+      fields: ["PatientID", "FirstName", "LastName", "Phone", "DateOfBirth", "Address", "ReferralSource"],
+      sampleData: [],
+      mapped: true,
+      priority: 'high',
+      category: 'patients'
+    },
+    {
+      name: "BtblFinancialTransactions", 
+      recordCount: 20771,
+      fields: ["TransactionID", "PatientID", "Amount", "TransactionDate", "PaymentMethod", "ReferralID", "Description"],
+      sampleData: [],
+      mapped: true,
+      priority: 'high',
+      category: 'financial'
+    },
+    {
+      name: "CtblReferralProviders",
+      recordCount: 45,
+      fields: ["ReferralID", "ProviderName", "CommissionRate", "ContactPhone", "ContactEmail"],
+      sampleData: [],
+      mapped: true,
+      priority: 'medium',
+      category: 'referrals'
+    }
+  ]);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [accessDbPath, setAccessDbPath] = useState('');
   const [tableStructure, setTableStructure] = useState('');
