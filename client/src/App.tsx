@@ -71,6 +71,7 @@ import AccountsReceivable from "@/pages/accounts-receivable";
 import CashFlow from "@/pages/cash-flow";
 import IncomeVerification from "@/pages/income-verification";
 import IncomeStatement from "@/pages/income-statement";
+import DailySummaryManagement from "@/pages/daily-summary-management";
 
 function Router() {
   return (
@@ -137,6 +138,7 @@ function Router() {
       <ProtectedRoute path="/cash-flow" component={CashFlow} />
       <ProtectedRoute path="/income-statement" component={IncomeStatement} />
       <ProtectedRoute path="/income-verification" component={IncomeVerification} />
+      <ProtectedRoute path="/daily-summary-management" component={DailySummaryManagement} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

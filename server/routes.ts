@@ -11279,6 +11279,307 @@ Medical System Procurement Team
     }
   });
 
+  // Submit daily income/expense summary for manager approval
+  app.post("/api/accounting/submit-daily-summary", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { date, totalIncome, totalExpenses, incomeBreakdown, expenseBreakdown, notes } = req.body;
+      const user = req.user!;
+
+      if (!global.dailySummaryApprovals) {
+        global.dailySummaryApprovals = {};
+      }
+
+      const summaryId = `SUMMARY-${date}-${Date.now()}`;
+      const submission = {
+        id: summaryId,
+        date,
+        totalIncome,
+        totalExpenses,
+        netAmount: totalIncome - totalExpenses,
+        incomeBreakdown,
+        expenseBreakdown,
+        notes,
+        submittedBy: user.username,
+        submittedById: user.id,
+        submittedAt: new Date().toISOString(),
+        status: 'pending_approval',
+        managerApproval: null,
+        approvedAt: null,
+        approvedBy: null,
+        approvedById: null,
+        lockTimestamp: null,
+        isLocked: false
+      };
+
+      global.dailySummaryApprovals[summaryId] = submission;
+
+      console.log(`Daily summary submitted by ${user.username} for date: ${date}`);
+      console.log(`Total Income: ₦${totalIncome.toLocaleString()}, Total Expenses: ₦${totalExpenses.toLocaleString()}`);
+
+      res.json({
+        success: true,
+        message: "Daily summary submitted for manager approval",
+        summaryId,
+        submittedAt: submission.submittedAt,
+        status: 'pending_approval'
+      });
+    } catch (error: any) {
+      console.error("Error submitting daily summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get pending daily summaries for manager approval
+  app.get("/api/accounting/pending-daily-summaries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = req.user!;
+      
+      // Only managers and above can access pending summaries
+      if (!['branch_manager', 'manager', 'finance_director', 'ceo', 'admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      if (!global.dailySummaryApprovals) {
+        global.dailySummaryApprovals = {};
+      }
+
+      const pendingSummaries = Object.values(global.dailySummaryApprovals)
+        .filter((summary: any) => summary.status === 'pending_approval')
+        .sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
+      res.json(pendingSummaries);
+    } catch (error: any) {
+      console.error("Error fetching pending summaries:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Manager approve daily summary
+  app.post("/api/accounting/approve-daily-summary/:summaryId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { summaryId } = req.params;
+      const { approvalComments } = req.body;
+      const user = req.user!;
+
+      // Only managers and above can approve
+      if (!['branch_manager', 'manager', 'finance_director', 'ceo', 'admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Insufficient permissions to approve" });
+      }
+
+      if (!global.dailySummaryApprovals) {
+        global.dailySummaryApprovals = {};
+      }
+
+      const summary = global.dailySummaryApprovals[summaryId];
+      if (!summary) {
+        return res.status(404).json({ message: "Summary not found" });
+      }
+
+      if (summary.status !== 'pending_approval') {
+        return res.status(400).json({ message: "Summary already processed" });
+      }
+
+      // Update summary with approval
+      const approvalTimestamp = new Date().toISOString();
+      summary.status = 'approved';
+      summary.managerApproval = 'approved';
+      summary.approvedAt = approvalTimestamp;
+      summary.approvedBy = user.username;
+      summary.approvedById = user.id;
+      summary.approvalComments = approvalComments;
+      summary.lockTimestamp = approvalTimestamp;
+      summary.isLocked = true;
+
+      console.log(`Manager ${user.username} approved daily summary ${summaryId}`);
+      console.log(`Approval timestamp: ${approvalTimestamp}`);
+      console.log(`Comments: ${approvalComments}`);
+
+      res.json({
+        success: true,
+        message: "Daily summary approved successfully",
+        summaryId,
+        approvedBy: user.username,
+        approvedAt: approvalTimestamp,
+        status: 'approved',
+        isLocked: true,
+        lockTimestamp: approvalTimestamp
+      });
+    } catch (error: any) {
+      console.error("Error approving daily summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Manager reject daily summary
+  app.post("/api/accounting/reject-daily-summary/:summaryId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { summaryId } = req.params;
+      const { rejectionReason } = req.body;
+      const user = req.user!;
+
+      // Only managers and above can reject
+      if (!['branch_manager', 'manager', 'finance_director', 'ceo', 'admin'].includes(user.role)) {
+        return res.status(403).json({ message: "Insufficient permissions to reject" });
+      }
+
+      if (!global.dailySummaryApprovals) {
+        global.dailySummaryApprovals = {};
+      }
+
+      const summary = global.dailySummaryApprovals[summaryId];
+      if (!summary) {
+        return res.status(404).json({ message: "Summary not found" });
+      }
+
+      if (summary.status !== 'pending_approval') {
+        return res.status(400).json({ message: "Summary already processed" });
+      }
+
+      // Update summary with rejection
+      const rejectionTimestamp = new Date().toISOString();
+      summary.status = 'rejected';
+      summary.managerApproval = 'rejected';
+      summary.rejectedAt = rejectionTimestamp;
+      summary.rejectedBy = user.username;
+      summary.rejectedById = user.id;
+      summary.rejectionReason = rejectionReason;
+
+      console.log(`Manager ${user.username} rejected daily summary ${summaryId}`);
+      console.log(`Rejection timestamp: ${rejectionTimestamp}`);
+      console.log(`Reason: ${rejectionReason}`);
+
+      res.json({
+        success: true,
+        message: "Daily summary rejected",
+        summaryId,
+        rejectedBy: user.username,
+        rejectedAt: rejectionTimestamp,
+        status: 'rejected',
+        rejectionReason
+      });
+    } catch (error: any) {
+      console.error("Error rejecting daily summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Attempt to edit locked summary (should fail)
+  app.put("/api/accounting/edit-daily-summary/:summaryId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { summaryId } = req.params;
+      const user = req.user!;
+
+      if (!global.dailySummaryApprovals) {
+        global.dailySummaryApprovals = {};
+      }
+
+      const summary = global.dailySummaryApprovals[summaryId];
+      if (!summary) {
+        return res.status(404).json({ message: "Summary not found" });
+      }
+
+      // Check if summary is locked after approval
+      if (summary.isLocked) {
+        console.log(`UNAUTHORIZED EDIT ATTEMPT: User ${user.username} tried to edit locked summary ${summaryId}`);
+        console.log(`Summary was locked on: ${summary.lockTimestamp}`);
+        console.log(`Approved by: ${summary.approvedBy}`);
+        
+        return res.status(403).json({ 
+          message: "Cannot edit approved summary - locked by manager approval",
+          isLocked: true,
+          lockTimestamp: summary.lockTimestamp,
+          approvedBy: summary.approvedBy,
+          approvedAt: summary.approvedAt
+        });
+      }
+
+      // Only allow original submitter to edit if not locked
+      if (summary.submittedById !== user.id) {
+        return res.status(403).json({ message: "Can only edit your own submissions" });
+      }
+
+      // If not locked, allow edit (update summary data here)
+      const { totalIncome, totalExpenses, incomeBreakdown, expenseBreakdown, notes } = req.body;
+      
+      summary.totalIncome = totalIncome;
+      summary.totalExpenses = totalExpenses;
+      summary.netAmount = totalIncome - totalExpenses;
+      summary.incomeBreakdown = incomeBreakdown;
+      summary.expenseBreakdown = expenseBreakdown;
+      summary.notes = notes;
+      summary.lastEditedAt = new Date().toISOString();
+      summary.lastEditedBy = user.username;
+
+      res.json({
+        success: true,
+        message: "Summary updated successfully",
+        summaryId,
+        lastEditedAt: summary.lastEditedAt
+      });
+    } catch (error: any) {
+      console.error("Error editing daily summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get all daily summaries with approval status
+  app.get("/api/accounting/daily-summaries", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { status, fromDate, toDate } = req.query;
+
+      if (!global.dailySummaryApprovals) {
+        global.dailySummaryApprovals = {};
+      }
+
+      let summaries = Object.values(global.dailySummaryApprovals);
+
+      // Filter by status if provided
+      if (status && status !== 'all') {
+        summaries = summaries.filter((summary: any) => summary.status === status);
+      }
+
+      // Filter by date range if provided
+      if (fromDate) {
+        summaries = summaries.filter((summary: any) => summary.date >= fromDate);
+      }
+      if (toDate) {
+        summaries = summaries.filter((summary: any) => summary.date <= toDate);
+      }
+
+      // Sort by submission date (newest first)
+      summaries.sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
+      res.json(summaries);
+    } catch (error: any) {
+      console.error("Error fetching daily summaries:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Cashier APIs
   // Get payment queue (from posted A/P)
   app.get("/api/cashier/payment-queue", async (req, res) => {
