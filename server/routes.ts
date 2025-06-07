@@ -565,13 +565,13 @@ export function registerRoutes(app: Express): Server {
         patientId,
         firstName: req.body.firstName,
         lastName: req.body.lastName,
-        email: req.body.email || null,
+        email: req.body.email || undefined,
         phone: req.body.phone,
         dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : null,
-        gender: req.body.gender || null,
-        address: req.body.address || null,
+        gender: req.body.gender || undefined,
+        address: req.body.address || undefined,
         pathway: req.body.pathway || "self",
-        referralProviderId: req.body.referralProviderId || null,
+        referralProviderId: req.body.referralProviderId || undefined,
         tenantId: req.body.tenantId,
         branchId: req.body.branchId
       };
@@ -974,7 +974,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const providers = await storage.getReferralProviders(tenantId);
       res.json(providers);
     } catch (error) {
@@ -1126,7 +1126,7 @@ export function registerRoutes(app: Express): Server {
       const { structuredResults, additionalNotes, interpretation } = req.body;
 
       // Save structured results and complete test
-      await storage.saveStructuredTestResults(testId, structuredResults, additionalNotes, interpretation, req.user.id);
+      await storage.saveStructuredTestResults(testId, structuredResults, additionalNotes, interpretation, req.user?.id);
       
       res.json({ 
         message: "Test completed successfully",
@@ -1248,7 +1248,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const branchId = parseInt(req.query.branchId as string) || req.user.branchId;
+      const branchId = parseInt(req.query.branchId as string) || req.user?.branchId;
       if (!branchId) {
         return res.status(400).json({ message: "Branch ID is required" });
       }
@@ -1268,7 +1268,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const branchId = parseInt(req.query.branchId as string) || req.user.branchId;
+      const branchId = parseInt(req.query.branchId as string) || req.user?.branchId;
       if (!branchId) {
         return res.status(400).json({ message: "Branch ID is required" });
       }
@@ -1288,7 +1288,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const categories = await storage.getTestCategories(tenantId);
       res.json(categories);
     } catch (error) {
@@ -1324,12 +1324,12 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const serviceUnit = req.query.serviceUnit as string;
       
       // Role-based access control preparation
       // TODO: Implement full RBAC - only admin/finance/CEO/directors should see all units
-      const userRole = req.user.role || 'staff'; // Default to staff if no role
+      const userRole = req.user?.role || 'staff'; // Default to staff if no role
       const hasFullAccess = ['admin', 'finance', 'ceo', 'director'].includes(userRole.toLowerCase());
 
       let tests;
@@ -1968,7 +1968,7 @@ export function registerRoutes(app: Express): Server {
     const { id } = req.params;
     
     try {
-      await storage.verifyPayment(parseInt(id), req.user.id);
+      await storage.verifyPayment(parseInt(id), req.user?.id);
       res.json({ message: "Payment verified successfully" });
     } catch (error: any) {
       console.error("Error verifying payment:", error);
@@ -1987,7 +1987,7 @@ export function registerRoutes(app: Express): Server {
     }
     
     try {
-      await storage.startProcessing(parseInt(id), req.user.id, expectedHours);
+      await storage.startProcessing(parseInt(id), req.user?.id, expectedHours);
       res.json({ message: `${imagingType} imaging started successfully` });
     } catch (error: any) {
       console.error("Error starting imaging:", error);
@@ -2010,7 +2010,7 @@ export function registerRoutes(app: Express): Server {
         findings,
         interpretation: interpretation || '',
         recommendation: recommendation || '',
-        completedBy: req.user.id,
+        completedBy: req.user?.id,
         completedAt: new Date()
       };
       
@@ -2056,7 +2056,7 @@ export function registerRoutes(app: Express): Server {
     }
     
     try {
-      await storage.collectSpecimen(parseInt(id), req.user.id, specimenType);
+      await storage.collectSpecimen(parseInt(id), req.user?.id, specimenType);
       res.json({ message: "Specimen collected successfully" });
     } catch (error: any) {
       console.error("Error collecting specimen:", error);
@@ -2105,10 +2105,10 @@ export function registerRoutes(app: Express): Server {
       // Save results with status indicating saved for later processing
       await storage.updatePatientTestResults(testId, {
         results: finalResults,
-        notes: notes || null,
+        notes: notes || undefined,
         status: saveForLater ? "reported_and_saved" : "completed",
         resultsSavedAt: new Date(),
-        resultsSavedBy: req.user.id
+        resultsSavedBy: req.user?.id
       });
       
       // Get the test to find the patient ID
@@ -2121,7 +2121,7 @@ export function registerRoutes(app: Express): Server {
         message: saveForLater ? 
           "Results saved successfully for later processing" : 
           "Results saved and test completed",
-        consolidatedReport: await generateConsolidatedReport(test.patientId, scientistSignature || req.user.username)
+        consolidatedReport: await generateConsolidatedReport(test.patientId, scientistSignature || req.user?.username)
       });
     } catch (error: any) {
       console.error("Error saving test results:", error);
@@ -2161,13 +2161,13 @@ export function registerRoutes(app: Express): Server {
 
       if (startDate) {
         query += ` AND transaction_time >= $${paramIndex}`;
-        params.push(startDate as string);
+        params.push(typeof startDate === "string" ? new Date(startDate).toISOString() : startDate);
         paramIndex++;
       }
 
       if (endDate) {
         query += ` AND transaction_time <= $${paramIndex}`;
-        params.push(endDate as string);
+        params.push(new Date(endDate).toISOString());
         paramIndex++;
       }
 
@@ -2215,13 +2215,13 @@ export function registerRoutes(app: Express): Server {
 
       if (startDate) {
         query += ` AND dt.transaction_time >= $${paramIndex}`;
-        params.push(startDate as string);
+        params.push(typeof startDate === "string" ? new Date(startDate).toISOString() : startDate);
         paramIndex++;
       }
 
       if (endDate) {
         query += ` AND dt.transaction_time <= $${paramIndex}`;
-        params.push(endDate as string);
+        params.push(new Date(endDate).toISOString());
         paramIndex++;
       }
 
@@ -2270,13 +2270,13 @@ export function registerRoutes(app: Express): Server {
 
       if (startDate) {
         query += ` AND transaction_time >= $${paramIndex}`;
-        params.push(startDate as string);
+        params.push(typeof startDate === "string" ? new Date(startDate).toISOString() : startDate);
         paramIndex++;
       }
 
       if (endDate) {
         query += ` AND transaction_time <= $${paramIndex}`;
-        params.push(endDate as string);
+        params.push(new Date(endDate).toISOString());
         paramIndex++;
       }
 
@@ -2329,13 +2329,13 @@ export function registerRoutes(app: Express): Server {
 
       if (startDate) {
         query += ` AND transaction_time >= $${paramIndex}`;
-        params.push(startDate as string);
+        params.push(typeof startDate === "string" ? new Date(startDate).toISOString() : startDate);
         paramIndex++;
       }
 
       if (endDate) {
         query += ` AND transaction_time <= $${paramIndex}`;
-        params.push(endDate as string);
+        params.push(new Date(endDate).toISOString());
         paramIndex++;
       }
 
@@ -2378,13 +2378,13 @@ export function registerRoutes(app: Express): Server {
 
       if (startDate) {
         query += ` AND dt.transaction_time >= $${paramIndex}`;
-        params.push(startDate as string);
+        params.push(typeof startDate === "string" ? new Date(startDate).toISOString() : startDate);
         paramIndex++;
       }
 
       if (endDate) {
         query += ` AND dt.transaction_time <= $${paramIndex}`;
-        params.push(endDate as string);
+        params.push(new Date(endDate).toISOString());
         paramIndex++;
       }
 
@@ -2893,7 +2893,7 @@ export function registerRoutes(app: Express): Server {
       }
       
       // Mark results as processed
-      await storage.markResultsAsProcessed(parseInt(patientId), deliveryMethod, req.user.id);
+      await storage.markResultsAsProcessed(parseInt(patientId), deliveryMethod, req.user?.id);
       
     } catch (error: any) {
       console.error("Error processing saved results:", error);
@@ -2912,7 +2912,7 @@ export function registerRoutes(app: Express): Server {
     }
     
     try {
-      await storage.startProcessing(parseInt(id), req.user.id, expectedHours);
+      await storage.startProcessing(parseInt(id), req.user?.id, expectedHours);
       res.json({ message: "Processing started successfully" });
     } catch (error: any) {
       console.error("Error starting processing:", error);
@@ -2925,7 +2925,7 @@ export function registerRoutes(app: Express): Server {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      const branchId = req.user.branchId || 1;
+      const branchId = req.user?.branchId || 1;
       const status = req.query.status as string;
       
       const patientTests = await storage.getPatientTestsByBranch(branchId, 100, false);
@@ -3039,7 +3039,7 @@ export function registerRoutes(app: Express): Server {
     
     try {
       const patientId = parseInt(req.params.patientId);
-      const branchId = req.user.branchId || 1;
+      const branchId = req.user?.branchId || 1;
       
       const patientTests = await storage.getPatientTestsByBranch(branchId, 100, false);
       const test = patientTests.find((t: any) => t.patientId === patientId);
@@ -3189,7 +3189,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const branchId = req.user.branchId;
+      const branchId = req.user?.branchId;
       if (!branchId) {
         return res.status(400).json({ message: "Invalid branch ID" });
       }
@@ -3210,7 +3210,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const branchId = req.user.branchId;
+      const branchId = req.user?.branchId;
       if (!branchId) {
         return res.status(400).json({ message: "Invalid branch ID" });
       }
@@ -3356,7 +3356,7 @@ export function registerRoutes(app: Express): Server {
         totalAmount: invoiceData.totalAmount.toString(),
         netAmount: invoiceData.netAmount.toString(),
         paymentStatus: "unpaid",
-        createdBy: req.user.id,
+        createdBy: req.user?.id,
       });
 
       // Create patient tests for each test in the invoice
@@ -3368,7 +3368,7 @@ export function registerRoutes(app: Express): Server {
           scheduledAt: new Date(),
           tenantId: invoiceData.tenantId,
           branchId: invoiceData.branchId,
-          technicianId: req.user.id
+          technicianId: req.user?.id
         });
       }
 
@@ -3408,7 +3408,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const bankAccounts = await storage.getOrganizationBankAccounts(tenantId);
       res.json(bankAccounts);
     } catch (error) {
@@ -3426,7 +3426,7 @@ export function registerRoutes(app: Express): Server {
 
       const bankAccountData = {
         ...req.body,
-        tenantId: req.user.tenantId
+        tenantId: req.user?.tenantId
       };
 
       const bankAccount = await storage.createOrganizationBankAccount(bankAccountData);
@@ -3451,7 +3451,7 @@ export function registerRoutes(app: Express): Server {
       await storage.markInvoiceAsPaid(invoiceId, {
         paymentMethod: paymentData.paymentMethod,
         paymentDetails: paymentData.paymentDetails,
-        paidBy: req.user.id,
+        paidBy: req.user?.id,
       });
 
       // Create transaction record
@@ -3464,7 +3464,7 @@ export function registerRoutes(app: Express): Server {
           currency: "NGN",
           tenantId: invoice.tenantId,
           branchId: invoice.branchId,
-          createdBy: req.user.id,
+          createdBy: req.user?.id,
           invoiceId: invoice.id,
           paymentMethod: paymentData.paymentMethod
         });
@@ -4012,7 +4012,7 @@ export function registerRoutes(app: Express): Server {
         description,
         notes,
         status: 'pending',
-        createdBy: req.user.id,
+        createdBy: req.user?.id,
         createdAt: new Date()
       };
 
@@ -4087,7 +4087,7 @@ export function registerRoutes(app: Express): Server {
         reference,
         notes,
         status: 'completed',
-        processedBy: req.user.id,
+        processedBy: req.user?.id,
         processedAt: new Date()
       };
 
@@ -4718,7 +4718,7 @@ Medical System Procurement Team
       await financialStorage.createAuditEntry({
         tenantId: req.body.tenantId,
         branchId: req.body.branchId,
-        userId: req.user.id,
+        userId: req.user?.id,
         action: "create_petty_cash_fund",
         resourceType: "petty_cash_fund",
         resourceId: Array.isArray(fund) ? fund[0]?.id || 0 : (fund as any).id || 0,
@@ -4815,7 +4815,7 @@ Medical System Procurement Team
       await financialStorage.createAuditEntry({
         tenantId: req.body.tenantId,
         branchId: req.body.branchId,
-        userId: req.user.id,
+        userId: req.user?.id,
         action: "create_reconciliation",
         resourceType: "petty_cash_reconciliation",
         resourceId: reconciliation.id,
@@ -5308,7 +5308,7 @@ Medical System Procurement Team
   app.get("/api/inventory/categories", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const categories = await inventoryStorage.getInventoryCategories(tenantId);
       res.json(categories);
     } catch (error: any) {
@@ -5319,7 +5319,7 @@ Medical System Procurement Team
   app.post("/api/inventory/categories", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const data = { ...req.body, tenantId: req.user.tenantId };
+      const data = { ...req.body, tenantId: req.user?.tenantId };
       const category = await inventoryStorage.createInventoryCategory(data);
       res.status(201).json(category);
     } catch (error: any) {
@@ -5330,7 +5330,7 @@ Medical System Procurement Team
   app.get("/api/inventory/items", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
       const items = await inventoryStorage.getInventoryItems(tenantId, categoryId);
       res.json(items);
@@ -5342,7 +5342,7 @@ Medical System Procurement Team
   app.post("/api/inventory/items", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const data = { ...req.body, tenantId: req.user.tenantId };
+      const data = { ...req.body, tenantId: req.user?.tenantId };
       const item = await inventoryStorage.createInventoryItem(data);
       res.status(201).json(item);
     } catch (error: any) {
@@ -5353,8 +5353,8 @@ Medical System Procurement Team
   app.get("/api/inventory/stock", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
-      const branchId = req.user.branchId;
+      const tenantId = req.user?.tenantId;
+      const branchId = req.user?.branchId;
       const itemId = req.query.itemId ? parseInt(req.query.itemId as string) : undefined;
       const stock = await inventoryStorage.getInventoryStock(tenantId, branchId || 0, itemId);
       res.json(stock);
@@ -5368,9 +5368,9 @@ Medical System Procurement Team
     try {
       const data = { 
         ...req.body, 
-        tenantId: req.user.tenantId,
-        branchId: req.user.branchId,
-        performedBy: req.user.id
+        tenantId: req.user?.tenantId,
+        branchId: req.user?.branchId,
+        performedBy: req.user?.id
       };
       const transaction = await inventoryStorage.createInventoryTransaction(data);
       res.status(201).json(transaction);
@@ -5382,7 +5382,7 @@ Medical System Procurement Team
   app.get("/api/inventory/transactions", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
       const itemId = req.query.itemId ? parseInt(req.query.itemId as string) : undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -5396,7 +5396,7 @@ Medical System Procurement Team
   app.get("/api/inventory/low-stock", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
       const items = await inventoryStorage.getLowStockItems(tenantId, branchId);
       res.json(items);
@@ -5408,7 +5408,7 @@ Medical System Procurement Team
   app.get("/api/inventory/expiring", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
       const daysAhead = req.query.daysAhead ? parseInt(req.query.daysAhead as string) : 30;
       const items = await inventoryStorage.getExpiringItems(tenantId, branchId, daysAhead);
@@ -5421,7 +5421,7 @@ Medical System Procurement Team
   app.get("/api/inventory/valuation", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const branchId = req.query.branchId ? parseInt(req.query.branchId as string) : undefined;
       const valuation = await inventoryStorage.getInventoryValuation(tenantId, branchId);
       res.json(valuation);
@@ -5434,7 +5434,7 @@ Medical System Procurement Team
   app.get("/api/hr/employees", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const employees = await storage.getEmployees(tenantId);
       res.json(employees);
     } catch (error: any) {
@@ -5445,7 +5445,7 @@ Medical System Procurement Team
   app.post("/api/hr/employees", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const data = { ...req.body, tenantId: req.user.tenantId };
+      const data = { ...req.body, tenantId: req.user?.tenantId };
       const employee = await storage.createEmployee(data);
       res.status(201).json(employee);
     } catch (error: any) {
@@ -5456,7 +5456,7 @@ Medical System Procurement Team
   app.get("/api/hr/departments", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const departments = await storage.getDepartments(tenantId);
       res.json(departments);
     } catch (error: any) {
@@ -5467,7 +5467,7 @@ Medical System Procurement Team
   app.post("/api/hr/departments", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const data = { ...req.body, tenantId: req.user.tenantId };
+      const data = { ...req.body, tenantId: req.user?.tenantId };
       const department = await storage.createDepartment(data);
       res.status(201).json(department);
     } catch (error: any) {
@@ -5478,7 +5478,7 @@ Medical System Procurement Team
   app.get("/api/hr/positions", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const positions = await storage.getPositions(tenantId);
       res.json(positions);
     } catch (error: any) {
@@ -5489,7 +5489,7 @@ Medical System Procurement Team
   app.post("/api/hr/positions", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const data = { ...req.body, tenantId: req.user.tenantId };
+      const data = { ...req.body, tenantId: req.user?.tenantId };
       const position = await storage.createPosition(data);
       res.status(201).json(position);
     } catch (error: any) {
@@ -5500,7 +5500,7 @@ Medical System Procurement Team
   app.get("/api/hr/payroll-periods", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const periods = await storage.getPayrollPeriods(tenantId);
       res.json(periods);
     } catch (error: any) {
@@ -5511,7 +5511,7 @@ Medical System Procurement Team
   app.post("/api/hr/payroll-periods", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const data = { ...req.body, tenantId: req.user.tenantId };
+      const data = { ...req.body, tenantId: req.user?.tenantId };
       const period = await storage.createPayrollPeriod(data);
       res.status(201).json(period);
     } catch (error: any) {
@@ -5522,7 +5522,7 @@ Medical System Procurement Team
   app.get("/api/hr/metrics", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const metrics = await storage.getHRMetrics(tenantId);
       res.json(metrics);
     } catch (error: any) {
@@ -5560,8 +5560,8 @@ Medical System Procurement Team
     try {
       const roleData = insertRoleSchema.parse({
         ...req.body,
-        tenantId: req.user.tenantId,
-        createdBy: req.user.id
+        tenantId: req.user?.tenantId,
+        createdBy: req.user?.id
       });
       const role = await rbacStorage.createRole(roleData);
       res.status(201).json(role);
@@ -5800,7 +5800,7 @@ Medical System Procurement Team
   app.get("/api/roles/:id", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
     try {
       const roleId = parseInt(req.params.id);
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const role = await rbacStorage.getRoleWithPermissions(roleId, tenantId);
       
       if (!role) {
@@ -5880,8 +5880,8 @@ Medical System Procurement Team
         roleId,
         permissionId,
         conditions,
-        grantedBy: req.user.id,
-        tenantId: req.user.tenantId
+        grantedBy: req.user?.id,
+        tenantId: req.user?.tenantId
       });
 
       res.status(201).json(assignment);
@@ -5896,7 +5896,7 @@ Medical System Procurement Team
       const roleId = parseInt(req.params.roleId);
       const permissionId = parseInt(req.params.permissionId);
 
-      await rbacStorage.removePermissionFromRole(roleId, permissionId, req.user.id, req.user.tenantId);
+      await rbacStorage.removePermissionFromRole(roleId, permissionId, req.user?.id, req.user?.tenantId);
       res.json({ message: "Permission removed from role successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5909,7 +5909,7 @@ Medical System Procurement Team
   app.get("/api/users/:userId/roles", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageUsers, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const userRoles = await rbacStorage.getUserRoles(userId, tenantId);
       res.json(userRoles);
     } catch (error: any) {
@@ -5927,8 +5927,8 @@ Medical System Procurement Team
       const assignment = await rbacStorage.assignRoleToUser({
         userId,
         roleId,
-        assignedBy: req.user.id,
-        tenantId: req.user.tenantId,
+        assignedBy: req.user?.id,
+        tenantId: req.user?.tenantId,
         conditions,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined
       });
@@ -5945,7 +5945,7 @@ Medical System Procurement Team
       const userId = parseInt(req.params.userId);
       const roleId = parseInt(req.params.roleId);
 
-      await rbacStorage.removeRoleFromUser(userId, roleId, req.user.id, req.user.tenantId);
+      await rbacStorage.removeRoleFromUser(userId, roleId, req.user?.id, req.user?.tenantId);
       res.json({ message: "Role removed from user successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -5956,10 +5956,10 @@ Medical System Procurement Team
   app.get("/api/users/:userId/permissions", RBACMiddleware.authenticateWithRBAC, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       
       // Users can view their own permissions, or admins can view any user's permissions
-      if (userId !== req.user.id && !req.permissions?.includes('users:manage')) {
+      if (userId !== req.user?.id && !req.permissions?.includes('users:manage')) {
         return res.status(403).json({ message: "Cannot view other user's permissions" });
       }
 
@@ -5975,7 +5975,7 @@ Medical System Procurement Team
   // Get security policies
   app.get("/api/security/policies", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageSystem, async (req, res) => {
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const { policyType } = req.query;
       const policies = await rbacStorage.getSecurityPolicies(tenantId, policyType as string);
       res.json(policies);
@@ -5989,8 +5989,8 @@ Medical System Procurement Team
     try {
       const policyData = insertSecurityPolicySchema.parse({
         ...req.body,
-        tenantId: req.user.tenantId,
-        createdBy: req.user.id
+        tenantId: req.user?.tenantId,
+        createdBy: req.user?.id
       });
 
       const policy = await rbacStorage.createSecurityPolicy(policyData);
@@ -6009,7 +6009,7 @@ Medical System Procurement Team
   // Get security audit trail
   app.get("/api/security/audit", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canViewAuditLogs, async (req, res) => {
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const { userId, eventType, startDate, endDate, limit } = req.query;
 
       const filters: any = {};
@@ -6029,7 +6029,7 @@ Medical System Procurement Team
   // Get security metrics
   app.get("/api/security/metrics", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canViewAuditLogs, async (req, res) => {
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const { startDate, endDate } = req.query;
 
       const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -6050,7 +6050,7 @@ Medical System Procurement Team
       const userId = parseInt(req.params.userId);
       
       // Users can view their own sessions, or admins can view any user's sessions
-      if (userId !== req.user.id && !req.permissions?.includes('users:manage')) {
+      if (userId !== req.user?.id && !req.permissions?.includes('users:manage')) {
         return res.status(403).json({ message: "Cannot view other user's sessions" });
       }
 
@@ -6081,7 +6081,7 @@ Medical System Procurement Team
   // Get permission groups
   app.get("/api/permission-groups", RBACMiddleware.authenticateWithRBAC, rbacHelpers.canManageRoles, async (req, res) => {
     try {
-      const tenantId = req.user.tenantId;
+      const tenantId = req.user?.tenantId;
       const groups = await rbacStorage.getPermissionGroups(tenantId);
       res.json(groups);
     } catch (error: any) {
@@ -6096,7 +6096,7 @@ Medical System Procurement Team
       const { resource } = req.query;
       
       const hasPermission = await rbacStorage.checkUserPermission(
-        req.user.id, 
+        req.user?.id, 
         permission, 
         resource as string
       );
@@ -6166,7 +6166,7 @@ Medical System Procurement Team
           cost_center, is_critical, notes, created_at, updated_at
         ) VALUES (
           ${tenantId}, ${testId}, ${itemId}, ${standardQuantity}, ${consumptionType},
-          ${costCenter}, ${isCritical}, ${notes || null}, NOW(), NOW()
+          ${costCenter}, ${isCritical}, ${notes || undefined}, NOW(), NOW()
         ) RETURNING id
       `);
 
@@ -6194,7 +6194,7 @@ Medical System Procurement Team
         UPDATE test_consumption_templates 
         SET test_id = ${testId}, item_id = ${itemId}, standard_quantity = ${standardQuantity},
             consumption_type = ${consumptionType}, cost_center = ${costCenter},
-            is_critical = ${isCritical}, notes = ${notes || null}, updated_at = NOW()
+            is_critical = ${isCritical}, notes = ${notes || undefined}, updated_at = NOW()
         WHERE id = ${templateId}
       `);
 
@@ -6956,8 +6956,8 @@ Medical System Procurement Team
       const GED_LIMIT = 500000;
 
       // Track approval statuses in memory (replace with database in production)
-      if (!global.approvalStatuses) {
-        global.approvalStatuses = {};
+      if (!(global as any).approvalStatuses) {
+        (global as any).approvalStatuses = {};
       }
 
       const allApprovals = [
@@ -9896,8 +9896,8 @@ Medical System Procurement Team
            payment_date, proof_of_payment_url, notes)
         VALUES 
           (${invoice.tenant_id}, ${invoice.branch_id}, ${invoiceId}, ${settlementNumber}, 
-           ${paymentMethod}, ${paymentReference || null}, ${amountPaid}, ${bankAccountId || null}, 
-           ${req.user?.id || 1}, ${req.user?.id || 1}, NOW(), ${proofOfPaymentUrl || null}, ${notes || null})
+           ${paymentMethod}, ${paymentReference || undefined}, ${amountPaid}, ${bankAccountId || undefined}, 
+           ${req.user?.id || 1}, ${req.user?.id || 1}, NOW(), ${proofOfPaymentUrl || undefined}, ${notes || undefined})
         RETURNING *
       `);
 
@@ -12054,7 +12054,7 @@ Medical System Procurement Team
         receivedByName: user.username,
         status: 'received',
         notes,
-        supplierReceiptUrl: supplierReceiptUrl || null,
+        supplierReceiptUrl: supplierReceiptUrl || undefined,
         items: items || []
       };
 
@@ -12199,7 +12199,7 @@ Medical System Procurement Team
         invoiceNumber,
         invoiceDate: new Date(invoiceDate),
         invoiceAmount,
-        invoiceUrl: invoiceUrl || null,
+        invoiceUrl: invoiceUrl || undefined,
         notes,
         totalVariance,
         status,
@@ -13202,7 +13202,7 @@ Medical System Procurement Team
             verified_at = NOW()
         WHERE id = $4 AND tenant_id = $5
         RETURNING id
-      `, [verification_status, notes || null, req.user!.id, transactionId, req.user!.tenantId]);
+      `, [verification_status, notes || undefined, req.user!.id, transactionId, req.user!.tenantId]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ message: "Transaction not found" });
@@ -13367,7 +13367,7 @@ Medical System Procurement Team
 
       // Check if user has verification permissions
       const authorizedRoles = ['admin', 'manager', 'branch_manager', 'accountant', 'finance_director', 'ceo'];
-      if (!req.user?.role || !authorizedRoles.includes(req.user.role)) {
+      if (!req.user?.role || !authorizedRoles.includes(req.user?.role)) {
         return res.status(403).json({ 
           message: "Insufficient permissions for transaction verification",
           requiredRoles: authorizedRoles
