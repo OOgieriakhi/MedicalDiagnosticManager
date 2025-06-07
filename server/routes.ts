@@ -9403,7 +9403,7 @@ Medical System Procurement Team
         global.accountingStatuses = {};
       }
 
-      global.accountingStatuses[parseInt(id)] = "posting_rejected";
+      global.accountingStatuses[parseInt(id)] = "rejected_by_accountant";
 
       res.json({
         success: true,
