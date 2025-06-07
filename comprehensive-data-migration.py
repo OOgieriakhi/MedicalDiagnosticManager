@@ -231,13 +231,15 @@ def bulk_insert_patients(patients):
         # Clear existing sample data but keep today's actual records
         print("Clearing sample data...")
         cursor.execute("""
-            DELETE FROM patient_tests WHERE patient_id IN (
-                SELECT patient_id FROM patients WHERE patient_id NOT LIKE 'OMC-2025-%'
+            DELETE FROM transactions WHERE patient_test_id IN (
+                SELECT pt.id FROM patient_tests pt
+                JOIN patients p ON pt.patient_id = p.id
+                WHERE p.patient_id NOT LIKE 'OMC-2025-%'
             )
         """)
         cursor.execute("""
-            DELETE FROM transactions WHERE patient_id IN (
-                SELECT patient_id FROM patients WHERE patient_id NOT LIKE 'OMC-2025-%'
+            DELETE FROM patient_tests WHERE patient_id IN (
+                SELECT id FROM patients WHERE patient_id NOT LIKE 'OMC-2025-%'
             )
         """)
         cursor.execute("DELETE FROM patients WHERE patient_id NOT LIKE 'OMC-2025-%'")
@@ -307,60 +309,29 @@ def bulk_insert_transactions(transactions, patient_tests):
         cursor.execute("SELECT id, patient_id FROM patients")
         patient_id_map = {row[1]: row[0] for row in cursor.fetchall()}
         
-        # Insert transactions
-        print("Inserting transactions...")
-        batch_size = 1000
-        total_inserted = 0
+        # Get test catalog for test_id mapping
+        cursor.execute("SELECT id, name FROM test_catalog")
+        test_catalog_map = {row[1]: row[0] for row in cursor.fetchall()}
         
-        for i in range(0, len(transactions), batch_size):
-            batch = transactions[i:i + batch_size]
-            
-            values = []
-            for transaction in batch:
-                if transaction['patient_id'] in patient_id_map:
-                    values.append((
-                        patient_id_map[transaction['patient_id']],
-                        transaction['total_amount'],
-                        transaction['payment_method'],
-                        transaction['payment_status'],
-                        transaction['transaction_date'],
-                        transaction['tenant_id'],
-                        transaction['branch_id'],
-                        transaction['created_at'],
-                        transaction['updated_at']
-                    ))
-            
-            if values:
-                cursor.executemany("""
-                    INSERT INTO transactions (
-                        patient_id, total_amount, payment_method, payment_status,
-                        transaction_date, tenant_id, branch_id, created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, values)
-                
-                total_inserted += len(values)
-                print(f"Inserted {total_inserted} transactions...")
-                
-                conn.commit()
-        
-        # Insert patient tests
+        # Insert patient tests first (needed for transaction foreign keys)
         print("Inserting patient tests...")
         total_tests = 0
+        patient_test_ids = {}
+        batch_size = 1000
         
         for i in range(0, len(patient_tests), batch_size):
             batch = patient_tests[i:i + batch_size]
             
             values = []
             for test in batch:
-                if test['patient_id'] in patient_id_map:
+                if test['patient_id'] in patient_id_map and test['test_name'] in test_catalog_map:
                     values.append((
                         patient_id_map[test['patient_id']],
-                        test['test_name'],
-                        test['test_price'],
-                        test['test_date'],
-                        test['result_status'],
+                        test_catalog_map[test['test_name']],
+                        'pending',  # status
+                        test['test_date'],  # scheduled_at
                         test['tenant_id'],
-                        test['branch_id'],
+                        1,  # branch_id
                         test['created_at'],
                         test['updated_at']
                     ))
@@ -368,13 +339,60 @@ def bulk_insert_transactions(transactions, patient_tests):
             if values:
                 cursor.executemany("""
                     INSERT INTO patient_tests (
-                        patient_id, test_name, test_price, test_date, result_status,
+                        patient_id, test_id, status, scheduled_at,
                         tenant_id, branch_id, created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
                 """, values)
+                
+                # Get the inserted IDs for transaction mapping
+                test_ids = cursor.fetchall()
+                for j, test_id in enumerate(test_ids):
+                    transaction_key = f"{batch[j]['patient_id']}_{batch[j]['transaction_id']}"
+                    if transaction_key not in patient_test_ids:
+                        patient_test_ids[transaction_key] = []
+                    patient_test_ids[transaction_key].append(test_id[0])
                 
                 total_tests += len(values)
                 print(f"Inserted {total_tests} patient tests...")
+                
+                conn.commit()
+        
+        # Insert transactions with patient_test_id references
+        print("Inserting transactions...")
+        total_inserted = 0
+        
+        for i in range(0, len(transactions), batch_size):
+            batch = transactions[i:i + batch_size]
+            
+            values = []
+            for transaction in batch:
+                transaction_key = f"{transaction['patient_id']}_{transaction['id']}"
+                if transaction_key in patient_test_ids and patient_test_ids[transaction_key]:
+                    # Use first patient test ID for this transaction
+                    patient_test_id = patient_test_ids[transaction_key][0]
+                    values.append((
+                        'payment',  # type
+                        transaction['total_amount'],  # amount
+                        'NGN',  # currency
+                        f"Payment for medical tests",  # description
+                        patient_test_id,  # patient_test_id
+                        transaction['tenant_id'],
+                        1,  # branch_id
+                        transaction['created_at'],
+                        transaction['payment_method']
+                    ))
+            
+            if values:
+                cursor.executemany("""
+                    INSERT INTO transactions (
+                        type, amount, currency, description, patient_test_id,
+                        tenant_id, branch_id, created_at, payment_method
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, values)
+                
+                total_inserted += len(values)
+                print(f"Inserted {total_inserted} transactions...")
                 
                 conn.commit()
         
