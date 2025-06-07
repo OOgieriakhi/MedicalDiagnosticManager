@@ -130,6 +130,54 @@ export default function GeneralLedger() {
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const exportToCSV = () => {
+    const csvData = [
+      ['General Ledger Report'],
+      ['Account:', selectedAccount === 'all' ? 'All Accounts' : selectedAccount],
+      ['Date Range:', `${startDate || 'All'} to ${endDate || 'All'}`],
+      [''],
+      ['Date', 'Entry Number', 'Account Code', 'Account Name', 'Description', 'Debit Amount', 'Credit Amount', 'Running Balance', 'Reference Type', 'Reference Number', 'Created By'],
+      ...filteredEntries.map((entry: LedgerEntry) => [
+        entry.entryDate,
+        entry.entryNumber,
+        entry.accountCode,
+        entry.accountName,
+        entry.description,
+        entry.debitAmount.toString(),
+        entry.creditAmount.toString(),
+        entry.runningBalance.toString(),
+        entry.referenceType,
+        entry.referenceNumber,
+        entry.createdBy
+      ]),
+      [''],
+      ['Account Summaries'],
+      ['Account Code', 'Account Name', 'Account Type', 'Opening Balance', 'Total Debits', 'Total Credits', 'Closing Balance', 'Entry Count'],
+      ...accountSummaries.map((summary: AccountSummary) => [
+        summary.accountCode,
+        summary.accountName,
+        summary.accountType,
+        summary.openingBalance.toString(),
+        summary.totalDebits.toString(),
+        summary.totalCredits.toString(),
+        summary.closingBalance.toString(),
+        summary.entryCount.toString()
+      ])
+    ];
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `general-ledger-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -147,9 +195,13 @@ export default function GeneralLedger() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handlePrint}>
             <Download className="w-4 h-4 mr-2" />
-            Export Ledger
+            Print
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
           </Button>
         </div>
       </div>
