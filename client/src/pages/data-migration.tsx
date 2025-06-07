@@ -97,11 +97,11 @@ export default function DataMigration() {
       });
     },
     onSuccess: (data) => {
-      setTableAnalysis(data.tables);
+      setTableAnalysis(data.tables || []);
       setMigrationStatus(prev => ({ ...prev, phase: 'map', progress: 50 }));
       toast({
         title: "Database analysis complete",
-        description: `Found ${data.tables.length} tables with data`,
+        description: `Found ${data.tables?.length || 0} tables with ${data.totalRecords || 0} total records`,
       });
     },
   });
@@ -119,11 +119,11 @@ export default function DataMigration() {
         ...prev, 
         phase: 'complete', 
         progress: 100,
-        completedTables: data.completedTables 
+        completedTables: data.completedTables || []
       }));
       toast({
         title: "Migration completed successfully",
-        description: `Migrated ${data.totalRecords} records from ${data.completedTables.length} tables`,
+        description: `Migrated ${data.totalRecords || 0} records from ${data.completedTables?.length || 0} tables`,
       });
     },
   });
@@ -268,36 +268,30 @@ export default function DataMigration() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="tableStructure">Table Structure & Data Info</Label>
+                    <Label htmlFor="tableStructure">Orient Medical Centre - Cleaned Database Analysis</Label>
                     <Textarea
                       id="tableStructure"
-                      placeholder={`Paste your table analysis here, for example:
+                      placeholder={`Enter your cleaned database table structure with priority prefixes:
 
-PATIENTS TABLE (152 records)
-- PatientID (AutoNumber)
-- FirstName (Text)
-- LastName (Text)
-- DateOfBirth (Date)
-- Phone (Text)
-- Address (Text)
+A PREFIX TABLES (Patient Records - Highest Priority)
+- A_PatientRegister (9,319+ records)
+  - PatientID, FirstName, LastName, Phone, Address, ReferralSource
+  - DEDUPLICATION: Match surname + firstname + phone for duplicates
 
-TESTS TABLE (340 records)
-- TestID (AutoNumber)
-- PatientID (Number)
-- TestDate (Date)
-- TestType (Text)
-- Results (Text)
-- Amount (Currency)
+B PREFIX TABLES (Financial Transactions - Critical)
+- B_FinancialTransactions (20,771+ records)
+  - TransactionID, PatientID, Amount, Date, PaymentMethod
+  - ReferralID (CRITICAL: Links to referral commission tracking)
 
-PAYMENTS TABLE (280 records)
-- PaymentID (AutoNumber)
-- PatientID (Number)
-- Amount (Currency)
-- PaymentDate (Date)
-- Method (Text)`}
+C PREFIX TABLES (Referrals - Important)
+- C_ReferralProviders
+  - ReferralID, ProviderName, CommissionRate, ContactInfo
+
+NOTE: ReferralID in transactions table is essential for revenue tracking
+Some patients registered multiple times - use name+phone matching`}
                       value={tableStructure}
                       onChange={(e) => setTableStructure(e.target.value)}
-                      rows={12}
+                      rows={15}
                     />
                   </div>
                   

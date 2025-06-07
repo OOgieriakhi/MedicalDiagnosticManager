@@ -1,90 +1,168 @@
 # Orient Medical Centre - Targeted Migration Plan
 
-## Confirmed Core Tables for Migration
+## Executive Summary
+**Database File**: cleaned_orient_database.accdb (767KB)
+**Migration Strategy**: Core operational data only, fresh start for business intelligence
+**Total Records**: 30,000+ across prioritized tables
 
-### Table 1: tblRecPatient Register (9,319 records)
-**Export Instructions:**
-1. Right-click on "tblRecPatient Register" table
-2. Select "Export" → "Text File"
-3. Choose "Delimited" format
-4. Select "Comma" as delimiter
-5. Check "Include Field Names on First Row"
-6. Save as: `patients.csv`
+## Migration Scope
 
-### Table 2: ftblBiLfinancialtransactions (20,771 records)
-**Export Instructions:**
-1. Right-click on "ftblBiLfinancialtransactions" table
-2. Select "Export" → "Text File"
-3. Choose "Delimited" format
-4. Select "Comma" as delimiter
-5. Check "Include Field Names on First Row"
-6. Save as: `financial_transactions.csv`
+### INCLUDED: Core Operational Data (A/B/C Prefix Tables)
 
-## Field Mapping Strategy
+#### A PREFIX - Patient Records (Highest Priority)
+- **A_PatientRegister**: 9,319+ patient records
+- **Fields**: PatientID, FirstName, LastName, Phone, Address, ReferralSource
+- **Critical Feature**: Duplicate detection using surname + firstname + phone matching
+- **Business Impact**: Complete patient continuity, zero data loss
 
-### Patient Table Fields (tblRecPatient Register)
-**Common Access field names → ERP fields:**
-- PatientID/ID → id
-- FirstName/FName → firstName
-- LastName/LName → lastName
-- DOB/DateOfBirth → dateOfBirth
-- Phone/PhoneNumber → phone
-- Address → address
-- Gender/Sex → gender
-- ReferralSource/RefSource → referralSource
+#### B PREFIX - Financial Transactions (Critical)
+- **B_FinancialTransactions**: 20,771+ financial records
+- **Fields**: TransactionID, PatientID, Amount, Date, PaymentMethod, ReferralID
+- **Critical Feature**: ReferralID preservation for commission tracking
+- **Business Impact**: Complete revenue history, accurate financial reporting
 
-### Financial Table Fields (ftblBiLfinancialtransactions)
-**Common Access field names → ERP fields:**
-- TransactionID/ID → id
-- PatientID → patientId
-- TransactionDate/Date → transactionDate
-- Amount → amount
-- PaymentMethod/Method → paymentMethod
-- Description → description
-- Status → status
+#### C PREFIX - Referrals (Important)
+- **C_ReferralProviders**: Referral partner database
+- **Fields**: ReferralID, ProviderName, CommissionRate, ContactInfo
+- **Critical Feature**: Commission rate preservation
+- **Business Impact**: Seamless referral partner management
 
-## Migration Process
+### EXCLUDED: Legacy Business & Accounting Tables
+- **Rationale**: Fresh start for improved data architecture
+- **Strategy**: Summarize key insights and rebuild within ERP framework
+- **Benefit**: Modern business intelligence without legacy constraints
 
-### Phase 1: Export Core Data
-1. Export patients.csv (9,319 records)
-2. Export financial_transactions.csv (20,771 records)
-3. Verify file sizes and record counts
+## Technical Migration Process
 
-### Phase 2: Data Validation
-1. Check for proper CSV formatting
-2. Verify date formats (convert to YYYY-MM-DD)
-3. Standardize phone numbers (+234XXXXXXXXXX)
-4. Clean currency fields (remove ₦ symbols)
+### Phase 1: Data Analysis & Validation
+1. **Table Structure Analysis**
+   - Parse A/B/C prefixed tables from cleaned database
+   - Validate field mappings to ERP schema
+   - Identify data quality issues
 
-### Phase 3: Upload via Data Migration Center
-1. Access `/data-migration` in ERP system
-2. Upload CSV files in Upload tab
-3. Map fields in Map & Validate tab
-4. Execute migration
+2. **Duplicate Patient Detection**
+   ```sql
+   -- Detection Logic
+   SELECT FirstName, LastName, Phone, COUNT(*) 
+   FROM A_PatientRegister 
+   GROUP BY FirstName, LastName, Phone 
+   HAVING COUNT(*) > 1
+   ```
 
-## Data Quality Checks
+3. **Referral Integrity Verification**
+   ```sql
+   -- Verify ReferralID linkages
+   SELECT DISTINCT b.ReferralID, c.ProviderName
+   FROM B_FinancialTransactions b
+   LEFT JOIN C_ReferralProviders c ON b.ReferralID = c.ReferralID
+   WHERE b.ReferralID IS NOT NULL
+   ```
 
-### Patient Data Validation
-- Ensure no duplicate patient IDs
-- Verify phone number formats
-- Check date of birth validity
-- Validate address completeness
+### Phase 2: Field Mapping & Transformation
 
-### Financial Data Validation
-- Confirm all amounts are numeric
-- Verify transaction dates are valid
-- Check patient ID references exist
-- Validate payment methods are standard
+#### Patient Data Mapping
+| Access Field | ERP Field | Transformation |
+|--------------|-----------|----------------|
+| PatientID | id (auto-generated) | New sequential ID |
+| FirstName | firstName | Direct mapping |
+| LastName | lastName | Direct mapping |
+| Phone | phone | Format standardization |
+| Address | address | Direct mapping |
+| ReferralSource | referralSource | Lookup to referral table |
 
-## Expected Migration Time
-- **Patient records:** 15-20 minutes (9,319 records)
-- **Financial transactions:** 25-30 minutes (20,771 records)
-- **Total estimated time:** 45-60 minutes
+#### Financial Transaction Mapping
+| Access Field | ERP Field | Transformation |
+|--------------|-----------|----------------|
+| TransactionID | id (auto-generated) | New sequential ID |
+| PatientID | patientId | Map to new patient IDs |
+| Amount | amount | Currency validation |
+| Date | createdAt | Date format conversion |
+| PaymentMethod | paymentMethod | Standardize values |
+| ReferralID | referralId | Map to new referral IDs |
 
-## Next Steps
-1. Export the two CSV files from Access
-2. Upload them via the Data Migration Center
-3. I'll handle field mapping and data transformation
-4. Execute migration with progress monitoring
+#### Referral Provider Mapping
+| Access Field | ERP Field | Transformation |
+|--------------|-----------|----------------|
+| ReferralID | id (auto-generated) | New sequential ID |
+| ProviderName | name | Direct mapping |
+| CommissionRate | commissionRate | Percentage validation |
+| ContactInfo | contactPhone, contactEmail | Split fields |
 
-This focused approach gets your core operational data (30,090 records) migrated efficiently while we identify other populated tables for subsequent migration phases.
+### Phase 3: Migration Execution Order
+
+1. **Referral Providers** (C_ tables)
+   - Create provider records first
+   - Generate new referral IDs
+   - Preserve commission rates
+
+2. **Patient Records** (A_ tables)
+   - Process patient data with deduplication
+   - Link to referral providers
+   - Generate new patient IDs
+
+3. **Financial Transactions** (B_ tables)
+   - Process transaction history
+   - Link to new patient IDs and referral IDs
+   - Preserve referral commission tracking
+
+### Phase 4: Data Validation & Quality Checks
+
+#### Completeness Verification
+- [ ] All 9,319+ patients migrated successfully
+- [ ] All 20,771+ transactions preserved
+- [ ] All referral provider relationships intact
+- [ ] Zero data loss in critical fields
+
+#### Accuracy Validation
+- [ ] Patient deduplication results reviewed
+- [ ] Financial totals match source system
+- [ ] Referral commission calculations accurate
+- [ ] Date/time fields properly converted
+
+#### Relationship Integrity
+- [ ] Patient-transaction linkages verified
+- [ ] Referral-transaction associations maintained
+- [ ] Foreign key constraints satisfied
+- [ ] Data consistency across related tables
+
+## Fresh Start Strategy for Business Intelligence
+
+### Modern ERP Benefits
+1. **Clean Data Architecture**: No legacy constraints
+2. **Advanced Analytics**: Built-in reporting and insights
+3. **Scalable Design**: Room for future growth
+4. **Real-time Dashboards**: Live operational metrics
+
+### Business Intelligence Modules to Build Fresh
+- **Financial Reporting**: Modern charts and analytics
+- **Revenue Analytics**: Advanced forecasting models
+- **Operational Dashboards**: Real-time KPIs
+- **Compliance Reporting**: Automated regulatory reports
+
+## Expected Migration Outcomes
+
+### Immediate Benefits
+- **100% Operational Continuity**: All patient and transaction history preserved
+- **Enhanced Data Quality**: Duplicate patients resolved
+- **Improved Performance**: Modern database optimization
+- **Accurate Commission Tracking**: ReferralID linkages maintained
+
+### Long-term Advantages
+- **Modern Business Intelligence**: Clean foundation for analytics
+- **Scalable Architecture**: Ready for diagnostic center growth
+- **Better Decision Making**: Real-time insights and reporting
+- **Regulatory Compliance**: Proper audit trails and documentation
+
+## Migration Timeline
+- **Analysis Phase**: 1-2 hours
+- **Field Mapping**: 2-3 hours  
+- **Data Migration**: 3-4 hours
+- **Validation**: 2-3 hours
+- **Total Duration**: 8-12 hours
+
+## Success Criteria
+✅ Zero data loss for critical operational records
+✅ All patient-referral relationships preserved
+✅ Financial transaction history complete and accurate
+✅ Clean foundation for modern business intelligence
+✅ Improved system performance and user experience

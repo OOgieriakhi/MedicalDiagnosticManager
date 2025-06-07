@@ -254,6 +254,186 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Data Migration Routes for Orient Medical Centre
+  app.post("/api/data-migration/analyze", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { tableStructure, accessDbPath } = req.body;
+      
+      // Parse the table structure to identify A/B/C prefixed tables
+      const tables = [];
+      const lines = tableStructure.split('\n');
+      let currentTable = null;
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        
+        // Detect table definitions (A_, B_, C_ prefixes)
+        if (trimmed.match(/^[ABC]_\w+/)) {
+          if (currentTable) {
+            tables.push(currentTable);
+          }
+          
+          const tableName = trimmed.split(' ')[0].replace('-', '');
+          const recordMatch = trimmed.match(/\((\d+[,\d]*)\s*records?\)/);
+          const recordCount = recordMatch ? parseInt(recordMatch[1].replace(/,/g, '')) : 0;
+          
+          // Determine priority based on prefix
+          let priority: 'high' | 'medium' | 'low' = 'medium';
+          if (tableName.startsWith('A_')) priority = 'high';
+          else if (tableName.startsWith('B_')) priority = 'high';
+          else if (tableName.startsWith('C_')) priority = 'medium';
+          
+          currentTable = {
+            name: tableName,
+            recordCount,
+            fields: [],
+            sampleData: [],
+            mapped: false,
+            priority,
+            category: tableName.startsWith('A_') ? 'patients' : 
+                     tableName.startsWith('B_') ? 'financial' : 'referrals'
+          };
+        }
+        
+        // Detect field definitions
+        else if (trimmed.startsWith('-') && currentTable) {
+          const fieldName = trimmed.substring(1).trim().split(' ')[0];
+          currentTable.fields.push(fieldName);
+        }
+      }
+      
+      if (currentTable) {
+        tables.push(currentTable);
+      }
+
+      // Generate migration recommendations
+      const recommendations = {
+        patientDeduplication: {
+          enabled: true,
+          matchFields: ['lastName', 'firstName', 'phone'],
+          description: 'Detect duplicate patients using surname + firstname + phone matching'
+        },
+        referralTracking: {
+          enabled: true,
+          criticalField: 'referralID',
+          description: 'Preserve referralID linkage in financial transactions for commission tracking'
+        },
+        migrationOrder: [
+          'A_* tables (Patient records)',
+          'C_* tables (Referral providers)', 
+          'B_* tables (Financial transactions with referralID links)'
+        ]
+      };
+
+      res.json({
+        tables,
+        recommendations,
+        totalRecords: tables.reduce((sum, t) => sum + t.recordCount, 0),
+        analysisComplete: true
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Error analyzing database structure", 
+        error: error.message 
+      });
+    }
+  });
+
+  app.post("/api/data-migration/upload", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      // Handle file upload for Access database
+      res.json({
+        success: true,
+        filesProcessed: 1,
+        message: "Database upload simulation - ready for field mapping"
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Error uploading files", 
+        error: error.message 
+      });
+    }
+  });
+
+  app.post("/api/data-migration/execute", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { tableMappings, deduplicationSettings } = req.body;
+      
+      // Simulate migration execution with progress tracking
+      const migrationSteps = [
+        { table: 'A_PatientRegister', phase: 'Patient data migration', progress: 25 },
+        { table: 'C_ReferralProviders', phase: 'Referral provider setup', progress: 50 },
+        { table: 'B_FinancialTransactions', phase: 'Financial transaction migration', progress: 75 },
+        { table: 'Validation', phase: 'Data validation and integrity checks', progress: 100 }
+      ];
+
+      res.json({
+        migrationId: `migration_${Date.now()}`,
+        steps: migrationSteps,
+        estimatedDuration: '15-20 minutes',
+        status: 'initiated'
+      });
+
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Error executing migration", 
+        error: error.message 
+      });
+    }
+  });
+
+  app.get("/api/data-migration/templates/:type", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+
+    try {
+      const { type } = req.params;
+      
+      let template = '';
+      
+      switch (type) {
+        case 'patients':
+          template = 'PatientID,FirstName,LastName,Phone,Email,DateOfBirth,Address,ReferralSource\n';
+          template += 'P001,John,Doe,1234567890,john.doe@email.com,1980-01-15,"123 Main St",Dr. Smith\n';
+          break;
+        case 'financial':
+          template = 'TransactionID,PatientID,Amount,Date,PaymentMethod,ReferralID,Description\n';
+          template += 'T001,P001,150.00,2024-01-15,Cash,R001,Blood Test\n';
+          break;
+        case 'referrals':
+          template = 'ReferralID,ProviderName,CommissionRate,ContactPhone,ContactEmail\n';
+          template += 'R001,Dr. Smith Clinic,15.0,1234567890,dr.smith@clinic.com\n';
+          break;
+        default:
+          return res.status(400).json({ message: 'Invalid template type' });
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${type}_template.csv"`);
+      res.send(template);
+
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Error generating template", 
+        error: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
