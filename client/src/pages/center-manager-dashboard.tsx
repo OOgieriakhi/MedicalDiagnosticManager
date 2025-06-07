@@ -54,11 +54,16 @@ interface ManagementModule {
   priority: 'high' | 'medium' | 'low';
   requiresApproval?: boolean;
   pendingItems?: number;
+  ceoOnly?: boolean;
 }
 
 export default function CenterManagerDashboard() {
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  const handleCeoOnlyClick = (moduleName: string) => {
+    alert(`Access Restricted: ${moduleName} requires CEO-level authorization. Please contact the Chief Executive Officer for access.`);
+  };
 
   // Fetch manager metrics
   const { data: metrics } = useQuery<ManagerMetrics>({
@@ -253,22 +258,28 @@ export default function CenterManagerDashboard() {
       priority: 'medium'
     },
 
-    // Security & Compliance
+    // Security & Compliance (CEO Level Access)
     {
       title: "Security Audit",
-      description: "Security monitoring and audit trails",
+      description: "Security monitoring and audit trails (CEO Access Required)",
       icon: Shield,
-      href: "/security-audit",
+      href: "#",
       category: 'security',
-      priority: 'high'
+      priority: 'high',
+      requiresApproval: true,
+      pendingItems: 0,
+      ceoOnly: true
     },
     {
       title: "Access Control",
-      description: "Monitor user access and permissions",
+      description: "Monitor user access and permissions (CEO Access Required)",
       icon: Lock,
-      href: "/role-management",
+      href: "#",
       category: 'security',
-      priority: 'medium'
+      priority: 'medium',
+      requiresApproval: true,
+      pendingItems: 0,
+      ceoOnly: true
     }
   ];
 
@@ -398,28 +409,63 @@ export default function CenterManagerDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {managementModules
                   .filter(module => module.priority === 'high' && (module.pendingItems || module.requiresApproval))
-                  .map((module) => (
-                    <Link key={module.title} href={module.href}>
-                      <Card className={`cursor-pointer hover:shadow-md transition-shadow ${getPriorityColor(module.priority)}`}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <module.icon className="w-5 h-5 text-red-600" />
-                              <div>
-                                <h3 className="font-medium">{module.title}</h3>
-                                <p className="text-xs text-gray-600 mt-1">{module.description}</p>
+                  .map((module) => {
+                    if (module.ceoOnly) {
+                      return (
+                        <Card 
+                          key={module.title} 
+                          className={`cursor-pointer hover:shadow-md transition-shadow ${getPriorityColor(module.priority)} opacity-60 relative`}
+                          onClick={() => handleCeoOnlyClick(module.title)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <module.icon className="w-5 h-5 text-red-600" />
+                                <div>
+                                  <h3 className="font-medium">{module.title}</h3>
+                                  <p className="text-xs text-gray-600 mt-1">{module.description}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                                  <Lock className="w-3 h-3 mr-1" />
+                                  CEO Only
+                                </Badge>
+                                {module.pendingItems && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    {module.pendingItems}
+                                  </Badge>
+                                )}
                               </div>
                             </div>
-                            {module.pendingItems && (
-                              <Badge variant="destructive" className="text-xs">
-                                {module.pendingItems}
-                              </Badge>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+                    
+                    return (
+                      <Link key={module.title} href={module.href}>
+                        <Card className={`cursor-pointer hover:shadow-md transition-shadow ${getPriorityColor(module.priority)}`}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <module.icon className="w-5 h-5 text-red-600" />
+                                <div>
+                                  <h3 className="font-medium">{module.title}</h3>
+                                  <p className="text-xs text-gray-600 mt-1">{module.description}</p>
+                                </div>
+                              </div>
+                              {module.pendingItems && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {module.pendingItems}
+                                </Badge>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
               </div>
             </CardContent>
           </Card>
@@ -469,35 +515,73 @@ export default function CenterManagerDashboard() {
         {['financial', 'operational', 'staff', 'reporting', 'security'].map((category) => (
           <TabsContent key={category} value={category}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {getModulesByCategory(category).map((module) => (
-                <Link key={module.title} href={module.href}>
-                  <Card className={`cursor-pointer hover:shadow-md transition-shadow ${getPriorityColor(module.priority)}`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <module.icon className="w-8 h-8 text-blue-600" />
-                        <div className="flex flex-col items-end gap-1">
-                          {getPriorityBadge(module.priority)}
-                          {module.pendingItems && (
-                            <Badge variant="destructive" className="text-xs">
-                              {module.pendingItems}
+              {getModulesByCategory(category).map((module) => {
+                if (module.ceoOnly) {
+                  return (
+                    <Card 
+                      key={module.title} 
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${getPriorityColor(module.priority)} opacity-60`}
+                      onClick={() => handleCeoOnlyClick(module.title)}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <module.icon className="w-8 h-8 text-blue-600" />
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                              <Lock className="w-3 h-3 mr-1" />
+                              CEO Only
                             </Badge>
-                          )}
+                            {getPriorityBadge(module.priority)}
+                            {module.pendingItems && (
+                              <Badge variant="destructive" className="text-xs">
+                                {module.pendingItems}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <h3 className="font-medium text-lg mb-2">{module.title}</h3>
-                      <p className="text-sm text-gray-600">{module.description}</p>
-                      {module.requiresApproval && (
+                        <h3 className="font-medium text-lg mb-2">{module.title}</h3>
+                        <p className="text-sm text-gray-600">{module.description}</p>
                         <div className="mt-3">
-                          <Badge variant="outline" className="text-xs">
-                            <Lock className="w-3 h-3 mr-1" />
-                            Approval Required
+                          <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-300">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Restricted Access
                           </Badge>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                
+                return (
+                  <Link key={module.title} href={module.href}>
+                    <Card className={`cursor-pointer hover:shadow-md transition-shadow ${getPriorityColor(module.priority)}`}>
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <module.icon className="w-8 h-8 text-blue-600" />
+                          <div className="flex flex-col items-end gap-1">
+                            {getPriorityBadge(module.priority)}
+                            {module.pendingItems && (
+                              <Badge variant="destructive" className="text-xs">
+                                {module.pendingItems}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <h3 className="font-medium text-lg mb-2">{module.title}</h3>
+                        <p className="text-sm text-gray-600">{module.description}</p>
+                        {module.requiresApproval && (
+                          <div className="mt-3">
+                            <Badge variant="outline" className="text-xs">
+                              <Lock className="w-3 h-3 mr-1" />
+                              Approval Required
+                            </Badge>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
             </div>
           </TabsContent>
         ))}
@@ -528,10 +612,10 @@ export default function CenterManagerDashboard() {
                 Verify Income
               </Button>
             </Link>
-            <Link href="/security-audit">
+            <Link href="/approval-tracking">
               <Button variant="outline" className="w-full justify-start">
-                <Shield className="w-4 h-4 mr-2" />
-                Security Check
+                <Workflow className="w-4 h-4 mr-2" />
+                Track Approvals
               </Button>
             </Link>
           </div>
