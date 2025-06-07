@@ -273,14 +273,12 @@ export class DatabaseStorage implements IStorage {
     const results = await db.select()
       .from(patients)
       .where(
-        and(
-          eq(patients.branchId, branchId),
-          or(
-            sql`LOWER(${patients.firstName}) LIKE ${searchTerm}`,
-            sql`LOWER(${patients.lastName}) LIKE ${searchTerm}`,
-            sql`LOWER(${patients.phone}) LIKE ${searchTerm}`,
-            sql`LOWER(${patients.patientId}) LIKE ${searchTerm}`
-          )
+        or(
+          sql`LOWER(${patients.firstName}) LIKE ${searchTerm}`,
+          sql`LOWER(${patients.lastName}) LIKE ${searchTerm}`,
+          sql`LOWER(${patients.middleName}) LIKE ${searchTerm}`,
+          sql`LOWER(${patients.phone}) LIKE ${searchTerm}`,
+          sql`LOWER(${patients.patientId}) LIKE ${searchTerm}`
         )
       )
       .limit(10);
