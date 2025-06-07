@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { 
@@ -57,6 +58,12 @@ export default function BankReconciliation() {
   const [statementBalance, setStatementBalance] = useState("");
   const [selectedTransactions, setSelectedTransactions] = useState<number[]>([]);
   const [importFile, setImportFile] = useState<File | null>(null);
+
+  // Reset selections when account changes
+  useEffect(() => {
+    setSelectedTransactions([]);
+    setStatementBalance("");
+  }, [selectedAccount]);
 
   // Fetch bank accounts
   const { data: bankAccounts = [] } = useQuery({
@@ -245,6 +252,51 @@ export default function BankReconciliation() {
     });
   };
 
+  const handleRefreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/bank-transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/bank-reconciliation-items"] });
+    setSelectedTransactions([]);
+    toast({ title: "Data refreshed successfully" });
+  };
+
+  const [showAddItemDialog, setShowAddItemDialog] = useState(false);
+  const [newItem, setNewItem] = useState({
+    type: 'outstanding_check' as const,
+    amount: '',
+    description: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  const handleAddItem = () => {
+    if (!newItem.amount || !newItem.description) {
+      toast({ title: "Please fill all fields", variant: "destructive" });
+      return;
+    }
+
+    const item = {
+      id: Date.now(),
+      transactionId: 0,
+      amount: parseFloat(newItem.amount),
+      description: newItem.description,
+      type: newItem.type,
+      date: newItem.date
+    };
+
+    // Add to reconciliation items (in real app, this would call API)
+    queryClient.setQueryData(["/api/bank-reconciliation-items", selectedAccount, reconciliationDate], 
+      (old: any) => [...(old || []), item]
+    );
+
+    setShowAddItemDialog(false);
+    setNewItem({
+      type: 'outstanding_check',
+      amount: '',
+      description: '',
+      date: new Date().toISOString().split('T')[0]
+    });
+    toast({ title: "Reconciliation item added successfully" });
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -262,11 +314,21 @@ export default function BankReconciliation() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePrint}
+            disabled={!selectedAccount || transactions.length === 0}
+          >
             <Download className="w-4 h-4 mr-2" />
             Print Report
           </Button>
-          <Button variant="outline" size="sm" onClick={exportToCSV}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToCSV}
+            disabled={!selectedAccount || transactions.length === 0}
+          >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
@@ -401,11 +463,11 @@ export default function BankReconciliation() {
                 >
                   {reconciliationMutation.isPending ? "Processing..." : "Complete Reconciliation"}
                 </Button>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" onClick={handleRefreshData}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh Data
                 </Button>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" onClick={handleImportStatement}>
                   <Upload className="w-4 h-4 mr-2" />
                   Import Statement
                 </Button>
