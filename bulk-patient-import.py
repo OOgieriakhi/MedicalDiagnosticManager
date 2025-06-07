@@ -74,7 +74,6 @@ def generate_patient_data(count=9000):
             'patient_id': patient_id,
             'first_name': first_name,
             'last_name': last_name,
-            'full_name': full_name,
             'phone': phone,
             'date_of_birth': date_of_birth,
             'gender': gender,
@@ -107,7 +106,7 @@ def bulk_insert_patients(patients):
         # Prepare bulk insert query
         insert_query = """
             INSERT INTO patients (
-                patient_id, first_name, last_name, full_name, phone, 
+                patient_id, first_name, last_name, phone, 
                 date_of_birth, gender, address, pathway, referral_provider_id,
                 tenant_id, branch_id, created_at, updated_at
             ) VALUES %s
@@ -120,7 +119,6 @@ def bulk_insert_patients(patients):
                 patient['patient_id'],
                 patient['first_name'],
                 patient['last_name'],
-                patient['full_name'],
                 patient['phone'],
                 patient['date_of_birth'],
                 patient['gender'],
