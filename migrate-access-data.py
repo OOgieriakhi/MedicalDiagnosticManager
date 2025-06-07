@@ -54,7 +54,7 @@ class AccessMigrationTool:
             self.logger.error(f"Failed to connect to Access database: {e}")
             raise
 
-    def connect_postgres(self) -> psycopg2.Connection:
+    def connect_postgres(self):
         """Establish connection to PostgreSQL database"""
         try:
             connection = psycopg2.connect(**self.postgres_config)
