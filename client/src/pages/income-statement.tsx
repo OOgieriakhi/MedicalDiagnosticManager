@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ interface IncomeStatementData {
 
 export default function IncomeStatement() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("current_month");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -85,6 +87,204 @@ export default function IncomeStatement() {
     period: 'current_month',
     startDate: '',
     endDate: ''
+  };
+
+  // Check if data is available for export
+  const hasData = (filteredRevenue && filteredRevenue.length > 0) || 
+                  (filteredExpenses && filteredExpenses.length > 0) || 
+                  summary.totalRevenue > 0 || 
+                  summary.operatingExpenses > 0;
+
+  // Print functionality
+  const handlePrint = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to print", 
+        description: "Please select a period with income statement data",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Income Statement - ${summary.period}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #1f2937; text-align: center; }
+            .summary { margin: 20px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f3f4f6; }
+            .amount { text-align: right; }
+            .total { font-weight: bold; background-color: #f9fafb; }
+          </style>
+        </head>
+        <body>
+          <h1>Income Statement</h1>
+          <div class="summary">
+            <p><strong>Period:</strong> ${summary.period}</p>
+            ${summary.startDate ? `<p><strong>From:</strong> ${summary.startDate} <strong>To:</strong> ${summary.endDate}</p>` : ''}
+          </div>
+          
+          <h2>Revenue</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredRevenue.map(item => `
+                <tr>
+                  <td>${item.account}</td>
+                  <td>${item.description}</td>
+                  <td class="amount">${formatCurrency(item.amount)}</td>
+                  <td class="amount">${item.percentage.toFixed(1)}%</td>
+                </tr>
+              `).join('')}
+              <tr class="total">
+                <td colspan="2"><strong>Total Revenue</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.totalRevenue)}</strong></td>
+                <td class="amount"><strong>100.0%</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <h2>Expenses</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredExpenses.map(item => `
+                <tr>
+                  <td>${item.account}</td>
+                  <td>${item.description}</td>
+                  <td class="amount">${formatCurrency(item.amount)}</td>
+                  <td class="amount">${item.percentage.toFixed(1)}%</td>
+                </tr>
+              `).join('')}
+              <tr class="total">
+                <td colspan="2"><strong>Total Expenses</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.operatingExpenses)}</strong></td>
+                <td class="amount"><strong>${((summary.operatingExpenses / summary.totalRevenue) * 100).toFixed(1)}%</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <h2>Summary</h2>
+          <table>
+            <tbody>
+              <tr>
+                <td><strong>Total Revenue</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.totalRevenue)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Cost of Services</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.costOfServices)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Gross Profit</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.grossProfit)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Operating Expenses</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.operatingExpenses)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Operating Income</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.operatingIncome)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Net Income</strong></td>
+                <td class="amount"><strong>${formatCurrency(summary.netIncome)}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Net Profit Margin</strong></td>
+                <td class="amount"><strong>${summary.netProfitMargin.toFixed(1)}%</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+  // Export to CSV functionality
+  const exportToCSV = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to export", 
+        description: "Please select a period with income statement data",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    let csvContent = "Income Statement Export\n";
+    csvContent += `Period,${summary.period}\n`;
+    if (summary.startDate) {
+      csvContent += `Start Date,${summary.startDate}\n`;
+      csvContent += `End Date,${summary.endDate}\n`;
+    }
+    csvContent += "\n";
+
+    // Revenue section
+    csvContent += "REVENUE\n";
+    csvContent += "Account,Description,Amount,Percentage\n";
+    filteredRevenue.forEach(item => {
+      csvContent += `"${item.account}","${item.description}",${item.amount},${item.percentage}\n`;
+    });
+    csvContent += `"Total Revenue","",${summary.totalRevenue},100.0\n\n`;
+
+    // Expenses section
+    csvContent += "EXPENSES\n";
+    csvContent += "Account,Description,Amount,Percentage\n";
+    filteredExpenses.forEach(item => {
+      csvContent += `"${item.account}","${item.description}",${item.amount},${item.percentage}\n`;
+    });
+    csvContent += `"Total Expenses","",${summary.operatingExpenses},${((summary.operatingExpenses / summary.totalRevenue) * 100).toFixed(1)}\n\n`;
+
+    // Summary section
+    csvContent += "SUMMARY\n";
+    csvContent += "Metric,Amount\n";
+    csvContent += `"Total Revenue",${summary.totalRevenue}\n`;
+    csvContent += `"Cost of Services",${summary.costOfServices}\n`;
+    csvContent += `"Gross Profit",${summary.grossProfit}\n`;
+    csvContent += `"Operating Expenses",${summary.operatingExpenses}\n`;
+    csvContent += `"Operating Income",${summary.operatingIncome}\n`;
+    csvContent += `"Net Income",${summary.netIncome}\n`;
+    csvContent += `"Net Profit Margin",${summary.netProfitMargin}\n`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `income-statement-${summary.period}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const formatCurrency = (amount: number) => {
@@ -139,57 +339,6 @@ export default function IncomeStatement() {
   ];
 
   const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const exportToCSV = () => {
-    const csvData = [
-      ['Income Statement Report'],
-      ['Period:', summary.period],
-      ['Date Range:', `${summary.startDate} to ${summary.endDate}`],
-      [''],
-      ['REVENUE'],
-      ['Account', 'Amount', 'Percentage', 'Category', 'Description'],
-      ...filteredRevenue.map(item => [
-        item.account,
-        item.amount.toString(),
-        `${item.percentage.toFixed(2)}%`,
-        getCategoryLabel(item.category),
-        item.description
-      ]),
-      [''],
-      ['EXPENSES'],
-      ['Account', 'Amount', 'Percentage', 'Category', 'Description'],
-      ...filteredExpenses.map(item => [
-        item.account,
-        item.amount.toString(),
-        `${item.percentage.toFixed(2)}%`,
-        getCategoryLabel(item.category),
-        item.description
-      ]),
-      [''],
-      ['SUMMARY'],
-      ['Total Revenue', summary.totalRevenue.toString()],
-      ['Cost of Services', summary.costOfServices.toString()],
-      ['Gross Profit', summary.grossProfit.toString()],
-      ['Gross Profit Margin', `${summary.grossProfitMargin.toFixed(2)}%`],
-      ['Operating Expenses', summary.operatingExpenses.toString()],
-      ['Operating Income', summary.operatingIncome.toString()],
-      ['Operating Margin', `${summary.operatingMargin.toFixed(2)}%`],
-      ['Net Income', summary.netIncome.toString()],
-      ['Net Profit Margin', `${summary.netProfitMargin.toFixed(2)}%`]
-    ];
-
-    const csvContent = csvData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `income-statement-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 print:p-0 print:bg-white">
