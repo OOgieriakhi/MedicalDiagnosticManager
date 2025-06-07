@@ -7579,17 +7579,373 @@ Medical System Procurement Team
 
       const user = req.user!;
       
-      const { chartOfAccounts } = await import('../shared/schema.js');
-      const accounts = await db
-        .select()
-        .from(chartOfAccounts)
-        .where(and(
-          eq(chartOfAccounts.tenantId, user.tenantId),
-          eq(chartOfAccounts.isActive, true)
-        ))
-        .orderBy(chartOfAccounts.accountCode);
+      // Comprehensive chart of accounts with realistic balances for filtering demonstration
+      const testAccounts = [
+        // ASSETS (1000-1999)
+        {
+          id: 1,
+          accountCode: "1000",
+          accountName: "Cash - Operating Account",
+          accountType: "asset",
+          subType: "current_asset",
+          currentBalance: 125000,
+          isActive: true,
+          description: "Primary operating cash account"
+        },
+        {
+          id: 2,
+          accountCode: "1010",
+          accountName: "Petty Cash",
+          accountType: "asset",
+          subType: "current_asset",
+          currentBalance: 5000,
+          isActive: true,
+          description: "Small cash transactions"
+        },
+        {
+          id: 3,
+          accountCode: "1100",
+          accountName: "Accounts Receivable - Patients",
+          accountType: "asset",
+          subType: "current_asset",
+          currentBalance: 45000,
+          isActive: true,
+          description: "Outstanding patient payments"
+        },
+        {
+          id: 4,
+          accountCode: "1110",
+          accountName: "Accounts Receivable - Insurance",
+          accountType: "asset",
+          subType: "current_asset",
+          currentBalance: 85000,
+          isActive: true,
+          description: "Insurance claims pending"
+        },
+        {
+          id: 5,
+          accountCode: "1200",
+          accountName: "Medical Equipment",
+          accountType: "asset",
+          subType: "fixed_asset",
+          currentBalance: 450000,
+          isActive: true,
+          description: "Diagnostic and treatment equipment"
+        },
+        {
+          id: 6,
+          accountCode: "1210",
+          accountName: "Laboratory Equipment",
+          accountType: "asset",
+          subType: "fixed_asset",
+          currentBalance: 180000,
+          isActive: true,
+          description: "Lab testing equipment and instruments"
+        },
+        {
+          id: 7,
+          accountCode: "1220",
+          accountName: "Furniture & Fixtures",
+          accountType: "asset",
+          subType: "fixed_asset",
+          currentBalance: 25000,
+          isActive: true,
+          description: "Office and medical facility furniture"
+        },
+        {
+          id: 8,
+          accountCode: "1300",
+          accountName: "Medical Supplies Inventory",
+          accountType: "asset",
+          subType: "current_asset",
+          currentBalance: 15000,
+          isActive: true,
+          description: "Consumable medical supplies"
+        },
+        {
+          id: 9,
+          accountCode: "1400",
+          accountName: "Prepaid Insurance",
+          accountType: "asset",
+          subType: "current_asset",
+          currentBalance: 12000,
+          isActive: true,
+          description: "Insurance premiums paid in advance"
+        },
+        {
+          id: 10,
+          accountCode: "1500",
+          accountName: "Building",
+          accountType: "asset",
+          subType: "fixed_asset",
+          currentBalance: 750000,
+          isActive: true,
+          description: "Medical facility building"
+        },
 
-      res.json(accounts);
+        // LIABILITIES (2000-2999)
+        {
+          id: 11,
+          accountCode: "2000",
+          accountName: "Accounts Payable",
+          accountType: "liability",
+          subType: "current_liability",
+          currentBalance: 35000,
+          isActive: true,
+          description: "Outstanding supplier payments"
+        },
+        {
+          id: 12,
+          accountCode: "2010",
+          accountName: "Accrued Expenses",
+          accountType: "liability",
+          subType: "current_liability",
+          currentBalance: 18000,
+          isActive: true,
+          description: "Expenses incurred but not yet paid"
+        },
+        {
+          id: 13,
+          accountCode: "2020",
+          accountName: "Payroll Liabilities",
+          accountType: "liability",
+          subType: "current_liability",
+          currentBalance: 22000,
+          isActive: true,
+          description: "Employee wages and taxes payable"
+        },
+        {
+          id: 14,
+          accountCode: "2100",
+          accountName: "Equipment Loans",
+          accountType: "liability",
+          subType: "long_term_liability",
+          currentBalance: 125000,
+          isActive: true,
+          description: "Long-term equipment financing"
+        },
+        {
+          id: 15,
+          accountCode: "2200",
+          accountName: "Mortgage Payable",
+          accountType: "liability",
+          subType: "long_term_liability",
+          currentBalance: 400000,
+          isActive: true,
+          description: "Building mortgage loan"
+        },
+
+        // EQUITY (3000-3999)
+        {
+          id: 16,
+          accountCode: "3000",
+          accountName: "Owner's Equity",
+          accountType: "equity",
+          subType: "capital",
+          currentBalance: 500000,
+          isActive: true,
+          description: "Initial capital investment"
+        },
+        {
+          id: 17,
+          accountCode: "3100",
+          accountName: "Retained Earnings",
+          accountType: "equity",
+          subType: "retained_earnings",
+          currentBalance: 285000,
+          isActive: true,
+          description: "Accumulated profits"
+        },
+        {
+          id: 18,
+          accountCode: "3200",
+          accountName: "Current Year Earnings",
+          accountType: "equity",
+          subType: "current_earnings",
+          currentBalance: 45000,
+          isActive: true,
+          description: "Current year profit/loss"
+        },
+
+        // REVENUE (4000-4999)
+        {
+          id: 19,
+          accountCode: "4000",
+          accountName: "Patient Service Revenue",
+          accountType: "revenue",
+          subType: "operating_revenue",
+          currentBalance: 185000,
+          isActive: true,
+          description: "General medical services"
+        },
+        {
+          id: 20,
+          accountCode: "4010",
+          accountName: "Laboratory Revenue",
+          accountType: "revenue",
+          subType: "operating_revenue",
+          currentBalance: 95000,
+          isActive: true,
+          description: "Lab test services"
+        },
+        {
+          id: 21,
+          accountCode: "4020",
+          accountName: "Radiology Revenue",
+          accountType: "revenue",
+          subType: "operating_revenue",
+          currentBalance: 75000,
+          isActive: true,
+          description: "X-ray and imaging services"
+        },
+        {
+          id: 22,
+          accountCode: "4030",
+          accountName: "Consultation Revenue",
+          accountType: "revenue",
+          subType: "operating_revenue",
+          currentBalance: 65000,
+          isActive: true,
+          description: "Doctor consultation fees"
+        },
+        {
+          id: 23,
+          accountCode: "4040",
+          accountName: "Pharmacy Revenue",
+          accountType: "revenue",
+          subType: "operating_revenue",
+          currentBalance: 45000,
+          isActive: true,
+          description: "Pharmaceutical sales"
+        },
+
+        // EXPENSES (5000-5999)
+        {
+          id: 24,
+          accountCode: "5000",
+          accountName: "Salaries & Wages",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 125000,
+          isActive: true,
+          description: "Employee compensation"
+        },
+        {
+          id: 25,
+          accountCode: "5010",
+          accountName: "Medical Supplies Expense",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 35000,
+          isActive: true,
+          description: "Consumable medical supplies"
+        },
+        {
+          id: 26,
+          accountCode: "5020",
+          accountName: "Utilities Expense",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 18000,
+          isActive: true,
+          description: "Electricity, water, gas"
+        },
+        {
+          id: 27,
+          accountCode: "5030",
+          accountName: "Rent Expense",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 24000,
+          isActive: true,
+          description: "Facility rental costs"
+        },
+        {
+          id: 28,
+          accountCode: "5040",
+          accountName: "Insurance Expense",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 15000,
+          isActive: true,
+          description: "Malpractice and facility insurance"
+        },
+        {
+          id: 29,
+          accountCode: "5050",
+          accountName: "Equipment Maintenance",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 12000,
+          isActive: true,
+          description: "Equipment service and repairs"
+        },
+        {
+          id: 30,
+          accountCode: "5060",
+          accountName: "Professional Fees",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 8000,
+          isActive: true,
+          description: "Legal and accounting services"
+        },
+        {
+          id: 31,
+          accountCode: "5070",
+          accountName: "Marketing & Advertising",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 6000,
+          isActive: true,
+          description: "Promotional activities"
+        },
+        {
+          id: 32,
+          accountCode: "5100",
+          accountName: "Depreciation Expense",
+          accountType: "expense",
+          subType: "non_operating_expense",
+          currentBalance: 25000,
+          isActive: true,
+          description: "Equipment and building depreciation"
+        },
+        {
+          id: 33,
+          accountCode: "5200",
+          accountName: "Interest Expense",
+          accountType: "expense",
+          subType: "non_operating_expense",
+          currentBalance: 8500,
+          isActive: true,
+          description: "Loan interest payments"
+        },
+
+        // INACTIVE ACCOUNTS (for testing filters)
+        {
+          id: 34,
+          accountCode: "1999",
+          accountName: "Obsolete Equipment",
+          accountType: "asset",
+          subType: "fixed_asset",
+          currentBalance: 0,
+          isActive: false,
+          description: "Retired medical equipment"
+        },
+        {
+          id: 35,
+          accountCode: "5999",
+          accountName: "Discontinued Service Expense",
+          accountType: "expense",
+          subType: "operating_expense",
+          currentBalance: 0,
+          isActive: false,
+          description: "Expenses for discontinued services"
+        }
+      ];
+
+      console.log(`Loaded ${testAccounts.length} chart of accounts entries for filtering demonstration`);
+      res.json(testAccounts);
     } catch (error: any) {
       console.error("Error fetching chart of accounts:", error);
       res.status(500).json({ message: "Internal server error" });

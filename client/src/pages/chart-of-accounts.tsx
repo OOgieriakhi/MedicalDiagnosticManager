@@ -61,12 +61,12 @@ export default function ChartOfAccounts() {
 
   // Fetch chart of accounts
   const { data: accounts = [], isLoading } = useQuery({
-    queryKey: ["/api/chart-of-accounts", user?.branchId],
+    queryKey: ["/api/accounting/chart-of-accounts", user?.branchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (user?.branchId) params.append('branchId', user.branchId.toString());
       
-      const response = await fetch(`/api/chart-of-accounts?${params}`);
+      const response = await fetch(`/api/accounting/chart-of-accounts?${params}`);
       if (!response.ok) throw new Error("Failed to fetch accounts");
       return response.json();
     },
