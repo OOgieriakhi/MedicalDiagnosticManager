@@ -48,6 +48,7 @@ import ReferenceRanges from "@/pages/reference-ranges";
 import ReportDesigner from "@/pages/report-designer";
 import PredictiveRecommendations from "@/pages/predictive-recommendations";
 import WaitingRoomQueue from "@/pages/waiting-room-queue";
+import DataMigration from "@/pages/data-migration";
 import AccountingDashboard from "@/pages/accounting-dashboard";
 import RoleBasedDashboard from "@/pages/role-based-dashboard";
 import SidebarDashboard from "@/pages/sidebar-dashboard";
@@ -141,6 +142,7 @@ function Router() {
       <ProtectedRoute path="/income-verification" component={IncomeVerification} />
       <ProtectedRoute path="/daily-summary-management" component={DailySummaryManagement} />
       <ProtectedRoute path="/center-manager-dashboard" component={CenterManagerDashboard} />
+      <ProtectedRoute path="/data-migration" component={DataMigration} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
