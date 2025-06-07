@@ -534,10 +534,72 @@ export default function BankReconciliation() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     Reconciliation Items
-                    <Button size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Item
-                    </Button>
+                    <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Item
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Reconciliation Item</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="itemType">Type</Label>
+                            <Select value={newItem.type} onValueChange={(value: any) => setNewItem({...newItem, type: value})}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="outstanding_check">Outstanding Check</SelectItem>
+                                <SelectItem value="deposit_in_transit">Deposit in Transit</SelectItem>
+                                <SelectItem value="bank_charge">Bank Charge</SelectItem>
+                                <SelectItem value="book_error">Book Error</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="amount">Amount</Label>
+                            <Input
+                              id="amount"
+                              type="number"
+                              step="0.01"
+                              value={newItem.amount}
+                              onChange={(e) => setNewItem({...newItem, amount: e.target.value})}
+                              placeholder="Enter amount"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="description">Description</Label>
+                            <Input
+                              id="description"
+                              value={newItem.description}
+                              onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                              placeholder="Enter description"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="date">Date</Label>
+                            <Input
+                              id="date"
+                              type="date"
+                              value={newItem.date}
+                              onChange={(e) => setNewItem({...newItem, date: e.target.value})}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setShowAddItemDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleAddItem}>
+                            Add Item
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

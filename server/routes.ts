@@ -9039,6 +9039,67 @@ Medical System Procurement Team
     }
   });
 
+  // Get bank reconciliation items
+  app.get("/api/bank-reconciliation-items", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { accountId, date } = req.query;
+      
+      // Test reconciliation items data for different item types
+      const reconciliationItems = [
+        {
+          id: 1,
+          transactionId: 0,
+          amount: 2500,
+          description: "Outstanding check #1001 - Office supplies",
+          type: "outstanding_check",
+          date: "2025-06-05"
+        },
+        {
+          id: 2,
+          transactionId: 0,
+          amount: 15000,
+          description: "Deposit in transit - Patient payment batch",
+          type: "deposit_in_transit",
+          date: "2025-06-06"
+        },
+        {
+          id: 3,
+          transactionId: 0,
+          amount: 450,
+          description: "Bank service charges",
+          type: "bank_charge",
+          date: "2025-06-07"
+        },
+        {
+          id: 4,
+          transactionId: 0,
+          amount: 1200,
+          description: "Outstanding check #1002 - Equipment maintenance",
+          type: "outstanding_check", 
+          date: "2025-06-04"
+        },
+        {
+          id: 5,
+          transactionId: 0,
+          amount: 800,
+          description: "Book error correction - Duplicate entry",
+          type: "book_error",
+          date: "2025-06-03"
+        }
+      ];
+
+      console.log(`Loaded ${reconciliationItems.length} reconciliation items for account ${accountId}`);
+      res.json(reconciliationItems);
+    } catch (error: any) {
+      console.error("Error fetching reconciliation items:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Submit bank reconciliation
   app.post("/api/bank-reconciliation", async (req, res) => {
     try {
