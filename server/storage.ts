@@ -57,13 +57,14 @@ import {
 import { db } from "./db";
 import { eq, and, or, desc, sql, between, ilike, gte, lte } from "drizzle-orm";
 import session from "express-session";
+import type { SessionStore } from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
 const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any;
   
   // User management
   getUser(id: number): Promise<User | undefined>;
