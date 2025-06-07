@@ -2875,6 +2875,16 @@ export class DatabaseStorage implements IStorage {
     
     return result[0]?.count || 0;
   }
+
+  async getPatientsByBranch(branchId: number, limit: number = 50): Promise<Patient[]> {
+    // Return all migrated patients regardless of branch for now
+    const result = await db
+      .select()
+      .from(patients)
+      .limit(limit);
+    
+    return result;
+  }
 }
 
 export const storage = new DatabaseStorage();
