@@ -55,14 +55,50 @@ interface ManagementModule {
   requiresApproval?: boolean;
   pendingItems?: number;
   ceoOnly?: boolean;
+  allowedRoles: string[];
+  managerOverride?: boolean; // Manager can access regardless of role restrictions
 }
 
 export default function CenterManagerDashboard() {
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // Role-based access control
+  const hasManagerAccess = user?.role === 'admin' || user?.role === 'branch_manager' || user?.role === 'center_manager';
+  const hasAccountantAccess = user?.role === 'accountant' || user?.role === 'accounts_officer';
+  
+  // Redirect if user doesn't have manager-level access
+  if (!hasManagerAccess) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6 text-center">
+            <Shield className="w-12 h-12 text-red-600 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-red-800 mb-2">Access Restricted</h2>
+            <p className="text-red-700">
+              This dashboard requires manager-level authorization. Your current role ({user?.role}) does not have sufficient privileges.
+            </p>
+            <p className="text-sm text-red-600 mt-2">
+              Please contact your system administrator or center manager for access.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const handleCeoOnlyClick = (moduleName: string) => {
     alert(`Access Restricted: ${moduleName} requires CEO-level authorization. Please contact the Chief Executive Officer for access.`);
+  };
+
+  const handleRestrictedAccess = (moduleName: string, requiredRole: string) => {
+    alert(`Access Restricted: ${moduleName} requires ${requiredRole} privileges. Contact your administrator for proper role assignment.`);
+  };
+
+  const hasModuleAccess = (module: ManagementModule) => {
+    if (module.ceoOnly) return false;
+    if (module.managerOverride && hasManagerAccess) return true;
+    return module.allowedRoles.includes(user?.role || '');
   };
 
   // Fetch manager metrics
@@ -94,7 +130,9 @@ export default function CenterManagerDashboard() {
       category: 'financial',
       priority: 'high',
       requiresApproval: true,
-      pendingItems: 3
+      pendingItems: 3,
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
     {
       title: "Accounting Dashboard",
@@ -102,7 +140,8 @@ export default function CenterManagerDashboard() {
       icon: Calculator,
       href: "/accounting-dashboard",
       category: 'financial',
-      priority: 'high'
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager']
     },
     {
       title: "Income Verification",
@@ -111,7 +150,9 @@ export default function CenterManagerDashboard() {
       href: "/income-verification",
       category: 'financial',
       priority: 'high',
-      pendingItems: 6
+      pendingItems: 6,
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
     {
       title: "Purchase Order Approvals",
@@ -120,7 +161,9 @@ export default function CenterManagerDashboard() {
       href: "/purchase-order-approvals",
       category: 'financial',
       priority: 'high',
-      pendingItems: 4
+      pendingItems: 4,
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
     {
       title: "Petty Cash Management",
@@ -129,7 +172,9 @@ export default function CenterManagerDashboard() {
       href: "/petty-cash",
       category: 'financial',
       priority: 'medium',
-      pendingItems: 2
+      pendingItems: 2,
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
     {
       title: "Bank Reconciliation",
@@ -137,7 +182,8 @@ export default function CenterManagerDashboard() {
       icon: CreditCard,
       href: "/bank-reconciliation",
       category: 'financial',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'accountant']
     },
     {
       title: "Cash Flow Analysis",
@@ -145,7 +191,8 @@ export default function CenterManagerDashboard() {
       icon: TrendingUp,
       href: "/cash-flow",
       category: 'financial',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager']
     },
 
     // Operational Management
@@ -155,7 +202,9 @@ export default function CenterManagerDashboard() {
       icon: Package,
       href: "/inventory-dashboard",
       category: 'operational',
-      priority: 'high'
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
     {
       title: "Patient Management",
@@ -163,7 +212,8 @@ export default function CenterManagerDashboard() {
       icon: Users,
       href: "/patient-management",
       category: 'operational',
-      priority: 'high'
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'doctor', 'nurse']
     },
     {
       title: "Laboratory Operations",
@@ -171,7 +221,8 @@ export default function CenterManagerDashboard() {
       icon: Activity,
       href: "/laboratory-management",
       category: 'operational',
-      priority: 'high'
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'lab_tech']
     },
     {
       title: "Radiology Services",
@@ -179,7 +230,8 @@ export default function CenterManagerDashboard() {
       icon: Target,
       href: "/radiology-management",
       category: 'operational',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'radiologist']
     },
     {
       title: "Pharmacy Operations",
@@ -187,7 +239,8 @@ export default function CenterManagerDashboard() {
       icon: Receipt,
       href: "/pharmacy-management",
       category: 'operational',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'pharmacist']
     },
     {
       title: "Quality Assurance",
@@ -195,7 +248,9 @@ export default function CenterManagerDashboard() {
       icon: Shield,
       href: "/quality-assurance",
       category: 'operational',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
 
     // Staff Management
@@ -205,7 +260,9 @@ export default function CenterManagerDashboard() {
       icon: Users,
       href: "/human-resources",
       category: 'staff',
-      priority: 'high'
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'hr_manager'],
+      managerOverride: true
     },
     {
       title: "Role Management",
@@ -213,7 +270,9 @@ export default function CenterManagerDashboard() {
       icon: Settings,
       href: "/role-management",
       category: 'staff',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
     {
       title: "Staff Recognition",
@@ -221,7 +280,8 @@ export default function CenterManagerDashboard() {
       icon: Users,
       href: "/staff-recognition",
       category: 'staff',
-      priority: 'low'
+      priority: 'low',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'hr_manager']
     },
 
     // Reporting & Analytics
