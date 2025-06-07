@@ -124,6 +124,7 @@ function Router() {
       <ProtectedRoute path="/enhanced-forecasting" component={EnhancedForecastingPage} />
       <ProtectedRoute path="/chart-of-accounts" component={ChartOfAccounts} />
       <ProtectedRoute path="/bank-reconciliation" component={BankReconciliation} />
+      <ProtectedRoute path="/general-ledger" component={GeneralLedger} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
