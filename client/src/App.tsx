@@ -25,6 +25,7 @@ import AdministrativeManagement from "@/pages/administrative-management";
 import UltrasoundUnit from "@/pages/ultrasound-unit";
 import CardiologyUnit from "@/pages/cardiology-unit";
 import UltrasoundDashboard from "@/pages/ultrasound-dashboard";
+import CardiologyDashboard from "@/pages/cardiology-dashboard";
 import ComprehensiveFinancial from "@/pages/comprehensive-financial";
 import PatientJourney from "@/pages/patient-journey";
 import CashiersModule from "@/pages/cashiers-module";
@@ -81,6 +82,7 @@ function Router() {
       <ProtectedRoute path="/ultrasound-unit" component={UltrasoundUnit} />
       <ProtectedRoute path="/ultrasound-dashboard" component={UltrasoundDashboard} />
       <ProtectedRoute path="/cardiology-unit" component={CardiologyUnit} />
+      <ProtectedRoute path="/cardiology-dashboard" component={CardiologyDashboard} />
       <ProtectedRoute path="/pharmacy-management" component={PharmacyManagement} />
       <ProtectedRoute path="/administrative-management" component={AdministrativeManagement} />
       <ProtectedRoute path="/comprehensive-financial" component={ComprehensiveFinancial} />
