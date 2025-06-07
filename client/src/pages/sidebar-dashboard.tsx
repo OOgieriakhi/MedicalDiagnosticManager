@@ -75,7 +75,7 @@ const SIDEBAR_MODULES: SidebarModule[] = [
     title: "Accountant Dashboard",
     description: "Financial accounting and expense management",
     icon: Calculator,
-    href: "/accountant-dashboard",
+    href: "/accounting-dashboard",
     allowedRoles: ['admin', 'accountant', 'finance_director', 'branch_manager'],
     level: 'BASIC',
     category: 'core'
