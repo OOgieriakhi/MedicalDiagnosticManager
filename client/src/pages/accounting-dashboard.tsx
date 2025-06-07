@@ -216,13 +216,14 @@ export default function AccountingDashboard() {
             Accounting Tools & Quick Actions
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4"
+               style={{ display: 'grid', visibility: 'visible' }}>
             {/* Financial Reports */}
             <Link href="/financial-reports">
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full hover:bg-blue-50 transition-colors">
                 <FileText className="w-6 h-6 text-blue-600" />
-                <span className="text-xs text-center">Financial Reports</span>
+                <span className="text-xs text-center font-medium">Financial Reports</span>
               </Button>
             </Link>
 
