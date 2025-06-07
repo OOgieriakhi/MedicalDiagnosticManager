@@ -282,6 +282,14 @@ export default function AccountingDashboard() {
               </Button>
             </Link>
 
+            {/* Income Verification */}
+            <Link href="/income-verification">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
+                <DollarSign className="w-6 h-6 text-green-600" />
+                <span className="text-xs text-center">Income Verification</span>
+              </Button>
+            </Link>
+
             {/* Budget vs Actual */}
             <Link href="/budget-analysis">
               <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 w-full">
