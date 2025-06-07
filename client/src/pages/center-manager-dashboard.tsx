@@ -291,7 +291,8 @@ export default function CenterManagerDashboard() {
       icon: BarChart3,
       href: "/enhanced-forecasting",
       category: 'reporting',
-      priority: 'high'
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager']
     },
     {
       title: "Financial Reports",
@@ -299,7 +300,8 @@ export default function CenterManagerDashboard() {
       icon: PieChart,
       href: "/comprehensive-financial",
       category: 'reporting',
-      priority: 'high'
+      priority: 'high',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager', 'accountant']
     },
     {
       title: "Transaction Verification",
@@ -307,7 +309,9 @@ export default function CenterManagerDashboard() {
       icon: Eye,
       href: "/transaction-verification",
       category: 'reporting',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
     {
       title: "Approval Tracking",
@@ -315,7 +319,9 @@ export default function CenterManagerDashboard() {
       icon: Workflow,
       href: "/approval-tracking",
       category: 'reporting',
-      priority: 'medium'
+      priority: 'medium',
+      allowedRoles: ['admin', 'center_manager', 'branch_manager'],
+      managerOverride: true
     },
 
     // Security & Compliance (CEO Level Access)
@@ -328,7 +334,8 @@ export default function CenterManagerDashboard() {
       priority: 'high',
       requiresApproval: true,
       pendingItems: 0,
-      ceoOnly: true
+      ceoOnly: true,
+      allowedRoles: ['ceo']
     },
     {
       title: "Access Control",
@@ -339,16 +346,17 @@ export default function CenterManagerDashboard() {
       priority: 'medium',
       requiresApproval: true,
       pendingItems: 0,
-      ceoOnly: true
+      ceoOnly: true,
+      allowedRoles: ['ceo']
     }
   ];
 
   const filteredModules = selectedCategory === 'all' 
-    ? managementModules 
-    : managementModules.filter(module => module.category === selectedCategory);
+    ? managementModules.filter(module => hasModuleAccess(module))
+    : managementModules.filter(module => module.category === selectedCategory && hasModuleAccess(module));
 
   const getModulesByCategory = (category: string) => {
-    return managementModules.filter(module => module.category === category);
+    return managementModules.filter(module => module.category === category && hasModuleAccess(module));
   };
 
   const getPriorityColor = (priority: string) => {
