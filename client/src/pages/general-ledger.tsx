@@ -165,9 +165,9 @@ export default function GeneralLedger() {
                   <SelectValue placeholder="All accounts" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Accounts</SelectItem>
+                  <SelectItem value="all">All Accounts</SelectItem>
                   {accounts.map((account: any) => (
-                    <SelectItem key={account.id} value={account.id.toString()}>
+                    <SelectItem key={account.id} value={account.accountCode}>
                       {account.accountCode} - {account.accountName}
                     </SelectItem>
                   ))}
