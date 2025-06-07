@@ -11553,6 +11553,178 @@ Medical System Procurement Team
 
       if (!global.dailySummaryApprovals) {
         global.dailySummaryApprovals = {};
+        
+        // Initialize with test data
+        const testSummaries = [
+          {
+            id: "SUMMARY-2025-06-07-001",
+            date: "2025-06-07",
+            totalIncome: 485000,
+            totalExpenses: 135000,
+            netAmount: 350000,
+            incomeBreakdown: {
+              consultations: 85000,
+              laboratory: 165000,
+              radiology: 125000,
+              pharmacy: 75000,
+              other: 35000
+            },
+            expenseBreakdown: {
+              supplies: 45000,
+              utilities: 25000,
+              maintenance: 15000,
+              salaries: 35000,
+              other: 15000
+            },
+            notes: "Busy Friday with high patient volume. Laboratory tests dominated income.",
+            submittedBy: "cashier_maria",
+            submittedById: 5,
+            submittedAt: "2025-06-07T09:30:00.000Z",
+            status: 'pending_approval',
+            managerApproval: null,
+            approvedAt: null,
+            approvedBy: null,
+            approvedById: null,
+            lockTimestamp: null,
+            isLocked: false
+          },
+          {
+            id: "SUMMARY-2025-06-06-001",
+            date: "2025-06-06",
+            totalIncome: 412000,
+            totalExpenses: 142000,
+            netAmount: 270000,
+            incomeBreakdown: {
+              consultations: 95000,
+              laboratory: 138000,
+              radiology: 98000,
+              pharmacy: 56000,
+              other: 25000
+            },
+            expenseBreakdown: {
+              supplies: 52000,
+              utilities: 28000,
+              maintenance: 22000,
+              salaries: 25000,
+              other: 15000
+            },
+            notes: "Regular Thursday operations. Equipment maintenance scheduled.",
+            submittedBy: "cashier_ahmed",
+            submittedById: 6,
+            submittedAt: "2025-06-06T18:45:00.000Z",
+            status: 'approved',
+            managerApproval: 'approved',
+            approvedAt: "2025-06-06T21:15:00.000Z",
+            approvedBy: "manager_fatima",
+            approvedById: 3,
+            approvalComments: "All figures verified. Good financial performance.",
+            lockTimestamp: "2025-06-06T21:15:00.000Z",
+            isLocked: true
+          },
+          {
+            id: "SUMMARY-2025-06-05-001",
+            date: "2025-06-05",
+            totalIncome: 395000,
+            totalExpenses: 158000,
+            netAmount: 237000,
+            incomeBreakdown: {
+              consultations: 78000,
+              laboratory: 142000,
+              radiology: 105000,
+              pharmacy: 48000,
+              other: 22000
+            },
+            expenseBreakdown: {
+              supplies: 48000,
+              utilities: 32000,
+              maintenance: 35000,
+              salaries: 28000,
+              other: 15000
+            },
+            notes: "Wednesday operations with scheduled equipment servicing.",
+            submittedBy: "accounts_ibrahim",
+            submittedById: 7,
+            submittedAt: "2025-06-05T17:20:00.000Z",
+            status: 'approved',
+            managerApproval: 'approved',
+            approvedAt: "2025-06-05T19:45:00.000Z",
+            approvedBy: "manager_fatima",
+            approvedById: 3,
+            approvalComments: "Approved. Maintenance costs within budget.",
+            lockTimestamp: "2025-06-05T19:45:00.000Z",
+            isLocked: true
+          },
+          {
+            id: "SUMMARY-2025-06-04-001",
+            date: "2025-06-04",
+            totalIncome: 328000,
+            totalExpenses: 125000,
+            netAmount: 203000,
+            incomeBreakdown: {
+              consultations: 68000,
+              laboratory: 115000,
+              radiology: 85000,
+              pharmacy: 42000,
+              other: 18000
+            },
+            expenseBreakdown: {
+              supplies: 38000,
+              utilities: 22000,
+              maintenance: 18000,
+              salaries: 32000,
+              other: 15000
+            },
+            notes: "Tuesday with moderate patient flow. All systems operational.",
+            submittedBy: "cashier_maria",
+            submittedById: 5,
+            submittedAt: "2025-06-04T16:30:00.000Z",
+            status: 'rejected',
+            managerApproval: 'rejected',
+            rejectedAt: "2025-06-04T20:10:00.000Z",
+            rejectedBy: "manager_fatima",
+            rejectedById: 3,
+            rejectionReason: "Discrepancy in laboratory income figures. Please resubmit with supporting documentation."
+          },
+          {
+            id: "SUMMARY-2025-06-03-001",
+            date: "2025-06-03",
+            totalIncome: 445000,
+            totalExpenses: 148000,
+            netAmount: 297000,
+            incomeBreakdown: {
+              consultations: 92000,
+              laboratory: 158000,
+              radiology: 115000,
+              pharmacy: 58000,
+              other: 22000
+            },
+            expenseBreakdown: {
+              supplies: 55000,
+              utilities: 26000,
+              maintenance: 24000,
+              salaries: 28000,
+              other: 15000
+            },
+            notes: "Monday start with high consultation volume.",
+            submittedBy: "accounts_ibrahim",
+            submittedById: 7,
+            submittedAt: "2025-06-03T18:00:00.000Z",
+            status: 'approved',
+            managerApproval: 'approved',
+            approvedAt: "2025-06-03T20:30:00.000Z",
+            approvedBy: "manager_fatima",
+            approvedById: 3,
+            approvalComments: "Excellent start to the week. All figures consistent.",
+            lockTimestamp: "2025-06-03T20:30:00.000Z",
+            isLocked: true
+          }
+        ];
+
+        testSummaries.forEach(summary => {
+          global.dailySummaryApprovals[summary.id] = summary;
+        });
+        
+        console.log("Initialized daily summary test data");
       }
 
       let summaries = Object.values(global.dailySummaryApprovals);

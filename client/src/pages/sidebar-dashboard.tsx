@@ -155,6 +155,15 @@ const SIDEBAR_MODULES: SidebarModule[] = [
     category: 'management'
   },
   {
+    title: "Center Manager Dashboard",
+    description: "Comprehensive management oversight and approval workflows",
+    icon: Crown,
+    href: "/center-manager-dashboard",
+    allowedRoles: ['admin', 'branch_manager'],
+    level: 'ADMIN',
+    category: 'management'
+  },
+  {
     title: "Analytics & Reports",
     description: "Business intelligence and reporting tools",
     icon: BarChart3,
