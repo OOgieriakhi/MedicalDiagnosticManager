@@ -68,6 +68,7 @@ import GeneralLedger from "@/pages/general-ledger";
 import TrialBalance from "@/pages/trial-balance";
 import AccountsPayable from "@/pages/accounts-payable";
 import AccountsReceivable from "@/pages/accounts-receivable";
+import CashFlow from "@/pages/cash-flow";
 
 function Router() {
   return (
@@ -131,6 +132,7 @@ function Router() {
       <ProtectedRoute path="/trial-balance" component={TrialBalance} />
       <ProtectedRoute path="/accounts-payable" component={AccountsPayable} />
       <ProtectedRoute path="/accounts-receivable" component={AccountsReceivable} />
+      <ProtectedRoute path="/cash-flow" component={CashFlow} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
