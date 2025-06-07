@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
+import DashboardMessaging from "@/components/dashboard-messaging";
 
 export default function CardiologyUnit() {
   const { user } = useAuth();

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
+import DashboardMessaging from "@/components/dashboard-messaging";
 
 export default function UltrasoundUnit() {
   const { user } = useAuth();
@@ -147,6 +148,11 @@ export default function UltrasoundUnit() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
+      </div>
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

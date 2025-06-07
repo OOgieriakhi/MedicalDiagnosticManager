@@ -10,7 +10,7 @@ import {
   FileText, Stethoscope, Pill, Building, Settings, UserCheck,
   TrendingUp, ClipboardList, Calendar, BarChart3, Home,
   AlertTriangle, CheckCircle, Clock, Eye, Menu, X,
-  ChevronRight, LogOut
+  ChevronRight, LogOut, Waves, Heart, Calculator, Crown
 } from "lucide-react";
 
 
@@ -54,12 +54,48 @@ const SIDEBAR_MODULES: SidebarModule[] = [
     category: 'core'
   },
   {
-    title: "Pharmacy Operations",
-    description: "Medication dispensing and inventory management",
-    icon: Pill,
-    href: "/pharmacy-management",
-    allowedRoles: ['admin', 'pharmacist', 'branch_manager'],
+    title: "Ultrasound Department",
+    description: "Diagnostic imaging and ultrasound studies management",
+    icon: Waves,
+    href: "/ultrasound-dashboard",
+    allowedRoles: ['admin', 'doctor', 'radiologist', 'ultrasound_technician', 'branch_manager'],
     level: 'BASIC',
+    category: 'core'
+  },
+  {
+    title: "Cardiology Department",
+    description: "Cardiac diagnostics and monitoring services",
+    icon: Heart,
+    href: "/cardiology-dashboard",
+    allowedRoles: ['admin', 'doctor', 'cardiologist', 'cardiac_technician', 'branch_manager'],
+    level: 'BASIC',
+    category: 'core'
+  },
+  {
+    title: "Accountant Dashboard",
+    description: "Financial accounting and expense management",
+    icon: Calculator,
+    href: "/accountant-dashboard",
+    allowedRoles: ['admin', 'accountant', 'finance_director', 'branch_manager'],
+    level: 'BASIC',
+    category: 'core'
+  },
+  {
+    title: "CEO Dashboard",
+    description: "Executive overview and strategic insights",
+    icon: Crown,
+    href: "/ceo-dashboard",
+    allowedRoles: ['admin', 'ceo', 'branch_manager'],
+    level: 'ADVANCED',
+    category: 'core'
+  },
+  {
+    title: "Finance Director Dashboard",
+    description: "Financial oversight and budget management",
+    icon: TrendingUp,
+    href: "/finance-director-dashboard",
+    allowedRoles: ['admin', 'finance_director', 'ceo', 'branch_manager'],
+    level: 'ADVANCED',
     category: 'core'
   },
   // Operations
@@ -88,6 +124,15 @@ const SIDEBAR_MODULES: SidebarModule[] = [
     href: "/purchase-orders",
     allowedRoles: ['admin', 'procurement_officer', 'accountant', 'branch_manager'],
     level: 'ADVANCED',
+    category: 'operations'
+  },
+  {
+    title: "Pharmacy Operations",
+    description: "Medication dispensing and inventory management",
+    icon: Pill,
+    href: "/pharmacy-management",
+    allowedRoles: ['admin', 'pharmacist', 'branch_manager'],
+    level: 'BASIC',
     category: 'operations'
   },
   // Management
