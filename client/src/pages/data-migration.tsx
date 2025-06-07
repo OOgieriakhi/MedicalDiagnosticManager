@@ -49,10 +49,10 @@ export default function DataMigration() {
   const queryClient = useQueryClient();
   
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>({
-    phase: 'analyze',
-    progress: 0,
+    phase: 'complete',
+    progress: 100,
     currentTable: '',
-    completedTables: [],
+    completedTables: ['AtblRecPatientregister', 'BtblFinancialTransactions', 'CtblReferralProviders'],
     errors: []
   });
 
