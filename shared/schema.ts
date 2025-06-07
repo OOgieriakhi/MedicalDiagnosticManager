@@ -57,6 +57,7 @@ export const patients = pgTable("patients", {
   patientId: text("patient_id").notNull().unique(), // Generated ID like P-2024-001
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
+  fullName: text("full_name"), // Computed field for search
   email: text("email"),
   phone: text("phone").notNull(),
   dateOfBirth: timestamp("date_of_birth"),
@@ -64,6 +65,7 @@ export const patients = pgTable("patients", {
   address: text("address"),
   nin: text("nin"), // National Identification Number (11 digits)
   pathway: text("pathway").notNull().default("self"), // self, referral
+  referralSource: text("referral_source"), // Source of referral
   referralProviderId: integer("referral_provider_id"),
   tenantId: integer("tenant_id").notNull(),
   branchId: integer("branch_id").notNull(),
@@ -122,6 +124,7 @@ export const patientTests = pgTable("patient_tests", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").notNull(),
   testId: integer("test_id").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Test price at time of booking
   status: text("status").notNull().default("scheduled"), // scheduled, payment_verified, specimen_collected, processing, completed, cancelled
   scheduledAt: timestamp("scheduled_at").notNull(),
   completedAt: timestamp("completed_at"),
