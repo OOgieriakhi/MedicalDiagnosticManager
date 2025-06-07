@@ -224,12 +224,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPatientsByBranch(branchId: number, limit = 50): Promise<Patient[]> {
-    // For migrated data, get all patients regardless of branch since they may not have proper branchId assignments
-    return await db
-      .select()
-      .from(patients)
-      .orderBy(desc(patients.createdAt))
-      .limit(limit);
+    try {
+      // For migrated data, get all patients regardless of branch since they may not have proper branchId assignments
+      const result = await db
+        .select()
+        .from(patients)
+        .orderBy(desc(patients.createdAt))
+        .limit(limit);
+      
+      return result;
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      throw error;
+    }
   }
 
   async getPatient(id: number): Promise<Patient | undefined> {
