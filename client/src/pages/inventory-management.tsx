@@ -458,6 +458,11 @@ export default function InventoryManagement() {
         </div>
       </div>
 
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
+      </div>
+
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>

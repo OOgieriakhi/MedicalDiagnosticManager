@@ -442,6 +442,11 @@ export default function PatientIntake() {
 
   return (
     <div className="p-6">
+      {/* Messages Section */}
+      <div className="mb-6">
+        <DashboardMessaging maxMessages={3} showCompactView={true} className="bg-white" />
+      </div>
+
       {/* Navigation Header */}
       <div className="mb-6">
         <div className="flex gap-2 mb-4">
