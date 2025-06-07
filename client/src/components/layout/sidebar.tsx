@@ -48,7 +48,7 @@ export default function Sidebar() {
         { icon: UserPlus, label: "Patient Management", path: "/patient-management", active: location === "/patient-management" },
         { icon: FlaskRound, label: "Diagnostic Tests", path: "/diagnostic-tests", active: location === "/diagnostic-tests" },
         { icon: Receipt, label: "Invoices & Billing", path: "/invoice-management", active: location === "/invoice-management" },
-        { icon: DollarSign, label: "Financial Management", path: "/financial-management", active: location === "/financial-management" },
+        { icon: Calculator, label: "Accounting Dashboard", path: "/accounting-dashboard", active: location === "/accounting-dashboard" },
         { icon: MessageCircle, label: "Notifications", path: "/notifications", active: location === "/notifications" },
         { icon: Award, label: "Staff Recognition", path: "/staff-recognition", active: location === "/staff-recognition" },
       ]
