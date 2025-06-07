@@ -39,7 +39,7 @@ class AccessMigrationTool:
         )
         self.logger = logging.getLogger(__name__)
 
-    def connect_access(self) -> pyodbc.Connection:
+    def connect_access(self):
         """Establish connection to Access database"""
         try:
             # Access database connection string
