@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,7 @@ interface CashFlowChart {
 
 export default function CashFlow() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("current_month");
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -99,8 +101,35 @@ export default function CashFlow() {
     }).format(amount);
   };
 
+  const filteredEntries = (cashFlowData?.entries || []).filter((entry: CashFlowEntry) => {
+    if (categoryFilter === "all") return true;
+    return entry.category.toLowerCase() === categoryFilter.toLowerCase();
+  });
+
+  const summary: CashFlowSummary = cashFlowData?.summary || {
+    openingBalance: 0,
+    totalInflows: 0,
+    totalOutflows: 0,
+    netCashFlow: 0,
+    closingBalance: 0,
+    projectedBalance: 0
+  };
+
+  const chartData: CashFlowChart[] = cashFlowData?.chartData || [];
+
+  // Check if data is available for export
+  const hasData = filteredEntries && filteredEntries.length > 0;
+
   // Print functionality
   const handlePrint = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to print", 
+        description: "Please select a period with cash flow data",
+        variant: "destructive" 
+      });
+      return;
+    }
     const printContent = `
       <html>
         <head>
@@ -192,6 +221,14 @@ export default function CashFlow() {
 
   // Export to CSV
   const exportToCSV = () => {
+    if (!hasData) {
+      toast({ 
+        title: "No data to export", 
+        description: "Please select a period with cash flow data",
+        variant: "destructive" 
+      });
+      return;
+    }
     const headers = ['Date', 'Description', 'Category', 'Reference', 'Amount', 'Type', 'Account'];
     const csvData = filteredEntries.map(entry => [
       new Date(entry.date).toLocaleDateString(),
@@ -246,22 +283,6 @@ export default function CashFlow() {
     }
   };
 
-  const filteredEntries = (cashFlowData?.entries || []).filter((entry: CashFlowEntry) => {
-    if (categoryFilter === "all") return true;
-    return entry.category.toLowerCase() === categoryFilter.toLowerCase();
-  });
-
-  const summary: CashFlowSummary = cashFlowData?.summary || {
-    openingBalance: 0,
-    totalInflows: 0,
-    totalOutflows: 0,
-    netCashFlow: 0,
-    closingBalance: 0,
-    projectedBalance: 0
-  };
-
-  const chartData: CashFlowChart[] = cashFlowData?.chartData || [];
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -279,11 +300,21 @@ export default function CashFlow() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePrint}
+            disabled={!hasData}
+          >
             <Download className="w-4 h-4 mr-2" />
-            Print
+            Print Report
           </Button>
-          <Button variant="outline" size="sm" onClick={exportToCSV}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToCSV}
+            disabled={!hasData}
+          >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
