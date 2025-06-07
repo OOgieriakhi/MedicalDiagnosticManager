@@ -168,7 +168,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any;
   private static persistentDepartments: any[] = [];
   private static persistentEmployees: any[] = [];
 
