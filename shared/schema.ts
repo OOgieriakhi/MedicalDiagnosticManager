@@ -51,30 +51,42 @@ export const branches = pgTable("branches", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Patients - Clean registration only
+// Patients
 export const patients = pgTable("patients", {
   id: serial("id").primaryKey(),
-  patientId: text("patient_id").notNull().unique(),
+  patientId: text("patient_id").notNull().unique(), // Generated ID like P-2024-001
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  middleName: text("middle_name").default(""),
-  phone: text("phone"),
+  email: text("email"),
+  phone: text("phone").notNull(),
   dateOfBirth: timestamp("date_of_birth"),
+  gender: text("gender"), // male, female, other
+  address: text("address"),
+  nin: text("nin"), // National Identification Number (11 digits)
+  pathway: text("pathway").notNull().default("self"), // self, referral
+  referralProviderId: integer("referral_provider_id"),
+  tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Referral Providers
+// Referral Providers for commission tracking
 export const referralProviders = pgTable("referral_providers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  type: text("type").notNull(), // doctor, clinic, hospital, agent
   contactPerson: text("contact_person"),
-  phone: text("phone"),
   email: text("email"),
+  phone: text("phone"),
   address: text("address"),
-  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Percentage
+  maxRebateLimit: decimal("max_rebate_limit", { precision: 10, scale: 2 }).default("0.00"), // Per test limit
+  requiresCommissionSetup: boolean("requires_commission_setup").notNull().default(false), // Flag for managers
+  tenantId: integer("tenant_id").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Test Categories
@@ -110,7 +122,6 @@ export const patientTests = pgTable("patient_tests", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").notNull(),
   testId: integer("test_id").notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Test price at time of booking
   status: text("status").notNull().default("scheduled"), // scheduled, payment_verified, specimen_collected, processing, completed, cancelled
   scheduledAt: timestamp("scheduled_at").notNull(),
   completedAt: timestamp("completed_at"),

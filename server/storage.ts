@@ -57,14 +57,13 @@ import {
 import { db } from "./db";
 import { eq, and, or, desc, sql, between, ilike, gte, lte } from "drizzle-orm";
 import session from "express-session";
-import type { SessionStore } from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
 const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
-  sessionStore: any;
+  sessionStore: session.SessionStore;
   
   // User management
   getUser(id: number): Promise<User | undefined>;
@@ -159,16 +158,10 @@ export interface IStorage {
   getPayrollPeriods(tenantId: number): Promise<any[]>;
   createPayrollPeriod(data: any): Promise<any>;
   getHRMetrics(tenantId: number): Promise<any>;
-  
-  // Test parameter management methods
-  getTestParameters(testId: number): Promise<any[]>;
-  createTestParameter(data: any): Promise<any>;
-  updateTestParameter(id: number, data: any): Promise<any>;
-  deleteTestParameter(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: any;
+  sessionStore: session.SessionStore;
   private static persistentDepartments: any[] = [];
   private static persistentEmployees: any[] = [];
 
@@ -224,19 +217,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPatientsByBranch(branchId: number, limit = 50): Promise<Patient[]> {
-    try {
-      // For migrated data, get all patients regardless of branch since they may not have proper branchId assignments
-      const result = await db
-        .select()
-        .from(patients)
-        .orderBy(desc(patients.createdAt))
-        .limit(limit);
-      
-      return result;
-    } catch (error) {
-      console.error('Error fetching patients:', error);
-      throw error;
-    }
+    return await db
+      .select()
+      .from(patients)
+      .where(eq(patients.branchId, branchId))
+      .orderBy(desc(patients.createdAt))
+      .limit(limit);
   }
 
   async getPatient(id: number): Promise<Patient | undefined> {
@@ -273,12 +259,14 @@ export class DatabaseStorage implements IStorage {
     const results = await db.select()
       .from(patients)
       .where(
-        or(
-          sql`LOWER(${patients.firstName}) LIKE ${searchTerm}`,
-          sql`LOWER(${patients.lastName}) LIKE ${searchTerm}`,
-          sql`LOWER(${patients.middleName}) LIKE ${searchTerm}`,
-          sql`LOWER(${patients.phone}) LIKE ${searchTerm}`,
-          sql`LOWER(${patients.patientId}) LIKE ${searchTerm}`
+        and(
+          eq(patients.branchId, branchId),
+          or(
+            sql`LOWER(${patients.firstName}) LIKE ${searchTerm}`,
+            sql`LOWER(${patients.lastName}) LIKE ${searchTerm}`,
+            sql`LOWER(${patients.phone}) LIKE ${searchTerm}`,
+            sql`LOWER(${patients.patientId}) LIKE ${searchTerm}`
+          )
         )
       )
       .limit(10);
@@ -2736,47 +2724,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createTestParameter(data: any): Promise<any> {
-    try {
-      const result = await db.execute(sql`
-        INSERT INTO test_parameters 
-        (test_id, parameter_name, parameter_code, unit, normal_range_min, normal_range_max, normal_range_text, category, display_order)
-        VALUES (${data.testId}, ${data.parameterName}, ${data.parameterCode}, ${data.unit}, ${data.normalRangeMin}, ${data.normalRangeMax}, ${data.normalRangeText}, ${data.category}, ${data.displayOrder})
-        RETURNING *
-      `);
-      return result.rows[0] || { id: Date.now(), ...data };
-    } catch (error) {
-      console.error('Error creating test parameter:', error);
-      return { id: Date.now(), ...data };
-    }
-  }
-
-  async updateTestParameter(id: number, data: any): Promise<any> {
-    try {
-      const result = await db.execute(sql`
-        UPDATE test_parameters 
-        SET parameter_name = ${data.parameterName}, parameter_code = ${data.parameterCode}, 
-            unit = ${data.unit}, normal_range_min = ${data.normalRangeMin}, 
-            normal_range_max = ${data.normalRangeMax}, normal_range_text = ${data.normalRangeText},
-            category = ${data.category}, display_order = ${data.displayOrder}, updated_at = NOW()
-        WHERE id = ${id}
-        RETURNING *
-      `);
-      return result.rows[0] || { id, ...data };
-    } catch (error) {
-      console.error('Error updating test parameter:', error);
-      return { id, ...data };
-    }
-  }
-
-  async deleteTestParameter(id: number): Promise<void> {
-    try {
-      await db.execute(sql`DELETE FROM test_parameters WHERE id = ${id}`);
-    } catch (error) {
-      console.error('Error deleting test parameter:', error);
-    }
-  }
-
   // Mark results as processed (after printing, WhatsApp, email)
   async markResultsAsProcessed(patientId: number, deliveryMethod: string, processedBy: number): Promise<void> {
     await db
@@ -2838,50 +2785,6 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
   }
-
-  // ========== REVENUE CALCULATION FOR MIGRATED DATA ==========
-
-  async calculateDailyRevenue(): Promise<{ total: number; cash: number; pos: number; transfer: number }> {
-    // Get today's transactions only (current date in Nigerian timezone)
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    
-    const result = await db
-      .select({
-        total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`,
-        cash: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`,
-        pos: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'card' THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`,
-        transfer: sql<number>`COALESCE(SUM(CASE WHEN payment_method = 'transfer' THEN CAST(amount AS DECIMAL) ELSE 0 END), 0)`
-      })
-      .from(transactions)
-      .where(sql`DATE(created_at) = ${today}`);
-
-    return {
-      total: result[0]?.total || 0,
-      cash: result[0]?.cash || 0,
-      pos: result[0]?.pos || 0,
-      transfer: result[0]?.transfer || 0
-    };
-  }
-
-  async getTodayPatientCount(): Promise<number> {
-    // Get total unique patients from migrated data
-    const result = await db
-      .select({ count: sql<number>`count(DISTINCT id)` })
-      .from(patients);
-    
-    return result[0]?.count || 0;
-  }
-
-  async getTodayTransactionCount(): Promise<number> {
-    // Get total transactions from migrated data
-    const result = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(transactions);
-    
-    return result[0]?.count || 0;
-  }
-
-
 }
 
 export const storage = new DatabaseStorage();

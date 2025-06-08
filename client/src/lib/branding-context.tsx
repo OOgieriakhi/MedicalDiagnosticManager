@@ -65,9 +65,6 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     
     // Convert hex colors to HSL values for better CSS variable support
     const hexToHsl = (hex: string) => {
-      if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
-        return { h: 0, s: 0, l: 50 }; // Return neutral values for invalid hex
-      }
       const r = parseInt(hex.slice(1, 3), 16) / 255;
       const g = parseInt(hex.slice(3, 5), 16) / 255;
       const b = parseInt(hex.slice(5, 7), 16) / 255;
