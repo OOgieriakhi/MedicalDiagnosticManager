@@ -31,7 +31,8 @@ import {
   Lock,
   Activity,
   Target,
-  Workflow
+  Workflow,
+  Home
 } from "lucide-react";
 
 interface ManagerMetrics {
@@ -390,6 +391,12 @@ export default function CenterManagerDashboard() {
           <p className="text-gray-600 mt-1">Welcome back, {user?.username}. Comprehensive management oversight and control.</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/">
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Home className="w-4 h-4" />
+              Home
+            </Button>
+          </Link>
           <Badge variant="outline" className="text-blue-600">
             <Clock className="w-3 h-3 mr-1" />
             Manager Level Access
