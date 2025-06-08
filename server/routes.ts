@@ -14242,5 +14242,179 @@ Medical System Procurement Team
     }
   });
 
+  // Data Import API Endpoints for Historical Data Loading
+  
+  // Import patients from historical data
+  app.post("/api/data-import/patients", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { patientsData } = req.body;
+      
+      if (!Array.isArray(patientsData)) {
+        return res.status(400).json({ message: "Invalid data format. Expected array of patients." });
+      }
+
+      let successCount = 0;
+      let errors: string[] = [];
+
+      for (const patientData of patientsData) {
+        try {
+          await storage.createPatient({
+            tenantId: 1,
+            branchId: 1,
+            firstName: patientData.firstName,
+            lastName: patientData.lastName,
+            email: patientData.email || '',
+            phone: patientData.phone || '',
+            dateOfBirth: patientData.dateOfBirth ? new Date(patientData.dateOfBirth) : new Date('1990-01-01'),
+            gender: patientData.gender || 'unknown',
+            address: patientData.address || '',
+            emergencyContact: patientData.emergencyContact || '',
+            medicalHistory: patientData.medicalHistory || '',
+            referralSource: patientData.referralSource || 'walk-in'
+          });
+          successCount++;
+        } catch (error: any) {
+          errors.push(`Failed to import patient ${patientData.firstName} ${patientData.lastName}: ${error.message}`);
+        }
+      }
+
+      res.json({
+        success: errors.length === 0,
+        message: `Imported ${successCount} patients successfully`,
+        recordsProcessed: successCount,
+        totalRecords: patientsData.length,
+        errors
+      });
+    } catch (error: any) {
+      console.error("Error importing patients:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Import financial transactions from historical data
+  app.post("/api/data-import/financial-transactions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { transactionsData } = req.body;
+      
+      if (!Array.isArray(transactionsData)) {
+        return res.status(400).json({ message: "Invalid data format. Expected array of transactions." });
+      }
+
+      let successCount = 0;
+      let errors: string[] = [];
+
+      for (const transaction of transactionsData) {
+        try {
+          await db.insert(transactions).values({
+            tenantId: 1,
+            branchId: 1,
+            type: transaction.type || 'income',
+            category: transaction.category || 'patient_services',
+            amount: transaction.amount.toString(),
+            description: transaction.description || '',
+            transactionDate: new Date(transaction.transactionDate),
+            paymentMethod: transaction.paymentMethod || 'cash',
+            referenceNumber: transaction.referenceNumber || '',
+            status: transaction.status || 'completed',
+            createdBy: req.user?.id || 1,
+            verifiedBy: transaction.status === 'verified' ? req.user?.id || 1 : null,
+            verifiedAt: transaction.status === 'verified' ? new Date() : null
+          });
+          successCount++;
+        } catch (error: any) {
+          errors.push(`Failed to import transaction ${transaction.referenceNumber}: ${error.message}`);
+        }
+      }
+
+      res.json({
+        success: errors.length === 0,
+        message: `Imported ${successCount} financial transactions successfully`,
+        recordsProcessed: successCount,
+        totalRecords: transactionsData.length,
+        errors
+      });
+    } catch (error: any) {
+      console.error("Error importing financial transactions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get import summary and status
+  app.get("/api/data-import/summary", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const summary = await db.execute(sql`
+        SELECT 
+          (SELECT COUNT(*) FROM patients WHERE tenant_id = 1) as total_patients,
+          (SELECT COUNT(*) FROM patient_tests WHERE tenant_id = 1) as total_tests,
+          (SELECT COUNT(*) FROM inventory_items WHERE tenant_id = 1) as total_inventory_items,
+          (SELECT COUNT(*) FROM transactions WHERE tenant_id = 1) as total_transactions,
+          (SELECT COUNT(*) FROM purchase_orders WHERE tenant_id = 1) as total_purchase_orders,
+          (SELECT COUNT(*) FROM petty_cash_transactions WHERE tenant_id = 1) as total_expense_transactions
+      `);
+
+      res.json(summary.rows[0]);
+    } catch (error: any) {
+      console.error("Error getting import summary:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Validate import data before processing
+  app.post("/api/data-import/validate", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { data, type } = req.body;
+      const errors: string[] = [];
+
+      switch (type) {
+        case 'patients':
+          data.forEach((item: any, index: number) => {
+            if (!item.firstName || !item.lastName) {
+              errors.push(`Row ${index + 1}: First name and last name are required`);
+            }
+            if (item.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email)) {
+              errors.push(`Row ${index + 1}: Invalid email format`);
+            }
+          });
+          break;
+
+        case 'financial':
+          data.forEach((item: any, index: number) => {
+            if (!item.amount || !item.transactionDate) {
+              errors.push(`Row ${index + 1}: Amount and transaction date are required`);
+            }
+            if (isNaN(parseFloat(item.amount))) {
+              errors.push(`Row ${index + 1}: Invalid amount format`);
+            }
+          });
+          break;
+      }
+
+      res.json({
+        valid: errors.length === 0,
+        errors,
+        recordCount: data.length
+      });
+    } catch (error: any) {
+      console.error("Error validating import data:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }
